@@ -6,9 +6,9 @@ from pytz import timezone, utc
 import nest_asyncio
 
 # === CONFIG ===
-GROQ_API_KEY = 'your-groq-api-key'
-FIREBASE_JSON = 'your-firebase.json'
-DATABASE_URL = 'your-db-url'
+GROQ_API_KEY = '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'
+FIREBASE_JSON = 'opixelz-dgqoph-firebase-adminsdk-zxxqz-4770fd3f5a.json'
+DATABASE_URL = 'https://opixelz-dgqoph.firebaseio.com/'
 LOCAL_TIMEZONE = 'America/Toronto'
 
 # === FIREBASE ===
