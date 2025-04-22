@@ -14,16 +14,15 @@ LOCAL_TIMEZONE = 'America/Toronto'
 
 cred = credentials.Certificate(FIREBASE_JSON)
 initialize_app(cred, {'databaseURL': DATABASE_URL})
-def load_user_context(uid): return db.reference(f'chat_context/{uid}').get() or []
-def save_user_context(uid, data): db.reference(f'chat_context/{uid}').set(data)
+def load_user_history(uid): return db.reference(f'chat_memory/{uid}').get() or []
+def save_user_history(uid, data): db.reference(f'chat_memory/{uid}').set(data)
 
 # === AI ===
 async def generate_response(prompt, memory=[]):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-    messages = [{"role": "system", "content": "You're a helpful assistant."}] +                [{"role": "user", "content": m} for m in memory[-5:]] +                [{"role": "user", "content": prompt}]
+    messages = [{"role": "system", "content": "You're a helpful assistant."}] + memory + [{"role": "user", "content": prompt}]
     data = {"model": "llama3-70b-8192", "messages": messages}
-
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=data) as resp:
@@ -44,18 +43,27 @@ def index():
 
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
-    uid, message, reply, time = "", "", "", ""
+    uid, message, reply = "", "", ""
+    tz = timezone(LOCAL_TIMEZONE)
+    history = []
     if request.method == "POST":
         uid = request.form["uid"]
         message = request.form["message"]
-        memory = load_user_context(uid)
-        memory.append(message)
-        save_user_context(uid, memory)
+        history = load_user_history(uid)
+        now = datetime.now(tz).strftime("%I:%M %p")
+
+        # Append user message
+        history.append({"role": "user", "content": message, "time": now})
+        messages_only = [{"role": m["role"], "content": m["content"]} for m in history]
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        reply = loop.run_until_complete(generate_response(message, memory))
-        time = datetime.now().strftime("%I:%M %p")
-    return render_template("chat.html", uid=uid, message=message, reply=reply, time=time)
+        reply = loop.run_until_complete(generate_response(message, messages_only))
+
+        # Append bot reply
+        history.append({"role": "assistant", "content": reply, "time": now})
+        save_user_history(uid, history)
+
+    return render_template("chat.html", uid=uid, message=message, reply=reply, history=history)
 
 if __name__ == "__main__":
     nest_asyncio.apply()
