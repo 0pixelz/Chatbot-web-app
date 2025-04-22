@@ -26,12 +26,10 @@ async def generate_response(prompt, memory=[]):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=data) as resp:
-                print("[Groq status]", resp.status)
                 result = await resp.json()
-                print("[Groq body]", result)
-                return result.get("choices", [{}])[0].get("message", {}).get("content", "⚠️ AI: no reply received.")
+                return result['choices'][0]['message']['content']
     except Exception as e:
-        print("[Groq error]", e)
+        print(f"[Groq error] {e}")
         return "❌ Error generating response."
 
 # === FLASK ===
