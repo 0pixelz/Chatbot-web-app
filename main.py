@@ -28,10 +28,11 @@ async def generate_response(prompt, memory=[]):
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=data) as resp:
                 result = await resp.json()
+                print("[Groq response]", result)
                 return result['choices'][0]['message']['content']
     except Exception as e:
-        print(f"[Groq error] {e}")
-        return "Error generating response."
+        print("[Groq error]", e)
+        return "❌ Error generating response."
 
 # === FLASK ===
 app = Flask(__name__)
@@ -42,7 +43,7 @@ def index():
 
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
-    uid, message, reply = "", "", ""
+    uid, message, reply, time = "", "", "", ""
     if request.method == "POST":
         uid = request.form["uid"]
         message = request.form["message"]
@@ -52,7 +53,8 @@ def chat():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         reply = loop.run_until_complete(generate_response(message, memory))
-    return render_template("chat.html", uid=uid, message=message, reply=reply)
+        time = datetime.now().strftime("%I:%M %p")
+    return render_template("chat.html", uid=uid, message=message, reply=reply, time=time)
 
 if __name__ == "__main__":
     nest_asyncio.apply()
