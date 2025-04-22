@@ -24,9 +24,7 @@ def save_user_context(uid, data): db.reference(f'chat_context/{uid}').set(data)
 async def generate_response(prompt, memory=[]):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-    messages = [{"role": "system", "content": "You're a helpful assistant."}] + \
-               [{"role": "user", "content": m} for m in memory[-5:]] + \
-               [{"role": "user", "content": prompt}]
+    messages = [{"role": "system", "content": "You're a helpful assistant."}] +                [{"role": "user", "content": m} for m in memory[-5:]] +                [{"role": "user", "content": prompt}]
     data = {"model": "llama3-70b-8192", "messages": messages}
     try:
         async with aiohttp.ClientSession() as session:
