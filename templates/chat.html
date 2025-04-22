@@ -13,7 +13,7 @@
       overflow: hidden;
     }
     #chat-wrapper {
-      height: calc(100dvh - 80px); /* leave space for input */
+      height: calc(100dvh - 80px);
       overflow-y: auto;
       padding-bottom: 1rem;
     }
@@ -23,38 +23,25 @@
   <div class="flex flex-col justify-between h-full">
     <div id="chat-wrapper" class="px-4 space-y-4">
       <h1 class="text-3xl font-bold pt-4">💬 Chat with AI</h1>
-
-      {% if message %}
-      <div class="flex justify-end gap-2 text-lg">
-        <div>
-          <div class="bg-blue-600 text-white p-4 rounded-xl max-w-[80%]">{{ message }}</div>
-          <div class="text-xs text-gray-400 mt-1 text-right">{{ time }}</div>
-        </div>
-        <img src="https://cdn-icons-png.flaticon.com/512/9131/9131529.png" class="w-10 h-10 rounded-full" />
-      </div>
-      <div class="flex justify-start gap-2 text-lg">
-        <img src="https://cdn-icons-png.flaticon.com/512/4712/4712035.png" class="w-10 h-10 rounded-full" />
-        <div>
-          <div class="bg-gray-800 text-white p-4 rounded-xl max-w-[80%]">
-            <span id="typing-output"></span>
-            <script>
-              const text = {{ reply|tojson }};
-              const output = document.getElementById("typing-output");
-              let i = 0;
-              function typeLetter() {
-                if (i < text.length) {
-                  output.textContent += text.charAt(i);
-                  i++;
-                  setTimeout(typeLetter, 15);
-                }
-              }
-              typeLetter();
-            </script>
+      {% for entry in history %}
+        {% if entry.role == 'user' %}
+          <div class="flex justify-end gap-2 text-lg">
+            <div>
+              <div class="bg-blue-600 text-white p-4 rounded-xl max-w-[80%]">{{ entry.content }}</div>
+              <div class="text-xs text-gray-400 mt-1 text-right">{{ entry.time }}</div>
+            </div>
+            <img src="https://cdn-icons-png.flaticon.com/512/9131/9131529.png" class="w-10 h-10 rounded-full" />
           </div>
-          <div class="text-xs text-gray-400 mt-1">{{ time }}</div>
-        </div>
-      </div>
-      {% endif %}
+        {% else %}
+          <div class="flex justify-start gap-2 text-lg">
+            <img src="https://cdn-icons-png.flaticon.com/512/4712/4712035.png" class="w-10 h-10 rounded-full" />
+            <div>
+              <div class="bg-gray-800 text-white p-4 rounded-xl max-w-[80%]">{{ entry.content }}</div>
+              <div class="text-xs text-gray-400 mt-1">{{ entry.time }}</div>
+            </div>
+          </div>
+        {% endif %}
+      {% endfor %}
     </div>
 
     <form method="POST" class="bg-gray-900 p-4 border-t border-gray-800">
