@@ -6,7 +6,6 @@ from datetime import datetime
 from pytz import timezone, utc
 import nest_asyncio
 
-# === CONFIG ===
 GROQ_API_KEY = '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'
 FIREBASE_JSON = 'opixelz-dgqoph-firebase-adminsdk-zxxqz-4770fd3f5a.json'
 DATABASE_URL = 'https://opixelz-dgqoph.firebaseio.com/'
@@ -17,7 +16,6 @@ initialize_app(cred, {'databaseURL': DATABASE_URL})
 def load_user_history(uid): return db.reference(f'chat_memory/{uid}').get() or []
 def save_user_history(uid, data): db.reference(f'chat_memory/{uid}').set(data)
 
-# === AI ===
 async def generate_response(prompt, memory=[]):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
@@ -26,13 +24,14 @@ async def generate_response(prompt, memory=[]):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=data) as resp:
+                text = await resp.text()
+                if resp.status != 200:
+                    return f"❌ Groq API error {resp.status}: {text}"
                 result = await resp.json()
                 return result['choices'][0]['message']['content']
     except Exception as e:
-        print(f"[Groq error] {e}")
-        return "❌ Error generating response."
+        return f"❌ Groq connection error: {str(e)}"
 
-# === FLASK ===
 app = Flask(__name__)
 
 @app.route("/")
@@ -49,18 +48,13 @@ def chat():
         message = request.form["message"]
         history = load_user_history(uid)
         now = datetime.now(tz).strftime("%I:%M %p")
-
-        # Append user message
         history.append({"role": "user", "content": message, "time": now})
-        messages_only = [{"role": m["role"], "content": m["content"]} for m in history]
+        trimmed = [{"role": m["role"], "content": m["content"]} for m in history[-10:]]
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        reply = loop.run_until_complete(generate_response(message, messages_only))
-
-        # Append bot reply
+        reply = loop.run_until_complete(generate_response(message, trimmed))
         history.append({"role": "assistant", "content": reply, "time": now})
         save_user_history(uid, history)
-
     return render_template("chat.html", uid=uid, message=message, reply=reply, history=history)
 
 if __name__ == "__main__":
