@@ -2,7 +2,7 @@
 from flask import Flask, request, render_template
 import asyncio, aiohttp, threading
 from firebase_admin import credentials, db, initialize_app
-from datetime import datetime, timedelta
+from datetime import datetime
 from pytz import timezone, utc
 import nest_asyncio
 
@@ -12,7 +12,6 @@ FIREBASE_JSON = 'opixelz-dgqoph-firebase-adminsdk-zxxqz-4770fd3f5a.json'
 DATABASE_URL = 'https://opixelz-dgqoph.firebaseio.com/'
 LOCAL_TIMEZONE = 'America/Toronto'
 
-# === FIREBASE ===
 cred = credentials.Certificate(FIREBASE_JSON)
 initialize_app(cred, {'databaseURL': DATABASE_URL})
 def load_user_context(uid): return db.reference(f'chat_context/{uid}').get() or []
@@ -24,12 +23,14 @@ async def generate_response(prompt, memory=[]):
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
     messages = [{"role": "system", "content": "You're a helpful assistant."}] +                [{"role": "user", "content": m} for m in memory[-5:]] +                [{"role": "user", "content": prompt}]
     data = {"model": "llama3-70b-8192", "messages": messages}
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=data) as resp:
+                print("[Groq status]", resp.status)
                 result = await resp.json()
-                print("[Groq response]", result)
-                return result['choices'][0]['message']['content']
+                print("[Groq body]", result)
+                return result.get("choices", [{}])[0].get("message", {}).get("content", "⚠️ AI: no reply received.")
     except Exception as e:
         print("[Groq error]", e)
         return "❌ Error generating response."
