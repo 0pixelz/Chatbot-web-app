@@ -1,6 +1,6 @@
 
 from flask import Flask, request, render_template
-import asyncio, aiohttp, threading
+import asyncio, aiohttp
 from firebase_admin import credentials, db, initialize_app
 from datetime import datetime
 from pytz import timezone, utc
@@ -50,13 +50,11 @@ def chat():
         now = datetime.now(tz).strftime("%I:%M %p")
         history.append({"role": "user", "content": message, "time": now})
         trimmed = [{"role": m["role"], "content": m["content"]} for m in history[-10:]]
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        reply = loop.run_until_complete(generate_response(message, trimmed))
+        reply = asyncio.run(generate_response(message, trimmed))
         history.append({"role": "assistant", "content": reply, "time": now})
         save_user_history(uid, history)
     return render_template("chat.html", uid=uid, message=message, reply=reply, history=history)
 
 if __name__ == "__main__":
     nest_asyncio.apply()
-    threading.Thread(target=lambda: app.run(host="0.0.0.0", port=8080)).start()
+    app.run(host="0.0.0.0", port=8080)
