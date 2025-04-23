@@ -57,7 +57,7 @@
 
   <header class="bg-black p-3 flex justify-between items-center shadow-md">
     <div class="flex items-center space-x-2">
-      <button onclick="clearChat()" class="text-white text-2xl">☰</button>
+      <button onclick="document.getElementById('menu').classList.toggle('hidden')" class="text-white text-2xl">☰</button>
       <h1 class="text-xl font-bold">Web App</h1>
     </div>
     {% if session.get('user_email') %}
@@ -69,7 +69,10 @@
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-4 h-4"> Login
       </a>
     {% endif %}
-  </header>
+    <div id="menu" class="hidden bg-gray-800 text-white p-2 absolute left-2 top-16 rounded shadow-lg z-50">
+    <button onclick="clearChat()" class="hover:text-yellow-300">🧹 Clear Chat</button>
+  </div>
+</header>
 
   <main id="messages" class="flex-1 overflow-y-auto px-4 py-2">
     {% for m in history %}
