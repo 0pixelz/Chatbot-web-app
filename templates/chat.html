@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -32,22 +33,22 @@
 
         setTimeout(() => {
           const typing = setInterval(() => {
-            typed.textContent += fullText.charAt(i);
+            const char = fullText.charAt(i);
+            typed.innerHTML += (char === '\n') ? '<br>' : char;
             messages.scrollTop = messages.scrollHeight;
             i++;
             if (i >= fullText.length) {
               clearInterval(typing);
               blinker.remove();
             }
-          }, 20);
+          }, 15);
         }, 250);
       }
     }
 
     function clearChat() {
       if (confirm("Are you sure you want to clear the chat?")) {
-        fetch('/clear', { method: 'POST' })
-          .then(() => location.reload());
+        fetch('/clear', { method: 'POST' }).then(() => location.reload());
       }
     }
   </script>
