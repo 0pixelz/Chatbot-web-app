@@ -87,3 +87,7 @@ def chat():
         history.append({"role": "assistant", "content": reply, "time": now})
         save_user_history(uid, history)
     return render_template("chat.html", uid=uid, message=message, reply=reply, history=history)
+
+if __name__ == "__main__":
+    nest_asyncio.apply()
+    app.run(host="0.0.0.0", port=8080)
