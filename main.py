@@ -3,7 +3,7 @@ from flask import Flask, request, render_template
 import asyncio, aiohttp
 from firebase_admin import credentials, db, initialize_app
 from datetime import datetime
-from pytz import timezone, utc
+from pytz import timezone
 import nest_asyncio
 
 GROQ_API_KEY = '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'
@@ -33,11 +33,8 @@ async def generate_response(prompt, memory=[]):
         return f"❌ Groq connection error: {str(e)}"
 
 app = Flask(__name__)
-
 @app.route("/")
-def index():
-    return "✅ Bot is live"
-
+def index(): return "✅ Bot is live"
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
     uid, message, reply = "", "", ""
