@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <title>Chat with AI</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com">
   <style>
     html, body { height: 100%; }
     #messages { scroll-behavior: smooth; }
@@ -51,7 +51,7 @@
         fetch('/clear', { method: 'POST' }).then(() => location.reload());
       }
     }
-  </script>
+  
 </head>
 <body class="bg-gray-900 text-white flex flex-col h-screen">
 
@@ -96,3 +96,47 @@
   </form>
 </body>
 </html>
+
+<script>
+  window.onload = () => {
+    const messages = document.getElementById('messages');
+    messages.scrollTop = messages.scrollHeight;
+    let userScrolled = false;
+
+    messages.addEventListener('wheel', () => userScrolled = true);
+    messages.addEventListener('touchmove', () => userScrolled = true);
+
+    const lastBot = [...document.querySelectorAll('.bot-text')].pop();
+    if (lastBot) {
+      const fullText = lastBot.textContent;
+      lastBot.innerHTML = '<span class="typed-text"></span><span class="blinker">|</span>';
+      const typed = lastBot.querySelector('.typed-text');
+      const blinker = lastBot.querySelector('.blinker');
+      let i = 0;
+
+      function typeLetter() {
+        if (i < fullText.length) {
+          const char = fullText[i];
+          if (char === '\n') {
+            typed.appendChild(document.createElement('br'));
+          } else {
+            typed.appendChild(document.createTextNode(char));
+          }
+          i++;
+          if (!userScrolled) messages.scrollTop = messages.scrollHeight;
+          requestAnimationFrame(() => setTimeout(typeLetter, 10));
+        } else {
+          blinker.remove();
+        }
+      }
+
+      setTimeout(() => requestAnimationFrame(typeLetter), 250);
+    }
+  };
+
+  function clearChat() {
+    if (confirm("Are you sure you want to clear the chat?")) {
+      fetch('/clear', { method: 'POST' }).then(() => location.reload());
+    }
+  }
+</script>
