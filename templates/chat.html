@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <title>Chat with AI</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.tailwindcss.com">
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
     html, body { height: 100%; }
     #messages { scroll-behavior: smooth; }
@@ -18,44 +18,10 @@
       50% { opacity: 0; }
     }
   </style>
-  <script>
-    window.onload = () => {
-      const messages = document.getElementById('messages');
-      messages.scrollTop = messages.scrollHeight;
-
-      const lastBot = [...document.querySelectorAll('.bot-text')].pop();
-      if (lastBot) {
-        const fullText = lastBot.textContent;
-        lastBot.innerHTML = '<span class="typed-text"></span><span class="blinker">|</span>';
-        const typed = lastBot.querySelector('.typed-text');
-        const blinker = lastBot.querySelector('.blinker');
-        let i = 0;
-
-        setTimeout(() => {
-          const typing = setInterval(() => {
-            const char = fullText.charAt(i);
-            typed.innerHTML += (char === '\n') ? '<br>' : char;
-            messages.scrollTop = messages.scrollHeight;
-            i++;
-            if (i >= fullText.length) {
-              clearInterval(typing);
-              blinker.remove();
-            }
-          }, 15);
-        }, 250);
-      }
-    }
-
-    function clearChat() {
-      if (confirm("Are you sure you want to clear the chat?")) {
-        fetch('/clear', { method: 'POST' }).then(() => location.reload());
-      }
-    }
-  
 </head>
 <body class="bg-gray-900 text-white flex flex-col h-screen">
 
-  <header class="bg-black p-3 flex justify-between items-center shadow-md">
+  <header class="bg-black p-3 flex justify-between items-center shadow-md relative">
     <div class="flex items-center space-x-2">
       <button onclick="document.getElementById('menu').classList.toggle('hidden')" class="text-white text-2xl">☰</button>
       <h1 class="text-xl font-bold">Web App</h1>
@@ -69,10 +35,10 @@
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-4 h-4"> Login
       </a>
     {% endif %}
-    <div id="menu" class="hidden bg-gray-800 text-white p-2 absolute left-2 top-16 rounded shadow-lg z-50">
-    <button onclick="clearChat()" class="hover:text-yellow-300">🧹 Clear Chat</button>
-  </div>
-</header>
+    <div id="menu" class="hidden absolute left-2 top-14 bg-gray-800 p-2 rounded shadow-lg z-50">
+      <button onclick="clearChat()" class="hover:text-yellow-300">🧹 Clear Chat</button>
+    </div>
+  </header>
 
   <main id="messages" class="flex-1 overflow-y-auto px-4 py-2">
     {% for m in history %}
@@ -94,49 +60,49 @@
     <input name="message" autofocus placeholder="Type your message..." class="flex-1 px-4 py-2 rounded-xl bg-gray-800 text-white focus:outline-none">
     <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-full text-xl transition transform duration-150 hover:scale-110 active:scale-90">➤</button>
   </form>
+
+  <script>
+    window.onload = () => {
+      const messages = document.getElementById('messages');
+      messages.scrollTop = messages.scrollHeight;
+      let userScrolled = false;
+
+      messages.addEventListener('wheel', () => userScrolled = true);
+      messages.addEventListener('touchmove', () => userScrolled = true);
+
+      const lastBot = [...document.querySelectorAll('.bot-text')].pop();
+      if (lastBot) {
+        const fullText = lastBot.textContent;
+        lastBot.innerHTML = '<span class="typed-text"></span><span class="blinker">|</span>';
+        const typed = lastBot.querySelector('.typed-text');
+        const blinker = lastBot.querySelector('.blinker');
+        let i = 0;
+
+        function typeLetter() {
+          if (i < fullText.length) {
+            const char = fullText[i];
+            if (char === '\n') {
+              typed.appendChild(document.createElement('br'));
+            } else {
+              typed.appendChild(document.createTextNode(char));
+            }
+            i++;
+            if (!userScrolled) messages.scrollTop = messages.scrollHeight;
+            requestAnimationFrame(() => setTimeout(typeLetter, 10));
+          } else {
+            blinker.remove();
+          }
+        }
+
+        setTimeout(() => requestAnimationFrame(typeLetter), 250);
+      }
+    };
+
+    function clearChat() {
+      if (confirm("Are you sure you want to clear the chat?")) {
+        fetch('/clear', { method: 'POST' }).then(() => location.reload());
+      }
+    }
+  </script>
 </body>
 </html>
-
-<script>
-  window.onload = () => {
-    const messages = document.getElementById('messages');
-    messages.scrollTop = messages.scrollHeight;
-    let userScrolled = false;
-
-    messages.addEventListener('wheel', () => userScrolled = true);
-    messages.addEventListener('touchmove', () => userScrolled = true);
-
-    const lastBot = [...document.querySelectorAll('.bot-text')].pop();
-    if (lastBot) {
-      const fullText = lastBot.textContent;
-      lastBot.innerHTML = '<span class="typed-text"></span><span class="blinker">|</span>';
-      const typed = lastBot.querySelector('.typed-text');
-      const blinker = lastBot.querySelector('.blinker');
-      let i = 0;
-
-      function typeLetter() {
-        if (i < fullText.length) {
-          const char = fullText[i];
-          if (char === '\n') {
-            typed.appendChild(document.createElement('br'));
-          } else {
-            typed.appendChild(document.createTextNode(char));
-          }
-          i++;
-          if (!userScrolled) messages.scrollTop = messages.scrollHeight;
-          requestAnimationFrame(() => setTimeout(typeLetter, 10));
-        } else {
-          blinker.remove();
-        }
-      }
-
-      setTimeout(() => requestAnimationFrame(typeLetter), 250);
-    }
-  };
-
-  function clearChat() {
-    if (confirm("Are you sure you want to clear the chat?")) {
-      fetch('/clear', { method: 'POST' }).then(() => location.reload());
-    }
-  }
-</script>
