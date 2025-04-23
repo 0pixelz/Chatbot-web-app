@@ -74,9 +74,7 @@ def oauth_callback():
 
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
-    if "user_email" not in session:
-        return render_template("login_prompt.html")
-    uid = session["user_email"]
+    uid = session.get("user_email", "guest")
     message, reply = "", ""
     tz = timezone(LOCAL_TIMEZONE)
     history = load_user_history(uid)
@@ -89,7 +87,3 @@ def chat():
         history.append({"role": "assistant", "content": reply, "time": now})
         save_user_history(uid, history)
     return render_template("chat.html", uid=uid, message=message, reply=reply, history=history)
-
-if __name__ == "__main__":
-    nest_asyncio.apply()
-    app.run(host="0.0.0.0", port=8080)
