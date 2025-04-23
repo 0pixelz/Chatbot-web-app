@@ -3,3 +3,4 @@ aiohttp
 firebase-admin
 pytz
 nest_asyncio
+google-auth-oauthlib
