@@ -1,18 +1,25 @@
 
-from flask import Flask, request, render_template
-import asyncio, aiohttp
+from flask import Flask, request, render_template, redirect, session, url_for
+import asyncio, aiohttp, os
 from firebase_admin import credentials, db, initialize_app
 from datetime import datetime
 from pytz import timezone
+from google_auth_oauthlib.flow import Flow
+from google.oauth2 import id_token
+from google.auth.transport import requests as grequests
 import nest_asyncio
 
 GROQ_API_KEY = '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'
 FIREBASE_JSON = 'opixelz-dgqoph-firebase-adminsdk-zxxqz-4770fd3f5a.json'
 DATABASE_URL = 'https://opixelz-dgqoph.firebaseio.com/'
 LOCAL_TIMEZONE = 'America/Toronto'
+CLIENT_SECRET_FILE = 'client_secret_475746497039-8bkbj8sa4iqrvg2rahj9gv454nqjkt8c.apps.googleusercontent.com.json'
 
+app = Flask(__name__)
+app.secret_key = "supersecret"
 cred = credentials.Certificate(FIREBASE_JSON)
 initialize_app(cred, {'databaseURL': DATABASE_URL})
+
 def load_user_history(uid): return db.reference(f'chat_memory/{uid}').get() or []
 def save_user_history(uid, data): db.reference(f'chat_memory/{uid}').set(data)
 
@@ -24,26 +31,57 @@ async def generate_response(prompt, memory=[]):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=data) as resp:
-                text = await resp.text()
                 if resp.status != 200:
-                    return f"❌ Groq API error {resp.status}: {text}"
+                    return f"❌ Groq API error {resp.status}"
                 result = await resp.json()
                 return result['choices'][0]['message']['content']
     except Exception as e:
         return f"❌ Groq connection error: {str(e)}"
 
-app = Flask(__name__)
 @app.route("/")
-def index(): return "✅ Bot is live"
+def index():
+    return redirect("/chat")
+
+@app.route("/login")
+def login():
+    flow = Flow.from_client_secrets_file(
+        CLIENT_SECRET_FILE,
+        scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email'],
+        redirect_uri=url_for('oauth_callback', _external=True)
+    )
+    auth_url, state = flow.authorization_url()
+    session["state"] = state
+    return redirect(auth_url)
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/chat")
+
+@app.route("/oauth_callback")
+def oauth_callback():
+    flow = Flow.from_client_secrets_file(
+        CLIENT_SECRET_FILE,
+        scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email'],
+        redirect_uri=url_for('oauth_callback', _external=True)
+    )
+    flow.fetch_token(code=request.args['code'])
+    credentials = flow.credentials
+    request_session = grequests.Request()
+    idinfo = id_token.verify_oauth2_token(credentials._id_token, request_session)
+    session["user_email"] = idinfo["email"]
+    return redirect("/chat")
+
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
-    uid, message, reply = "", "", ""
+    if "user_email" not in session:
+        return render_template("login_prompt.html")
+    uid = session["user_email"]
+    message, reply = "", ""
     tz = timezone(LOCAL_TIMEZONE)
-    history = []
+    history = load_user_history(uid)
     if request.method == "POST":
-        uid = request.form["uid"]
         message = request.form["message"]
-        history = load_user_history(uid)
         now = datetime.now(tz).strftime("%I:%M %p")
         history.append({"role": "user", "content": message, "time": now})
         trimmed = [{"role": m["role"], "content": m["content"]} for m in history[-10:]]
