@@ -1,86 +1,55 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Web Chatbot</title>
+  <meta charset="UTF-8">
+  <title>Chat with AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    tailwind.config = {
-      darkMode: 'class',
+    function scrollToBottom() {
+      const messages = document.getElementById('messages');
+      messages.scrollTop = messages.scrollHeight;
     }
+    window.onload = scrollToBottom;
   </script>
-  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
 </head>
-<body class="bg-gray-900 text-white h-screen flex flex-col dark">
-  <!-- Header -->
-  <header class="bg-black text-white flex items-center justify-between px-4 py-2 shadow-md">
+<body class="bg-gray-900 text-white flex flex-col h-screen">
+
+  <header class="bg-black p-3 flex justify-between items-center shadow-md">
     <div class="flex items-center space-x-2">
-      <button id="menu-btn" class="text-2xl focus:outline-none">
-        <i class="fas fa-bars"></i>
-      </button>
+      <button class="text-white text-2xl">&#9776;</button>
       <h1 class="text-xl font-bold">Web App</h1>
     </div>
-    {% if uid != 'guest' %}
-      <div class="w-9 h-9 bg-yellow-400 text-black font-bold rounded-full flex items-center justify-center">{{ uid[0]|upper }}</div>
+    {% if session.get('user_email') %}
+      <a href="/logout" class="rounded-full bg-yellow-400 text-black w-8 h-8 flex items-center justify-center font-bold">
+        {{ session['user_email'][0]|upper }}
+      </a>
     {% else %}
-      <a href="/login" class="text-sm underline">Login</a>
+      <a href="/login" class="rounded-full bg-gray-800 text-white px-4 py-1 text-sm hover:bg-gray-700 flex items-center gap-1">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-4 h-4"> Login
+      </a>
     {% endif %}
-  </header>  <!-- Sidebar Drawer -->  <aside id="sidebar" class="bg-gray-800 text-white w-60 fixed top-0 left-0 h-full transform -translate-x-full transition-transform duration-300 ease-in-out z-50">
-    <div class="p-4 text-xl font-bold border-b border-gray-700">Menu</div>
-    <ul class="p-4 space-y-4">
-      <li><a href="/dashboard?user={{ uid }}" class="hover:text-yellow-400">Dashboard</a></li>
-      <li><a href="#" onclick="alert('Coming soon!')" class="hover:text-yellow-400">Reminders</a></li>
-      <li><a href="#" onclick="toggleDarkMode()" class="hover:text-yellow-400">Toggle Dark Mode</a></li>
-      <li><a href="/logout" class="hover:text-yellow-400">Logout</a></li>
-    </ul>
-  </aside>  <!-- Main Content -->  <main class="flex-1 overflow-y-auto p-4 mb-20" id="chat-box">
-    {% for msg in history %}
-      <div class="flex {{ 'justify-end' if msg.role == 'user' else 'justify-start' }} mb-2">
-        <div class="max-w-xs p-3 rounded-xl {{ 'bg-blue-600 text-white' if msg.role == 'user' else 'bg-gray-800 text-white' }}">
-          {% if msg.role == 'assistant' %}
-            <div class="flex items-center space-x-2">
-              <img src="https://img.icons8.com/fluency/48/robot-2.png" class="w-6 h-6"/>
-              <div><span class="typing">{{ msg.content }}</span></div>
-            </div>
-          {% else %}
-            <div class="flex items-center space-x-2">
-              <div>{{ msg.content }}</div>
-              <img src="https://img.icons8.com/color/48/user.png" class="w-6 h-6"/>
-            </div>
-          {% endif %}
+  </header>
+
+  <main id="messages" class="flex-1 overflow-y-auto px-4 py-2">
+    {% for m in history %}
+      <div class="mb-3 flex {{ 'justify-end' if m.role == 'user' else 'justify-start' }}">
+        <div class="max-w-[80%] rounded-2xl px-4 py-2 {{ 'bg-blue-600 text-white' if m.role == 'user' else 'bg-gray-800 text-gray-100' }}">
+          <div>{{ m.content }}</div>
+          <div class="text-xs text-gray-400 mt-1">{{ m.time }}</div>
         </div>
+        {% if m.role == 'user' %}
+          <div class="ml-2"><img src="https://img.icons8.com/fluency/48/user-male-circle.png" class="w-6 h-6"></div>
+        {% else %}
+          <div class="mr-2"><img src="https://img.icons8.com/fluency/48/bot.png" class="w-6 h-6"></div>
+        {% endif %}
       </div>
-      <p class="text-xs text-gray-400 mt-1 ml-2">{{ msg.time }}</p>
     {% endfor %}
-  </main>  <!-- Chat Input -->  <form method="POST" class="fixed bottom-0 left-0 w-full bg-black px-4 py-2 flex items-center gap-2">
-    <textarea name="message" placeholder="Your message..." class="flex-1 rounded-lg px-3 py-2 bg-gray-700 text-white resize-none focus:outline-none" required>{{ message }}</textarea>
-    <button type="submit" class="text-white text-2xl bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">
-      <i class="fas fa-paper-plane"></i>
-    </button>
-  </form>  <script>
-    // Toggle sidebar
-    document.getElementById('menu-btn').addEventListener('click', () => {
-      document.getElementById('sidebar').classList.toggle('-translate-x-full')
-    });
+  </main>
 
-    // Scroll to bottom
-    const chatBox = document.getElementById("chat-box");
-    chatBox.scrollTop = chatBox.scrollHeight;
-
-    // Typing animation
-    document.querySelectorAll(".typing").forEach((el) => {
-      const fullText = el.innerText;
-      el.innerText = "";
-      let i = 0;
-      const typingInterval = setInterval(() => {
-        el.innerText += fullText.charAt(i);
-        i++;
-        if (i >= fullText.length) clearInterval(typingInterval);
-      }, 15);
-    });
-
-    function toggleDarkMode() {
-      document.body.classList.toggle('dark');
-    }
-  </script></body>
+  <form method="post" class="bg-black p-3 flex gap-2 fixed bottom-0 w-full max-w-screen">
+    <input name="message" autofocus placeholder="Type your message..." class="flex-1 px-4 py-2 rounded-xl bg-gray-800 text-white focus:outline-none">
+    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-full text-xl">&#9658;</button>
+  </form>
+</body>
 </html>
