@@ -10,7 +10,21 @@
       const messages = document.getElementById('messages');
       messages.scrollTop = messages.scrollHeight;
     }
-    window.onload = scrollToBottom;
+    window.onload = () => {
+      scrollToBottom();
+
+      const lastBot = [...document.querySelectorAll('.bot-text')].pop();
+      if (lastBot) {
+        const text = lastBot.textContent;
+        lastBot.textContent = '';
+        let i = 0;
+        const typing = setInterval(() => {
+          lastBot.textContent += text.charAt(i);
+          i++;
+          if (i >= text.length) clearInterval(typing);
+        }, 15);
+      }
+    };
   </script>
 </head>
 <body class="bg-gray-900 text-white flex flex-col h-screen">
@@ -35,7 +49,7 @@
     {% for m in history %}
       <div class="mb-3 flex {{ 'justify-end' if m.role == 'user' else 'justify-start' }}">
         <div class="max-w-[80%] rounded-2xl px-4 py-2 {{ 'bg-blue-600 text-white' if m.role == 'user' else 'bg-gray-800 text-gray-100' }}">
-          <div>{{ m.content }}</div>
+          <div class="{{ 'bot-text' if loop.last and m.role == 'assistant' else '' }}">{{ m.content }}</div>
           <div class="text-xs text-gray-400 mt-1">{{ m.time }}</div>
         </div>
         {% if m.role == 'user' %}
