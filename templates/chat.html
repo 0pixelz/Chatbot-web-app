@@ -1,35 +1,33 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Chat with AI</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html, body { height: 100%; }
+    #messages { scroll-behavior: smooth; }
+  </style>
   <script>
-    function scrollToBottom() {
-      const messages = document.getElementById('messages');
-      messages.scrollTop = messages.scrollHeight;
-    }
     window.onload = () => {
-      scrollToBottom();
+      const messages = document.getElementById('messages');
+      messages.scrollTop = messages.scrollHeight;const lastBot = [...document.querySelectorAll('.bot-text')].pop();
+  if (lastBot) {
+    const fullText = lastBot.textContent;
+    lastBot.textContent = '';
+    let i = 0;
+    const typing = setInterval(() => {
+      lastBot.textContent += fullText.charAt(i);
+      messages.scrollTop = messages.scrollHeight;
+      i++;
+      if (i >= fullText.length) clearInterval(typing);
+    }, 15);
+  }
+}
 
-      const lastBot = [...document.querySelectorAll('.bot-text')].pop();
-      if (lastBot) {
-        const text = lastBot.textContent;
-        lastBot.textContent = '';
-        let i = 0;
-        const typing = setInterval(() => {
-          lastBot.textContent += text.charAt(i);
-          i++;
-          if (i >= text.length) clearInterval(typing);
-        }, 15);
-      }
-    };
   </script>
 </head>
-<body class="bg-gray-900 text-white flex flex-col h-screen">
-
-  <header class="bg-black p-3 flex justify-between items-center shadow-md">
+<body class="bg-gray-900 text-white flex flex-col h-screen">  <header class="bg-black p-3 flex justify-between items-center shadow-md">
     <div class="flex items-center space-x-2">
       <button class="text-white text-2xl">&#9776;</button>
       <h1 class="text-xl font-bold">Web App</h1>
@@ -43,9 +41,7 @@
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-4 h-4"> Login
       </a>
     {% endif %}
-  </header>
-
-  <main id="messages" class="flex-1 overflow-y-auto px-4 py-2">
+  </header>  <main id="messages" class="flex-1 overflow-y-auto px-4 py-2">
     {% for m in history %}
       <div class="mb-3 flex {{ 'justify-end' if m.role == 'user' else 'justify-start' }}">
         <div class="max-w-[80%] rounded-2xl px-4 py-2 {{ 'bg-blue-600 text-white' if m.role == 'user' else 'bg-gray-800 text-gray-100' }}">
@@ -59,9 +55,7 @@
         {% endif %}
       </div>
     {% endfor %}
-  </main>
-
-  <form method="post" class="bg-black p-3 flex gap-2 fixed bottom-0 w-full max-w-screen">
+  </main>  <form method="post" class="bg-black p-3 flex gap-2 fixed bottom-0 w-full max-w-screen z-50">
     <input name="message" autofocus placeholder="Type your message..." class="flex-1 px-4 py-2 rounded-xl bg-gray-800 text-white focus:outline-none">
     <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-full text-xl">&#9658;</button>
   </form>
