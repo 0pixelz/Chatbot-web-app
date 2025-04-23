@@ -1,55 +1,87 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Chat with AI</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    function scrollToBottom() {
-      const messages = document.getElementById('messages');
-      messages.scrollTop = messages.scrollHeight;
-    }
-    window.onload = scrollToBottom;
-  </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <style>
+        .message-typing {
+            white-space: pre-wrap;
+        }
+    </style>
 </head>
 <body class="bg-gray-900 text-white flex flex-col h-screen">
-
-  <header class="bg-black p-3 flex justify-between items-center shadow-md">
-    <div class="flex items-center space-x-2">
-      <button class="text-white text-2xl">&#9776;</button>
-      <h1 class="text-xl font-bold">Web App</h1>
-    </div>
-    {% if session.get('user_email') %}
-      <a href="/logout" class="rounded-full bg-yellow-400 text-black w-8 h-8 flex items-center justify-center font-bold">
-        {{ session['user_email'][0]|upper }}
-      </a>
-    {% else %}
-      <a href="/login" class="rounded-full bg-gray-800 text-white px-4 py-1 text-sm hover:bg-gray-700 flex items-center gap-1">
-        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-4 h-4"> Login
-      </a>
-    {% endif %}
-  </header>
-
-  <main id="messages" class="flex-1 overflow-y-auto px-4 py-2">
-    {% for m in history %}
-      <div class="mb-3 flex {{ 'justify-end' if m.role == 'user' else 'justify-start' }}">
-        <div class="max-w-[80%] rounded-2xl px-4 py-2 {{ 'bg-blue-600 text-white' if m.role == 'user' else 'bg-gray-800 text-gray-100' }}">
-          <div>{{ m.content }}</div>
-          <div class="text-xs text-gray-400 mt-1">{{ m.time }}</div>
+    <!-- HEADER -->
+    <header class="flex items-center justify-between p-4 bg-black shadow-md">
+        <div class="flex items-center gap-3">
+            <button class="text-white text-xl">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h1 class="text-xl font-bold">Web App</h1>
         </div>
+        <div>
+            {% if session.user_email %}
+                <div class="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center text-black font-bold">
+                    {{ session.user_email[0]|upper }}
+                </div>
+            {% else %}
+                <a href="/login">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google Login" class="w-8 h-8 rounded-full">
+                </a>
+            {% endif %}
+        </div>
+    </header><!-- CHAT AREA -->
+<div id="chat" class="flex-1 overflow-y-auto p-4 space-y-4">
+    {% for m in history %}
         {% if m.role == 'user' %}
-          <div class="ml-2"><img src="https://img.icons8.com/fluency/48/user-male-circle.png" class="w-6 h-6"></div>
+            <div class="flex justify-end items-end gap-2">
+                <div class="bg-blue-600 text-white px-4 py-2 rounded-xl max-w-xs">{{ m.content }}</div>
+                <div class="w-7 h-7 bg-blue-400 rounded-full flex items-center justify-center">
+                    <i class="fas fa-user text-white"></i>
+                </div>
+            </div>
+            <div class="text-right text-xs text-gray-400">{{ m.time }}</div>
         {% else %}
-          <div class="mr-2"><img src="https://img.icons8.com/fluency/48/bot.png" class="w-6 h-6"></div>
+            <div class="flex items-end gap-2">
+                <div class="w-7 h-7 bg-gray-700 rounded-full flex items-center justify-center">
+                    <i class="fas fa-robot text-white"></i>
+                </div>
+                <div class="bg-gray-800 text-white px-4 py-2 rounded-xl max-w-xs">
+                    <div class="message-typing">{{ m.content }}</div>
+                </div>
+            </div>
+            <div class="text-left text-xs text-gray-400">{{ m.time }}</div>
         {% endif %}
-      </div>
     {% endfor %}
-  </main>
+</div>
 
-  <form method="post" class="bg-black p-3 flex gap-2 fixed bottom-0 w-full max-w-screen">
-    <input name="message" autofocus placeholder="Type your message..." class="flex-1 px-4 py-2 rounded-xl bg-gray-800 text-white focus:outline-none">
-    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-full text-xl">&#9658;</button>
-  </form>
+<!-- INPUT -->
+<form method="post" class="p-4 bg-black flex items-center gap-2 sticky bottom-0">
+    <input name="message" placeholder="Your message..." autocomplete="off" required class="flex-1 px-4 py-2 rounded-xl bg-gray-800 text-white placeholder-gray-400 focus:outline-none" />
+    <button type="submit" class="bg-blue-600 hover:bg-blue-500 p-3 rounded-full">
+        <i class="fas fa-paper-plane"></i>
+    </button>
+</form>
+
+<script>
+    window.onload = () => {
+        const chatContainer = document.getElementById("chat");
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        const lastBotMessage = [...document.querySelectorAll(".message-typing")].pop();
+        if (lastBotMessage) {
+            const fullText = lastBotMessage.innerText;
+            lastBotMessage.innerText = "";
+            let i = 0;
+            const typingInterval = setInterval(() => {
+                lastBotMessage.innerText += fullText.charAt(i);
+                i++;
+                if (i >= fullText.length) clearInterval(typingInterval);
+            }, 20);
+        }
+    }
+</script>
+
 </body>
 </html>
