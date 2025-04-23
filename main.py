@@ -1,4 +1,3 @@
-
 from flask import Flask, request, render_template, redirect, session, url_for
 import asyncio, aiohttp, os
 from firebase_admin import credentials, db, initialize_app
