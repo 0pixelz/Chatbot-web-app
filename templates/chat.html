@@ -1,50 +1,52 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Chat with AI</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    html, body { height: 100%; }
-    #messages { scroll-behavior: smooth; }
-    .blinker {
-      display: inline-block;
-      margin-left: 2px;
-      animation: blink 1s step-start infinite;
+  <script>
+    function scrollToBottom() {
+      const messages = document.getElementById('messages');
+      messages.scrollTop = messages.scrollHeight;
     }
-    @keyframes blink {
-      50% { opacity: 0; }
-    }
-  </style>
+    window.onload = scrollToBottom;
+  </script>
 </head>
 <body class="bg-gray-900 text-white flex flex-col h-screen">
 
-  <header class="bg-black p-3 flex justify-between items-center shadow-md relative">
+  <!-- HEADER -->
+  <header class="bg-black p-3 flex justify-between items-center shadow-md">
     <div class="flex items-center space-x-2">
-      <button onclick="document.getElementById('menu').classList.toggle('hidden')" class="text-white text-2xl">☰</button>
+      <button class="text-white text-2xl" onclick="document.getElementById('menu').classList.toggle('hidden')">&#9776;</button>
       <h1 class="text-xl font-bold">Web App</h1>
     </div>
-    {% if session.get('user_email') %}
-      <a href="/logout" class="rounded-full bg-yellow-400 text-black w-8 h-8 flex items-center justify-center font-bold">
-        {{ session['user_email'][0]|upper }}
-      </a>
-    {% else %}
-      <a href="/login" class="rounded-full bg-gray-800 text-white px-4 py-1 text-sm hover:bg-gray-700 flex items-center gap-1">
-        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-4 h-4"> Login
-      </a>
-    {% endif %}
-    <div id="menu" class="hidden absolute left-2 top-14 bg-gray-800 p-2 rounded shadow-lg z-50">
-      <button onclick="clearChat()" class="hover:text-yellow-300">🧹 Clear Chat</button>
+
+    <div class="relative">
+      <button onclick="toggleDropdown()" class="rounded-full focus:outline-none">
+        {% if session.get('user_picture') %}
+          <img src="{{ session['user_picture'] }}" class="rounded-full w-8 h-8" />
+        {% else %}
+          <div class="rounded-full bg-gray-800 text-white w-8 h-8 flex items-center justify-center font-bold">
+            {{ session['user_email'][0]|upper }}
+          </div>
+        {% endif %}
+      </button>
+      <div id="dropdownMenu" class="absolute right-0 mt-2 w-48 bg-white text-black rounded shadow-lg hidden z-50">
+        <a href="/settings" class="block px-4 py-2 hover:bg-gray-100">Settings</a>
+        <form method="post" action="/logout">
+          <button type="submit" class="block w-full text-left px-4 py-2 hover:bg-gray-100">Logout</button>
+        </form>
+      </div>
     </div>
   </header>
 
+  <!-- CHAT MESSAGES -->
   <main id="messages" class="flex-1 overflow-y-auto px-4 py-2">
     {% for m in history %}
       <div class="mb-3 flex {{ 'justify-end' if m.role == 'user' else 'justify-start' }}">
         <div class="max-w-[80%] rounded-2xl px-4 py-2 {{ 'bg-blue-600 text-white' if m.role == 'user' else 'bg-gray-800 text-gray-100' }}">
-          <div class="{{ 'bot-text' if loop.last and m.role == 'assistant' else '' }}">{{ m.content }}</div>
+          <div>{{ m.content }}</div>
           <div class="text-xs text-gray-400 mt-1">{{ m.time }}</div>
         </div>
         {% if m.role == 'user' %}
@@ -56,53 +58,25 @@
     {% endfor %}
   </main>
 
-  <form method="post" class="bg-black p-3 flex gap-2 fixed bottom-0 w-full max-w-screen z-50">
+  <!-- INPUT BOX -->
+  <form method="post" class="bg-black p-3 flex gap-2 fixed bottom-0 w-full max-w-screen">
     <input name="message" autofocus placeholder="Type your message..." class="flex-1 px-4 py-2 rounded-xl bg-gray-800 text-white focus:outline-none">
-    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-full text-xl transition transform duration-150 hover:scale-110 active:scale-90">➤</button>
+    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-full text-xl hover:bg-blue-700 transition">&#9658;</button>
   </form>
 
+  <!-- JS FOR DROPDOWN -->
   <script>
-    window.onload = () => {
-      const messages = document.getElementById('messages');
-      messages.scrollTop = messages.scrollHeight;
-      let userScrolled = false;
-
-      messages.addEventListener('wheel', () => userScrolled = true);
-      messages.addEventListener('touchmove', () => userScrolled = true);
-
-      const lastBot = [...document.querySelectorAll('.bot-text')].pop();
-      if (lastBot) {
-        const fullText = lastBot.textContent;
-        lastBot.innerHTML = '<span class="typed-text"></span><span class="blinker">|</span>';
-        const typed = lastBot.querySelector('.typed-text');
-        const blinker = lastBot.querySelector('.blinker');
-        let i = 0;
-
-        function typeLetter() {
-          if (i < fullText.length) {
-            const char = fullText[i];
-            if (char === '\n') {
-              typed.appendChild(document.createElement('br'));
-            } else {
-              typed.appendChild(document.createTextNode(char));
-            }
-            i++;
-            if (!userScrolled) messages.scrollTop = messages.scrollHeight;
-            requestAnimationFrame(() => setTimeout(typeLetter, 10));
-          } else {
-            blinker.remove();
-          }
-        }
-
-        setTimeout(() => requestAnimationFrame(typeLetter), 250);
-      }
-    };
-
-    function clearChat() {
-      if (confirm("Are you sure you want to clear the chat?")) {
-        fetch('/clear', { method: 'POST' }).then(() => location.reload());
-      }
+    function toggleDropdown() {
+      document.getElementById("dropdownMenu").classList.toggle("hidden");
     }
+
+    document.addEventListener("click", function(e) {
+      const dropdown = document.getElementById("dropdownMenu");
+      if (!e.target.closest("button") && !e.target.closest("#dropdownMenu")) {
+        dropdown.classList.add("hidden");
+      }
+    });
   </script>
+
 </body>
 </html>
