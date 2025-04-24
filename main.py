@@ -46,7 +46,7 @@ def login():
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRET_FILE,
         scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email'],
-        redirect_uri=url_for('oauth_callback', _external=True)
+        redirect_uri=url_for('oauth_callback', _external=True, _scheme='https')
     )
     auth_url, state = flow.authorization_url()
     session["state"] = state
@@ -62,7 +62,7 @@ def oauth_callback():
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRET_FILE,
         scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email'],
-        redirect_uri=url_for('oauth_callback', _external=True)
+        redirect_uri=url_for('oauth_callback', _external=True, _scheme='https')
     )
     flow.fetch_token(code=request.args['code'])
     credentials = flow.credentials
