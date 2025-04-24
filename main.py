@@ -7,6 +7,7 @@ from google_auth_oauthlib.flow import Flow
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 import nest_asyncio
+import re
 
 GROQ_API_KEY = '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'
 FIREBASE_JSON = 'opixelz-dgqoph-firebase-adminsdk-zxxqz-4770fd3f5a.json'
@@ -19,16 +20,16 @@ app.secret_key = "supersecret"
 cred = credentials.Certificate(FIREBASE_JSON)
 initialize_app(cred, {'databaseURL': DATABASE_URL})
 
-def sanitize_uid(uid):
-    return uid.replace("@", "_at_").replace(".", "_dot_")
+def safe_uid(uid):
+    return re.sub(r'[.#$]', '_', uid)
 
 def load_user_history(uid):
-    safe_uid = sanitize_uid(uid)
-    return db.reference(f'chat_memory/{safe_uid}').get() or []
+    safe = safe_uid(uid)
+    return db.reference(f'chat_memory/{safe}').get() or []
 
 def save_user_history(uid, data):
-    safe_uid = sanitize_uid(uid)
-    db.reference(f'chat_memory/{safe_uid}').set(data)
+    safe = safe_uid(uid)
+    db.reference(f'chat_memory/{safe}').set(data)
 
 async def generate_response(prompt, memory=[]):
     url = "https://api.groq.com/openai/v1/chat/completions"
@@ -82,7 +83,7 @@ def oauth_callback():
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
     uid = session.get("user_email", "guest")
-    message, reply = ""
+    message, reply = "", ""
     tz = timezone(LOCAL_TIMEZONE)
     history = load_user_history(uid)
     if request.method == "POST":
@@ -98,8 +99,7 @@ def chat():
 @app.route("/clear", methods=["POST"])
 def clear():
     uid = session.get("user_email", "guest")
-    safe_uid = sanitize_uid(uid)
-    db.reference(f'chat_memory/{safe_uid}').delete()
+    db.reference(f'chat_memory/{safe_uid(uid)}').delete()
     return '', 204
 
 if __name__ == "__main__":
