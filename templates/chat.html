@@ -23,21 +23,28 @@
     </div>
 
     <div class="relative">
-      <button onclick="toggleDropdown()" class="rounded-full focus:outline-none">
-        {% if session.get('user_picture') %}
-          <img src="{{ session['user_picture'] }}" class="rounded-full w-8 h-8" />
-        {% else %}
-          <div class="rounded-full bg-gray-800 text-white w-8 h-8 flex items-center justify-center font-bold">
-            {{ session['user_email'][0]|upper }}
-          </div>
-        {% endif %}
-      </button>
-      <div id="dropdownMenu" class="absolute right-0 mt-2 w-48 bg-white text-black rounded shadow-lg hidden z-50">
-        <a href="/settings" class="block px-4 py-2 hover:bg-gray-100">Settings</a>
-        <form method="post" action="/logout">
-          <button type="submit" class="block w-full text-left px-4 py-2 hover:bg-gray-100">Logout</button>
-        </form>
-      </div>
+      {% if session.get('user_email') %}
+        <button onclick="toggleDropdown()" class="rounded-full focus:outline-none">
+          {% if session.get('user_picture') %}
+            <img src="{{ session['user_picture'] }}" class="rounded-full w-8 h-8" />
+          {% else %}
+            <div class="rounded-full bg-gray-800 text-white w-8 h-8 flex items-center justify-center font-bold">
+              {{ session['user_email'][0]|upper }}
+            </div>
+          {% endif %}
+        </button>
+        <div id="dropdownMenu" class="absolute right-0 mt-2 w-48 bg-white text-black rounded shadow-lg hidden z-50">
+          <div class="px-4 py-2 font-semibold text-gray-600">{{ session['user_email'] }}</div>
+          <a href="/settings" class="block px-4 py-2 hover:bg-gray-100">Settings</a>
+          <form method="post" action="/logout">
+            <button type="submit" class="block w-full text-left px-4 py-2 hover:bg-gray-100">Logout</button>
+          </form>
+        </div>
+      {% else %}
+        <a href="/login" class="rounded-full bg-gray-800 text-white px-4 py-1 text-sm hover:bg-gray-700 flex items-center gap-1">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-4 h-4"> Login
+        </a>
+      {% endif %}
     </div>
   </header>
 
