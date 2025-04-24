@@ -7,7 +7,6 @@ from google_auth_oauthlib.flow import Flow
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 import nest_asyncio
-import re
 
 GROQ_API_KEY = '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'
 FIREBASE_JSON = 'opixelz-dgqoph-firebase-adminsdk-zxxqz-4770fd3f5a.json'
@@ -20,16 +19,13 @@ app.secret_key = "supersecret"
 cred = credentials.Certificate(FIREBASE_JSON)
 initialize_app(cred, {'databaseURL': DATABASE_URL})
 
-def safe_uid(uid):
-    return re.sub(r'[.#$]', '_', uid)
-
 def load_user_history(uid):
-    safe = safe_uid(uid)
-    return db.reference(f'chat_memory/{safe}').get() or []
+    safe_uid = uid.replace(".", "_")  # Firebase doesn't allow "." in keys
+    return db.reference(f'chat_memory/{safe_uid}').get() or []
 
 def save_user_history(uid, data):
-    safe = safe_uid(uid)
-    db.reference(f'chat_memory/{safe}').set(data)
+    safe_uid = uid.replace(".", "_")
+    db.reference(f'chat_memory/{safe_uid}').set(data)
 
 async def generate_response(prompt, memory=[]):
     url = "https://api.groq.com/openai/v1/chat/completions"
@@ -55,7 +51,7 @@ def login():
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRET_FILE,
         scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email'],
-        redirect_uri=url_for('oauth_callback', _external=True)
+        redirect_uri=url_for('oauth_callback', _external=True, _scheme='https')
     )
     auth_url, state = flow.authorization_url()
     session["state"] = state
@@ -71,7 +67,7 @@ def oauth_callback():
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRET_FILE,
         scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email'],
-        redirect_uri=url_for('oauth_callback', _external=True)
+        redirect_uri=url_for('oauth_callback', _external=True, _scheme='https')
     )
     flow.fetch_token(code=request.args['code'])
     credentials = flow.credentials
@@ -99,7 +95,8 @@ def chat():
 @app.route("/clear", methods=["POST"])
 def clear():
     uid = session.get("user_email", "guest")
-    db.reference(f'chat_memory/{safe_uid(uid)}').delete()
+    safe_uid = uid.replace(".", "_")
+    db.reference(f'chat_memory/{safe_uid}').delete()
     return '', 204
 
 if __name__ == "__main__":
