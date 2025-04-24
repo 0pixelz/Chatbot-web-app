@@ -12,7 +12,7 @@ GROQ_API_KEY = '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'
 FIREBASE_JSON = 'opixelz-dgqoph-firebase-adminsdk-zxxqz-4770fd3f5a.json'
 DATABASE_URL = 'https://opixelz-dgqoph.firebaseio.com/'
 LOCAL_TIMEZONE = 'America/Toronto'
-CLIENT_SECRET_FILE = 'client_secret_475746497039-tj5u64raa9n12doboo2vaju7mud4l8hj.apps.googleusercontent.com.json'
+CLIENT_SECRET_FILE = 'client_secret_475746497039-4ofjje6ds8jr30jr9d2eb3crr0529j81.apps.googleusercontent.com.json '
 
 app = Flask(__name__)
 app.secret_key = "supersecret"
