@@ -19,8 +19,16 @@ app.secret_key = "supersecret"
 cred = credentials.Certificate(FIREBASE_JSON)
 initialize_app(cred, {'databaseURL': DATABASE_URL})
 
-def load_user_history(uid): return db.reference(f'chat_memory/{uid}').get() or []
-def save_user_history(uid, data): db.reference(f'chat_memory/{uid}').set(data)
+def sanitize_uid(uid):
+    return uid.replace("@", "_at_").replace(".", "_dot_")
+
+def load_user_history(uid):
+    safe_uid = sanitize_uid(uid)
+    return db.reference(f'chat_memory/{safe_uid}').get() or []
+
+def save_user_history(uid, data):
+    safe_uid = sanitize_uid(uid)
+    db.reference(f'chat_memory/{safe_uid}').set(data)
 
 async def generate_response(prompt, memory=[]):
     url = "https://api.groq.com/openai/v1/chat/completions"
@@ -46,7 +54,7 @@ def login():
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRET_FILE,
         scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email'],
-        redirect_uri=url_for('oauth_callback', _external=True, _scheme='https')
+        redirect_uri=url_for('oauth_callback', _external=True)
     )
     auth_url, state = flow.authorization_url()
     session["state"] = state
@@ -62,7 +70,7 @@ def oauth_callback():
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRET_FILE,
         scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email'],
-        redirect_uri=url_for('oauth_callback', _external=True, _scheme='https')
+        redirect_uri=url_for('oauth_callback', _external=True)
     )
     flow.fetch_token(code=request.args['code'])
     credentials = flow.credentials
@@ -74,7 +82,7 @@ def oauth_callback():
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
     uid = session.get("user_email", "guest")
-    message, reply = "", ""
+    message, reply = ""
     tz = timezone(LOCAL_TIMEZONE)
     history = load_user_history(uid)
     if request.method == "POST":
@@ -90,7 +98,8 @@ def chat():
 @app.route("/clear", methods=["POST"])
 def clear():
     uid = session.get("user_email", "guest")
-    db.reference(f'chat_memory/{uid}').delete()
+    safe_uid = sanitize_uid(uid)
+    db.reference(f'chat_memory/{safe_uid}').delete()
     return '', 204
 
 if __name__ == "__main__":
