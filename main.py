@@ -1,4 +1,4 @@
-# Placeholder from flask import Flask, request, render_template, redirect, session, url_for
+from flask import Flask, request, render_template, redirect, session, url_for
 import asyncio, aiohttp, os
 from firebase_admin import credentials, db, initialize_app
 from datetime import datetime
@@ -17,6 +17,8 @@ CLIENT_SECRET_FILE = 'client_secret_475746497039-4ofjje6ds8jr30jr9d2eb3crr0529j8
 
 app = Flask(__name__)
 app.secret_key = "supersecret"
+
+# === FIREBASE ===
 cred = credentials.Certificate(FIREBASE_JSON)
 initialize_app(cred, {'databaseURL': DATABASE_URL})
 
@@ -29,6 +31,7 @@ def load_user_history(uid):
 def save_user_history(uid, data):
     db.reference(f'chat_memory/{safe_uid(uid)}').set(data)
 
+# === AI ===
 async def generate_response(prompt, memory=[]):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
@@ -43,6 +46,8 @@ async def generate_response(prompt, memory=[]):
                 return result['choices'][0]['message']['content']
     except Exception as e:
         return f"❌ Groq connection error: {str(e)}"
+
+# === ROUTES ===
 
 @app.route("/")
 def index():
@@ -123,6 +128,7 @@ def clear():
     db.reference(f'chat_memory/{safe_uid(uid)}').delete()
     return '', 204
 
+# === RUN ===
 if __name__ == "__main__":
     nest_asyncio.apply()
-    app.run(host="0.0.0.0", port=8080) main.py with /settings and /delete_account routes.
+    app.run(host="0.0.0.0", port=8080)
