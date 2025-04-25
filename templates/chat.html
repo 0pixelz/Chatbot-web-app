@@ -2,42 +2,58 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Chat with AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html, body { height: 100%; }
+    .typing::after {
+      content: "_";
+      animation: blink 1s step-start infinite;
+    }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+  </style>
   <script>
     function scrollToBottom() {
-      const messages = document.getElementById('messages');
-      messages.scrollTop = messages.scrollHeight;
+      const container = document.getElementById("messages");
+      if (!container.classList.contains("scroll-lock")) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+    let autoScroll = true;
+    function handleScroll() {
+      const container = document.getElementById("messages");
+      const atBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 10;
+      container.classList.toggle("scroll-lock", !atBottom);
     }
     window.onload = scrollToBottom;
   </script>
 </head>
 <body class="bg-gray-900 text-white flex flex-col h-screen">
 
-  <!-- HEADER -->
   <header class="bg-black p-3 flex justify-between items-center shadow-md">
-    <div class="flex items-center space-x-2">
-      <button onclick="document.getElementById('menu').classList.toggle('hidden')" class="text-white text-2xl">&#9776;</button>
+    <div class="flex items-center space-x-3">
+      <div class="relative">
+        <button onclick="toggleMenu()" class="text-white text-2xl">&#9776;</button>
+        <div id="menu" class="hidden absolute bg-white text-black rounded shadow mt-2 z-50 w-40">
+          <form action="/clear" method="post"><button class="block w-full text-left px-4 py-2 hover:bg-gray-200">Clear Chat</button></form>
+          <a href="/settings" class="block px-4 py-2 hover:bg-gray-200">Settings</a>
+        </div>
+      </div>
       <h1 class="text-xl font-bold">Web App</h1>
     </div>
-
     <div class="relative">
       {% if session.get('user_email') %}
-        <button onclick="toggleDropdown()" class="rounded-full focus:outline-none">
-          {% if session.get('user_picture') %}
-            <img src="{{ session['user_picture'] }}" class="rounded-full w-8 h-8" />
-          {% else %}
-            <div class="rounded-full bg-gray-800 text-white w-8 h-8 flex items-center justify-center font-bold">
-              {{ session['user_email'][0]|upper }}
-            </div>
-          {% endif %}
+        <button onclick="toggleProfile()" class="w-8 h-8 rounded-full overflow-hidden">
+          <img src="{{ session['user_picture'] }}" alt="avatar" class="w-full h-full object-cover" />
         </button>
-        <div id="dropdownMenu" class="absolute right-0 mt-2 w-48 bg-white text-black rounded shadow-lg hidden z-50">
-          <div class="px-4 py-2 font-semibold text-gray-600">{{ session['user_email'] }}</div>
-          <a href="/settings" class="block px-4 py-2 hover:bg-gray-100">Settings</a>
-          <form method="post" action="/logout">
-            <button type="submit" class="block w-full text-left px-4 py-2 hover:bg-gray-100">Logout</button>
+        <div id="profileMenu" class="hidden absolute right-0 bg-white text-black rounded shadow mt-2 z-50 w-48">
+          <div class="px-4 py-2 border-b text-sm">{{ session['user_email'] }}</div>
+          <a href="/settings" class="block px-4 py-2 hover:bg-gray-200 text-sm">Account Settings</a>
+          <form action="/logout" method="post">
+            <button class="w-full text-left px-4 py-2 hover:bg-gray-200 text-sm">Logout</button>
           </form>
         </div>
       {% else %}
@@ -48,40 +64,50 @@
     </div>
   </header>
 
-  <!-- CHAT MESSAGES -->
-  <main id="messages" class="flex-1 overflow-y-auto px-4 py-2">
+  <main id="messages" class="flex-1 overflow-y-auto px-4 py-2" onscroll="handleScroll()">
     {% for m in history %}
       <div class="mb-3 flex {{ 'justify-end' if m.role == 'user' else 'justify-start' }}">
         <div class="max-w-[80%] rounded-2xl px-4 py-2 {{ 'bg-blue-600 text-white' if m.role == 'user' else 'bg-gray-800 text-gray-100' }}">
           <div>{{ m.content }}</div>
           <div class="text-xs text-gray-400 mt-1">{{ m.time }}</div>
         </div>
-        {% if m.role == 'user' %}
-          <div class="ml-2"><img src="https://img.icons8.com/fluency/48/user-male-circle.png" class="w-6 h-6"></div>
-        {% else %}
-          <div class="mr-2"><img src="https://img.icons8.com/fluency/48/bot.png" class="w-6 h-6"></div>
-        {% endif %}
       </div>
     {% endfor %}
+    {% if reply %}
+      <div class="mb-3 flex justify-start">
+        <div class="max-w-[80%] rounded-2xl px-4 py-2 bg-gray-800 text-gray-100 typing" id="aiReply">
+          <span id="aiText"></span>
+        </div>
+      </div>
+      <script>
+        const fullReply = `{{ reply | replace('\n', '\\n') }}`;
+        const span = document.getElementById("aiText");
+        let i = 0;
+        function typeNextChar() {
+          if (i < fullReply.length) {
+            span.textContent += fullReply.charAt(i);
+            i++;
+            scrollToBottom();
+            setTimeout(typeNextChar, 20);
+          }
+        }
+        typeNextChar();
+      </script>
+    {% endif %}
   </main>
 
-  <!-- INPUT BOX -->
-  <form method="post" class="bg-black p-3 flex gap-2 fixed bottom-0 w-full max-w-screen">
-    <input name="message" autofocus placeholder="Type your message..." class="flex-1 px-4 py-2 rounded-xl bg-gray-800 text-white focus:outline-none">
+  <form method="post" class="bg-black p-3 flex gap-2 fixed bottom-0 w-full">
+    <input name="message" autofocus autocomplete="off" placeholder="Type your message..." class="flex-1 px-4 py-2 rounded-xl bg-gray-800 text-white focus:outline-none">
     <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-full text-xl hover:bg-blue-700 transition">&#9658;</button>
   </form>
 
   <script>
-    function toggleDropdown() {
-      document.getElementById("dropdownMenu").classList.toggle("hidden");
+    function toggleMenu() {
+      document.getElementById("menu").classList.toggle("hidden");
     }
-
-    document.addEventListener("click", function(e) {
-      const dropdown = document.getElementById("dropdownMenu");
-      if (!e.target.closest("button") && !e.target.closest("#dropdownMenu")) {
-        dropdown.classList.add("hidden");
-      }
-    });
+    function toggleProfile() {
+      document.getElementById("profileMenu").classList.toggle("hidden");
+    }
   </script>
 </body>
 </html>
