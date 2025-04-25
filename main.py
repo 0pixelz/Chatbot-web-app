@@ -8,20 +8,20 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 import nest_asyncio
 
-# === CONFIG ===
-GROQ_API_KEY = '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'
-LOCAL_TIMEZONE = 'America/Toronto'
-CLIENT_SECRET_FILE = 'client_secret_475746497039-4ofjje6ds8jr30jr9d2eb3crr0529j81.apps.googleusercontent.com.json'
+# === CONFIG FROM ENV ===
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+FIREBASE_JSON = os.getenv("FIREBASE_CREDENTIALS")
+DATABASE_URL = os.getenv("FIREBASE_DATABASE_URL")
+LOCAL_TIMEZONE = os.getenv("LOCAL_TIMEZONE", "America/Toronto")
+CLIENT_SECRET_JSON = os.getenv("GOOGLE_CLIENT_SECRET_JSON")
+FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "supersecret")
 
-# === Load Firebase Credentials from Environment ===
-firebase_json_raw = os.getenv("FIREBASE_JSON")
-firebase_json_dict = json.loads(firebase_json_raw)
-cred = credentials.Certificate(firebase_json_dict)
-DATABASE_URL = firebase_json_dict.get("databaseURL")
-
-# === FLASK & FIREBASE ===
+# === INIT APP & FIREBASE ===
 app = Flask(__name__)
-app.secret_key = "supersecret"
+app.secret_key = FLASK_SECRET_KEY
+
+firebase_json_dict = json.loads(FIREBASE_JSON)
+cred = credentials.Certificate(firebase_json_dict)
 initialize_app(cred, {'databaseURL': DATABASE_URL})
 
 def clean_uid(uid): return uid.replace('.', '_')
@@ -54,10 +54,10 @@ def index():
 
 @app.route("/login")
 def login():
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRET_FILE,
+    flow = Flow.from_client_config(
+        json.loads(CLIENT_SECRET_JSON),
         scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
-        redirect_uri=url_for('oauth_callback', _external=True, _scheme='https')  # FORCES HTTPS
+        redirect_uri=url_for('oauth_callback', _external=True)
     )
     auth_url, state = flow.authorization_url()
     session["state"] = state
@@ -70,10 +70,10 @@ def logout():
 
 @app.route("/oauth_callback")
 def oauth_callback():
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRET_FILE,
+    flow = Flow.from_client_config(
+        json.loads(CLIENT_SECRET_JSON),
         scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
-        redirect_uri=url_for('oauth_callback', _external=True, _scheme='https')  # FORCES HTTPS
+        redirect_uri=url_for('oauth_callback', _external=True)
     )
     flow.fetch_token(code=request.args['code'])
     credentials = flow.credentials
@@ -81,6 +81,7 @@ def oauth_callback():
     idinfo = id_token.verify_oauth2_token(credentials._id_token, request_session)
     session["user_email"] = idinfo["email"]
     session["user_picture"] = idinfo.get("picture")
+    session["user_name"] = idinfo.get("name", idinfo["email"])
     return redirect("/chat")
 
 @app.route("/chat", methods=["GET", "POST"])
