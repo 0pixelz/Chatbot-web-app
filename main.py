@@ -8,31 +8,29 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 import nest_asyncio
 
-# === CONFIG FROM ENV VARIABLES ===
+# === CONFIG FROM ENV ===
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-FIREBASE_JSON = os.getenv("FIREBASE_JSON")
-DATABASE_URL = os.getenv("DATABASE_URL")
+FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_CREDENTIALS_JSON")
+DATABASE_URL = os.getenv("FIREBASE_DATABASE_URL")
 LOCAL_TIMEZONE = os.getenv("LOCAL_TIMEZONE", "America/Toronto")
-CLIENT_SECRET_JSON = os.getenv("GOOGLE_CLIENT_SECRET")
-FLASK_SECRET = os.getenv("FLASK_SECRET_KEY", "supersecret")
+CLIENT_SECRET_JSON = os.getenv("GOOGLE_CLIENT_SECRET_JSON")
 
-# === FLASK & FIREBASE INIT ===
+# === FLASK & FIREBASE ===
 app = Flask(__name__)
-app.secret_key = FLASK_SECRET
-cred = credentials.Certificate(json.loads(FIREBASE_JSON))
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "defaultsecret")
+
+# Load Firebase credentials
+cred = credentials.Certificate(json.loads(FIREBASE_CREDENTIALS_JSON))
 initialize_app(cred, {'databaseURL': DATABASE_URL})
 
-# === HELPERS ===
 def clean_uid(uid): return uid.replace('.', '_')
 def load_user_history(uid): return db.reference(f'chat_memory/{clean_uid(uid)}').get() or []
-def save_user_history(uid, data): return db.reference(f'chat_memory/{clean_uid(uid)}').set(data)
+def save_user_history(uid, data): db.reference(f'chat_memory/{clean_uid(uid)}').set(data)
 def get_settings(uid): return db.reference(f'settings/{clean_uid(uid)}').get() or {}
-def save_settings(uid, data): return db.reference(f'settings/{clean_uid(uid)}').set(data)
-def delete_user(uid):
-    db.reference(f'chat_memory/{clean_uid(uid)}').delete()
-    db.reference(f'settings/{clean_uid(uid)}').delete()
+def save_settings(uid, data): db.reference(f'settings/{clean_uid(uid)}').set(data)
+def delete_user(uid): db.reference(f'chat_memory/{clean_uid(uid)}').delete(); db.reference(f'settings/{clean_uid(uid)}').delete()
 
-# === AI RESPONSE ===
+# === AI ===
 async def generate_response(prompt, memory=[]):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
@@ -57,8 +55,8 @@ def index():
 def login():
     flow = Flow.from_client_config(
         json.loads(CLIENT_SECRET_JSON),
-        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-        redirect_uri=url_for("oauth_callback", _external=True)
+        scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
+        redirect_uri=url_for('oauth_callback', _external=True)
     )
     auth_url, state = flow.authorization_url()
     session["state"] = state
@@ -73,15 +71,16 @@ def logout():
 def oauth_callback():
     flow = Flow.from_client_config(
         json.loads(CLIENT_SECRET_JSON),
-        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-        redirect_uri=url_for("oauth_callback", _external=True)
+        scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
+        redirect_uri=url_for('oauth_callback', _external=True)
     )
-    flow.fetch_token(code=request.args["code"])
+    flow.fetch_token(code=request.args['code'])
     credentials = flow.credentials
     request_session = grequests.Request()
     idinfo = id_token.verify_oauth2_token(credentials._id_token, request_session)
     session["user_email"] = idinfo["email"]
     session["user_picture"] = idinfo.get("picture")
+    session["user_name"] = idinfo.get("name")
     return redirect("/chat")
 
 @app.route("/chat", methods=["GET", "POST"])
