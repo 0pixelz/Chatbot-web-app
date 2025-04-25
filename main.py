@@ -3,7 +3,9 @@ import json
 import asyncio
 import aiohttp
 import nest_asyncio
+
 from flask import Flask, request, render_template, redirect, session, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 from firebase_admin import credentials, db, initialize_app
 from datetime import datetime
 from pytz import timezone
@@ -19,9 +21,6 @@ LOCAL_TIMEZONE             = os.getenv("LOCAL_TIMEZONE", "America/Toronto")
 CLIENT_SECRET_JSON         = os.getenv("GOOGLE_CLIENT_SECRET_JSON")
 FLASK_SECRET_KEY           = os.getenv("FLASK_SECRET_KEY")
 
-# Debugging: print to logs what DATABASE_URL is
-print("DATABASE_URL from ENV:", DATABASE_URL)
-
 # Validate presence of critical env vars
 missing = [k for k,v in {
     "GROQ_API_KEY": GROQ_API_KEY,
@@ -35,13 +34,15 @@ if missing:
 
 # === FLASK & FIREBASE INIT ===
 app = Flask(__name__)
+# trust X-Forwarded-Host & X-Forwarded-Proto so url_for(..., _external=True) is HTTPS
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 app.secret_key = FLASK_SECRET_KEY
 
 # Initialize Firebase
 cred = credentials.Certificate(json.loads(FIREBASE_CREDENTIALS_JSON))
 initialize_app(cred, {'databaseURL': DATABASE_URL})
 
-def clean_uid(uid): 
+def clean_uid(uid):
     return uid.replace('.', '_')
 
 def load_user_history(uid):
@@ -90,7 +91,8 @@ def login():
             "https://www.googleapis.com/auth/userinfo.email",
             "https://www.googleapis.com/auth/userinfo.profile"
         ],
-        redirect_uri=url_for("oauth_callback", _external=True)
+        # force https here:
+        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
     )
     auth_url, state = flow.authorization_url()
     session["state"] = state
@@ -110,7 +112,7 @@ def oauth_callback():
             "https://www.googleapis.com/auth/userinfo.email",
             "https://www.googleapis.com/auth/userinfo.profile"
         ],
-        redirect_uri=url_for("oauth_callback", _external=True)
+        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
     )
     flow.fetch_token(code=request.args["code"])
     creds           = flow.credentials
@@ -138,7 +140,11 @@ def chat():
         history.append({"role": "assistant", "content": reply, "time": now})
         save_user_history(uid, history)
 
-    return render_template("chat.html", uid=uid, message=message, reply=reply, history=history)
+    return render_template("chat.html",
+                           uid=uid,
+                           message=message,
+                           reply=reply,
+                           history=history)
 
 @app.route("/clear", methods=["POST"])
 def clear():
