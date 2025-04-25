@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, redirect, session, url_for
-import asyncio, aiohttp, os, json, tempfile
+import asyncio, aiohttp, os, json
 from firebase_admin import credentials, db, initialize_app
 from datetime import datetime
 from pytz import timezone
@@ -10,25 +10,20 @@ import nest_asyncio
 
 # === CONFIG ===
 GROQ_API_KEY = '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'
-DATABASE_URL = 'https://opixelz-dgqoph.firebaseio.com/'
 LOCAL_TIMEZONE = 'America/Toronto'
 CLIENT_SECRET_FILE = 'client_secret_475746497039-4ofjje6ds8jr30jr9d2eb3crr0529j81.apps.googleusercontent.com.json'
+
+# === Load Firebase Credentials from Environment ===
+firebase_json_raw = os.getenv("FIREBASE_JSON")
+firebase_json_dict = json.loads(firebase_json_raw)
+cred = credentials.Certificate(firebase_json_dict)
+DATABASE_URL = firebase_json_dict.get("databaseURL")
 
 # === FLASK & FIREBASE ===
 app = Flask(__name__)
 app.secret_key = "supersecret"
-
-# Load Firebase credentials from ENV variable
-firebase_json_raw = os.environ.get("FIREBASE_CREDENTIALS_JSON")
-firebase_json_dict = json.loads(firebase_json_raw)
-with tempfile.NamedTemporaryFile(mode='w+', delete=False) as temp_file:
-    json.dump(firebase_json_dict, temp_file)
-    temp_file.flush()
-    cred = credentials.Certificate(temp_file.name)
-
 initialize_app(cred, {'databaseURL': DATABASE_URL})
 
-# === DB UTILS ===
 def clean_uid(uid): return uid.replace('.', '_')
 def load_user_history(uid): return db.reference(f'chat_memory/{clean_uid(uid)}').get() or []
 def save_user_history(uid, data): db.reference(f'chat_memory/{clean_uid(uid)}').set(data)
@@ -62,7 +57,7 @@ def login():
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRET_FILE,
         scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
-        redirect_uri=url_for('oauth_callback', _external=True)
+        redirect_uri=url_for('oauth_callback', _external=True, _scheme='https')  # FORCES HTTPS
     )
     auth_url, state = flow.authorization_url()
     session["state"] = state
@@ -78,7 +73,7 @@ def oauth_callback():
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRET_FILE,
         scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
-        redirect_uri=url_for('oauth_callback', _external=True)
+        redirect_uri=url_for('oauth_callback', _external=True, _scheme='https')  # FORCES HTTPS
     )
     flow.fetch_token(code=request.args['code'])
     credentials = flow.credentials
