@@ -1,51 +1,51 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
   <title>Settings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white min-h-screen p-6">
-  <h1 class="text-2xl font-bold mb-6">Settings</h1>
+  <div class="max-w-xl mx-auto">
+    <h1 class="text-2xl font-bold mb-4">Settings</h1>
+    <form method="post" class="space-y-6">
+      <div>
+        <label class="block mb-1 font-semibold">Appearance (Theme)</label>
+        <select name="theme" class="w-full bg-gray-800 text-white px-4 py-2 rounded">
+          <option value="dark" {% if settings.theme == 'dark' %}selected{% endif %}>Dark</option>
+          <option value="light" {% if settings.theme == 'light' %}selected{% endif %}>Light</option>
+        </select>
+      </div><div>
+    <label class="block mb-1 font-semibold">Font Size</label>
+    <select name="font_size" class="w-full bg-gray-800 text-white px-4 py-2 rounded">
+      <option value="text-sm" {% if settings.font_size == 'text-sm' %}selected{% endif %}>Small</option>
+      <option value="base" {% if settings.font_size == 'base' %}selected{% endif %}>Normal</option>
+      <option value="text-lg" {% if settings.font_size == 'text-lg' %}selected{% endif %}>Large</option>
+    </select>
+  </div>
 
-  <form method="POST" action="/settings" class="space-y-6">
-    <div>
-      <label class="block mb-2">Appearance</label>
-      <select name="theme" class="w-full bg-gray-800 text-white p-2 rounded">
-        <option value="dark" {% if settings.theme == 'dark' %}selected{% endif %}>Dark</option>
-        <option value="light" {% if settings.theme == 'light' %}selected{% endif %}>Light</option>
-      </select>
-    </div>
+  <div>
+    <label class="block mb-1 font-semibold">Assistant Personality</label>
+    <input type="text" name="personality" value="{{ settings.personality or '' }}" placeholder="e.g. Funny, Professional" class="w-full bg-gray-800 text-white px-4 py-2 rounded">
+  </div>
 
-    <div>
-      <label class="block mb-2">Font Size</label>
-      <select name="font_size" class="w-full bg-gray-800 text-white p-2 rounded">
-        <option value="sm" {% if settings.font_size == 'sm' %}selected{% endif %}>Small</option>
-        <option value="base" {% if settings.font_size == 'base' %}selected{% endif %}>Medium</option>
-        <option value="lg" {% if settings.font_size == 'lg' %}selected{% endif %}>Large</option>
-      </select>
-    </div>
+  <div>
+    <label class="block mb-1 font-semibold">Response Length</label>
+    <select name="length" class="w-full bg-gray-800 text-white px-4 py-2 rounded">
+      <option value="short" {% if settings.length == 'short' %}selected{% endif %}>Short</option>
+      <option value="medium" {% if settings.length == 'medium' %}selected{% endif %}>Medium</option>
+      <option value="long" {% if settings.length == 'long' %}selected{% endif %}>Long</option>
+    </select>
+  </div>
 
-    <div>
-      <label class="block mb-2">Personality</label>
-      <input name="personality" value="{{ settings.personality }}" class="w-full bg-gray-800 text-white p-2 rounded" placeholder="e.g., Friendly, Sarcastic">
-    </div>
+  <div class="flex justify-between items-center mt-6">
+    <button type="submit" class="bg-blue-600 px-6 py-2 rounded text-white hover:bg-blue-700">Apply Settings</button>
+    <form action="/delete_account" method="post" onsubmit="return confirm('Are you sure you want to delete your account?')">
+      <button class="text-red-500 text-sm hover:underline">Delete this account</button>
+    </form>
+  </div>
+</form>
 
-    <div>
-      <label class="block mb-2">Response Length</label>
-      <select name="length" class="w-full bg-gray-800 text-white p-2 rounded">
-        <option value="short" {% if settings.length == 'short' %}selected{% endif %}>Short</option>
-        <option value="medium" {% if settings.length == 'medium' %}selected{% endif %}>Medium</option>
-        <option value="long" {% if settings.length == 'long' %}selected{% endif %}>Long</option>
-      </select>
-    </div>
-
-    <button type="submit" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">Apply</button>
-  </form>
-
-  <form method="POST" action="/delete_account" class="mt-8">
-    <button type="submit" class="text-red-400 hover:underline">Delete my account</button>
-  </form>
+  </div>
 </body>
 </html>
