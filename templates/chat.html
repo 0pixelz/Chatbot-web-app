@@ -18,7 +18,7 @@
   <!-- HEADER -->
   <header class="bg-black p-3 flex justify-between items-center shadow-md">
     <div class="flex items-center space-x-2">
-      <button class="text-white text-2xl" onclick="document.getElementById('menu').classList.toggle('hidden')">&#9776;</button>
+      <button onclick="document.getElementById('menu').classList.toggle('hidden')" class="text-white text-2xl">&#9776;</button>
       <h1 class="text-xl font-bold">Web App</h1>
     </div>
 
@@ -71,7 +71,6 @@
     <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-full text-xl hover:bg-blue-700 transition">&#9658;</button>
   </form>
 
-  <!-- JS FOR DROPDOWN -->
   <script>
     function toggleDropdown() {
       document.getElementById("dropdownMenu").classList.toggle("hidden");
@@ -84,6 +83,5 @@
       }
     });
   </script>
-
 </body>
 </html>
