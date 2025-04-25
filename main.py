@@ -7,28 +7,31 @@ from google_auth_oauthlib.flow import Flow
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 import nest_asyncio
+import re
 
 # === CONFIG ===
 GROQ_API_KEY = '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'
-FIREBASE_JSON = 'opixelz-dgqoph-firebase-adminsdk-zxxqz-4770fd3f5a.json'
+FIREBASE_JSON = 'opixelz-dgqoph-firebase-adminsdk-zxxqz-4d576b374a.json'
 DATABASE_URL = 'https://opixelz-dgqoph.firebaseio.com/'
 LOCAL_TIMEZONE = 'America/Toronto'
 CLIENT_SECRET_FILE = 'client_secret_475746497039-4ofjje6ds8jr30jr9d2eb3crr0529j81.apps.googleusercontent.com.json'
 
-# === FLASK & FIREBASE ===
 app = Flask(__name__)
 app.secret_key = "supersecret"
+
+# === FIREBASE INIT ===
 cred = credentials.Certificate(FIREBASE_JSON)
 initialize_app(cred, {'databaseURL': DATABASE_URL})
 
-def clean_uid(uid): return uid.replace('.', '_')
+# === UID CLEANING ===
+def clean_uid(uid): return re.sub(r'[^\w@.-]', '_', uid)
+
+# === DATABASE ACCESS ===
 def load_user_history(uid): return db.reference(f'chat_memory/{clean_uid(uid)}').get() or []
 def save_user_history(uid, data): db.reference(f'chat_memory/{clean_uid(uid)}').set(data)
-def get_settings(uid): return db.reference(f'settings/{clean_uid(uid)}').get() or {}
-def save_settings(uid, data): db.reference(f'settings/{clean_uid(uid)}').set(data)
-def delete_user(uid): db.reference(f'chat_memory/{clean_uid(uid)}').delete(); db.reference(f'settings/{clean_uid(uid)}').delete()
+def delete_user_data(uid): db.reference(f'chat_memory/{clean_uid(uid)}').delete()
 
-# === AI ===
+# === AI REPLY ===
 async def generate_response(prompt, memory=[]):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
@@ -60,7 +63,7 @@ def login():
     session["state"] = state
     return redirect(auth_url)
 
-@app.route("/logout", methods=["POST"])
+@app.route("/logout")
 def logout():
     session.clear()
     return redirect("/chat")
@@ -76,7 +79,8 @@ def oauth_callback():
     credentials = flow.credentials
     request_session = grequests.Request()
     idinfo = id_token.verify_oauth2_token(credentials._id_token, request_session)
-    session["user_email"] = idinfo["email"]
+    session["user_email"] = idinfo.get("email")
+    session["user_name"] = idinfo.get("name")
     session["user_picture"] = idinfo.get("picture")
     return redirect("/chat")
 
@@ -99,32 +103,20 @@ def chat():
 @app.route("/clear", methods=["POST"])
 def clear():
     uid = session.get("user_email", "guest")
-    db.reference(f'chat_memory/{clean_uid(uid)}').delete()
+    delete_user_data(uid)
     return '', 204
 
-@app.route("/settings", methods=["GET", "POST"])
+@app.route("/settings")
 def settings():
-    uid = session.get("user_email", "guest")
-    if request.method == "POST":
-        data = {
-            "theme": request.form.get("theme", "dark"),
-            "font_size": request.form.get("font_size", "base"),
-            "personality": request.form.get("personality", ""),
-            "length": request.form.get("length", "medium")
-        }
-        save_settings(uid, data)
-        return redirect("/settings")
-    settings = get_settings(uid)
-    return render_template("settings.html", settings=settings)
+    return render_template("settings.html")
 
 @app.route("/delete_account", methods=["POST"])
 def delete_account():
     uid = session.get("user_email", "guest")
-    delete_user(uid)
+    delete_user_data(uid)
     session.clear()
-    return redirect("/")
+    return redirect("/chat")
 
-# === RUN ===
 if __name__ == "__main__":
     nest_asyncio.apply()
     app.run(host="0.0.0.0", port=8080)
