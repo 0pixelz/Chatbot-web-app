@@ -15,21 +15,18 @@ DATABASE_URL = 'https://opixelz-dgqoph.firebaseio.com/'
 LOCAL_TIMEZONE = 'America/Toronto'
 CLIENT_SECRET_FILE = 'client_secret_475746497039-4ofjje6ds8jr30jr9d2eb3crr0529j81.apps.googleusercontent.com.json'
 
+# === FLASK & FIREBASE ===
 app = Flask(__name__)
 app.secret_key = "supersecret"
-
-# === FIREBASE ===
 cred = credentials.Certificate(FIREBASE_JSON)
 initialize_app(cred, {'databaseURL': DATABASE_URL})
 
-def safe_uid(uid):
-    return uid.replace(".", "_")
-
-def load_user_history(uid):
-    return db.reference(f'chat_memory/{safe_uid(uid)}').get() or []
-
-def save_user_history(uid, data):
-    db.reference(f'chat_memory/{safe_uid(uid)}').set(data)
+def clean_uid(uid): return uid.replace('.', '_')
+def load_user_history(uid): return db.reference(f'chat_memory/{clean_uid(uid)}').get() or []
+def save_user_history(uid, data): db.reference(f'chat_memory/{clean_uid(uid)}').set(data)
+def get_settings(uid): return db.reference(f'settings/{clean_uid(uid)}').get() or {}
+def save_settings(uid, data): db.reference(f'settings/{clean_uid(uid)}').set(data)
+def delete_user(uid): db.reference(f'chat_memory/{clean_uid(uid)}').delete(); db.reference(f'settings/{clean_uid(uid)}').delete()
 
 # === AI ===
 async def generate_response(prompt, memory=[]):
@@ -48,7 +45,6 @@ async def generate_response(prompt, memory=[]):
         return f"❌ Groq connection error: {str(e)}"
 
 # === ROUTES ===
-
 @app.route("/")
 def index():
     return redirect("/chat")
@@ -57,18 +53,14 @@ def index():
 def login():
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRET_FILE,
-        scopes=[
-            'openid',
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/userinfo.profile'
-        ],
-        redirect_uri=url_for('oauth_callback', _external=True, _scheme='https')
+        scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
+        redirect_uri=url_for('oauth_callback', _external=True)
     )
     auth_url, state = flow.authorization_url()
     session["state"] = state
     return redirect(auth_url)
 
-@app.route("/logout")
+@app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
     return redirect("/chat")
@@ -77,19 +69,15 @@ def logout():
 def oauth_callback():
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRET_FILE,
-        scopes=[
-            'openid',
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/userinfo.profile'
-        ],
-        redirect_uri=url_for('oauth_callback', _external=True, _scheme='https')
+        scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
+        redirect_uri=url_for('oauth_callback', _external=True)
     )
     flow.fetch_token(code=request.args['code'])
     credentials = flow.credentials
     request_session = grequests.Request()
     idinfo = id_token.verify_oauth2_token(credentials._id_token, request_session)
     session["user_email"] = idinfo["email"]
-    session["user_picture"] = idinfo.get("picture", "")
+    session["user_picture"] = idinfo.get("picture")
     return redirect("/chat")
 
 @app.route("/chat", methods=["GET", "POST"])
@@ -108,25 +96,33 @@ def chat():
         save_user_history(uid, history)
     return render_template("chat.html", uid=uid, message=message, reply=reply, history=history)
 
-@app.route("/settings")
-def settings():
-    if not session.get("user_email"):
-        return redirect("/login")
-    return render_template("settings.html")
-
-@app.route("/delete_account", methods=["POST"])
-def delete_account():
-    uid = session.get("user_email")
-    if uid:
-        db.reference(f'chat_memory/{safe_uid(uid)}').delete()
-        session.clear()
-    return redirect("/chat")
-
 @app.route("/clear", methods=["POST"])
 def clear():
     uid = session.get("user_email", "guest")
-    db.reference(f'chat_memory/{safe_uid(uid)}').delete()
+    db.reference(f'chat_memory/{clean_uid(uid)}').delete()
     return '', 204
+
+@app.route("/settings", methods=["GET", "POST"])
+def settings():
+    uid = session.get("user_email", "guest")
+    if request.method == "POST":
+        data = {
+            "theme": request.form.get("theme", "dark"),
+            "font_size": request.form.get("font_size", "base"),
+            "personality": request.form.get("personality", ""),
+            "length": request.form.get("length", "medium")
+        }
+        save_settings(uid, data)
+        return redirect("/settings")
+    settings = get_settings(uid)
+    return render_template("settings.html", settings=settings)
+
+@app.route("/delete_account", methods=["POST"])
+def delete_account():
+    uid = session.get("user_email", "guest")
+    delete_user(uid)
+    session.clear()
+    return redirect("/")
 
 # === RUN ===
 if __name__ == "__main__":
