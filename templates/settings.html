@@ -1,61 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Settings</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white min-h-screen p-6">
-  <div class="max-w-xl mx-auto">
-    <h1 class="text-3xl font-bold mb-6">Account Settings</h1>
+  <h1 class="text-2xl font-bold mb-6">Settings</h1>
 
-    <!-- Appearance -->
-    <div class="mb-6">
-      <label class="block font-semibold mb-2">Appearance</label>
-      <select class="w-full bg-gray-800 text-white p-2 rounded" name="theme">
-        <option selected>Dark Mode</option>
-        <option>Light Mode</option>
+  <form method="POST" action="/settings" class="space-y-6">
+    <div>
+      <label class="block mb-2">Appearance</label>
+      <select name="theme" class="w-full bg-gray-800 text-white p-2 rounded">
+        <option value="dark" {% if settings.theme == 'dark' %}selected{% endif %}>Dark</option>
+        <option value="light" {% if settings.theme == 'light' %}selected{% endif %}>Light</option>
       </select>
     </div>
 
-    <!-- Font Size -->
-    <div class="mb-6">
-      <label class="block font-semibold mb-2">Font Size</label>
-      <select class="w-full bg-gray-800 text-white p-2 rounded" name="font_size">
-        <option>Small</option>
-        <option selected>Medium</option>
-        <option>Large</option>
+    <div>
+      <label class="block mb-2">Font Size</label>
+      <select name="font_size" class="w-full bg-gray-800 text-white p-2 rounded">
+        <option value="sm" {% if settings.font_size == 'sm' %}selected{% endif %}>Small</option>
+        <option value="base" {% if settings.font_size == 'base' %}selected{% endif %}>Medium</option>
+        <option value="lg" {% if settings.font_size == 'lg' %}selected{% endif %}>Large</option>
       </select>
     </div>
 
-    <!-- Personality -->
-    <div class="mb-6">
-      <label class="block font-semibold mb-2">Assistant Personality</label>
-      <select class="w-full bg-gray-800 text-white p-2 rounded" name="personality">
-        <option selected>Friendly</option>
-        <option>Formal</option>
-        <option>Funny</option>
+    <div>
+      <label class="block mb-2">Personality</label>
+      <input name="personality" value="{{ settings.personality }}" class="w-full bg-gray-800 text-white p-2 rounded" placeholder="e.g., Friendly, Sarcastic">
+    </div>
+
+    <div>
+      <label class="block mb-2">Response Length</label>
+      <select name="length" class="w-full bg-gray-800 text-white p-2 rounded">
+        <option value="short" {% if settings.length == 'short' %}selected{% endif %}>Short</option>
+        <option value="medium" {% if settings.length == 'medium' %}selected{% endif %}>Medium</option>
+        <option value="long" {% if settings.length == 'long' %}selected{% endif %}>Long</option>
       </select>
     </div>
 
-    <!-- Response Length -->
-    <div class="mb-6">
-      <label class="block font-semibold mb-2">Response Length</label>
-      <select class="w-full bg-gray-800 text-white p-2 rounded" name="response_length">
-        <option>Short</option>
-        <option selected>Medium</option>
-        <option>Detailed</option>
-      </select>
-    </div>
+    <button type="submit" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">Apply</button>
+  </form>
 
-    <!-- Delete Account -->
-    <div class="mt-10 border-t border-gray-700 pt-6">
-      <p class="text-red-400 font-semibold mb-2">Danger Zone</p>
-      <form method="post" action="/delete_account">
-        <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Delete My Account</button>
-      </form>
-    </div>
-  </div>
+  <form method="POST" action="/delete_account" class="mt-8">
+    <button type="submit" class="text-red-400 hover:underline">Delete my account</button>
+  </form>
 </body>
 </html>
