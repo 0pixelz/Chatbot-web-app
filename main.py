@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, redirect, session, url_for
-import asyncio, aiohttp, os
+import asyncio, aiohttp, os, json, tempfile
 from firebase_admin import credentials, db, initialize_app
 from datetime import datetime
 from pytz import timezone
@@ -7,38 +7,36 @@ from google_auth_oauthlib.flow import Flow
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 import nest_asyncio
-import re
 
-GROQ_API_KEY = 'your_groq_api_key_here'
-FIREBASE_JSON = 'opixelz-dgqoph-firebase-adminsdk-zxxqz-4d576b374a.json'
+# === CONFIG ===
+GROQ_API_KEY = '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'
 DATABASE_URL = 'https://opixelz-dgqoph.firebaseio.com/'
 LOCAL_TIMEZONE = 'America/Toronto'
-CLIENT_SECRET_FILE = 'your_google_client_secret_file.json'
+CLIENT_SECRET_FILE = 'client_secret_475746497039-4ofjje6ds8jr30jr9d2eb3crr0529j81.apps.googleusercontent.com.json'
 
+# === FLASK & FIREBASE ===
 app = Flask(__name__)
 app.secret_key = "supersecret"
-cred = credentials.Certificate(FIREBASE_JSON)
+
+# Load Firebase credentials from ENV variable
+firebase_json_raw = os.environ.get("FIREBASE_CREDENTIALS_JSON")
+firebase_json_dict = json.loads(firebase_json_raw)
+with tempfile.NamedTemporaryFile(mode='w+', delete=False) as temp_file:
+    json.dump(firebase_json_dict, temp_file)
+    temp_file.flush()
+    cred = credentials.Certificate(temp_file.name)
+
 initialize_app(cred, {'databaseURL': DATABASE_URL})
 
-def clean_uid(uid):
-    return re.sub(r'[.#$/]', '_', uid)
+# === DB UTILS ===
+def clean_uid(uid): return uid.replace('.', '_')
+def load_user_history(uid): return db.reference(f'chat_memory/{clean_uid(uid)}').get() or []
+def save_user_history(uid, data): db.reference(f'chat_memory/{clean_uid(uid)}').set(data)
+def get_settings(uid): return db.reference(f'settings/{clean_uid(uid)}').get() or {}
+def save_settings(uid, data): db.reference(f'settings/{clean_uid(uid)}').set(data)
+def delete_user(uid): db.reference(f'chat_memory/{clean_uid(uid)}').delete(); db.reference(f'settings/{clean_uid(uid)}').delete()
 
-def load_user_history(uid):
-    return db.reference(f'chat_memory/{clean_uid(uid)}').get() or []
-
-def save_user_history(uid, data):
-    db.reference(f'chat_memory/{clean_uid(uid)}').set(data)
-
-def load_user_settings(uid):
-    return db.reference(f'user_settings/{clean_uid(uid)}').get() or {}
-
-def save_user_settings(uid, settings):
-    db.reference(f'user_settings/{clean_uid(uid)}').set(settings)
-
-def delete_user(uid):
-    db.reference(f'chat_memory/{clean_uid(uid)}').delete()
-    db.reference(f'user_settings/{clean_uid(uid)}').delete()
-
+# === AI ===
 async def generate_response(prompt, memory=[]):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
@@ -47,11 +45,14 @@ async def generate_response(prompt, memory=[]):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=data) as resp:
+                if resp.status != 200:
+                    return f"❌ Groq API error {resp.status}"
                 result = await resp.json()
                 return result['choices'][0]['message']['content']
     except Exception as e:
-        return f"❌ Groq error: {str(e)}"
+        return f"❌ Groq connection error: {str(e)}"
 
+# === ROUTES ===
 @app.route("/")
 def index():
     return redirect("/chat")
@@ -67,7 +68,7 @@ def login():
     session["state"] = state
     return redirect(auth_url)
 
-@app.route("/logout")
+@app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
     return redirect("/chat")
@@ -90,9 +91,9 @@ def oauth_callback():
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
     uid = session.get("user_email", "guest")
+    message, reply = "", ""
     tz = timezone(LOCAL_TIMEZONE)
     history = load_user_history(uid)
-    message, reply = "", ""
     if request.method == "POST":
         message = request.form["message"]
         now = datetime.now(tz).strftime("%I:%M %p")
@@ -112,25 +113,26 @@ def clear():
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
     uid = session.get("user_email", "guest")
-    settings = load_user_settings(uid)
     if request.method == "POST":
-        settings = {
-            "appearance": request.form.get("appearance", ""),
-            "font_size": request.form.get("font_size", ""),
+        data = {
+            "theme": request.form.get("theme", "dark"),
+            "font_size": request.form.get("font_size", "base"),
             "personality": request.form.get("personality", ""),
-            "response_length": request.form.get("response_length", "")
+            "length": request.form.get("length", "medium")
         }
-        save_user_settings(uid, settings)
+        save_settings(uid, data)
         return redirect("/settings")
-    return render_template("settings.html", uid=uid, settings=settings)
+    settings = get_settings(uid)
+    return render_template("settings.html", settings=settings)
 
 @app.route("/delete_account", methods=["POST"])
 def delete_account():
     uid = session.get("user_email", "guest")
     delete_user(uid)
     session.clear()
-    return redirect("/chat")
+    return redirect("/")
 
+# === RUN ===
 if __name__ == "__main__":
     nest_asyncio.apply()
     app.run(host="0.0.0.0", port=8080)
