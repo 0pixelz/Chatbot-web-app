@@ -4,12 +4,75 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Settings</title>
+
   <script>
     tailwind.config = { darkMode: 'class' }
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen flex flex-col">
-<!-- Settings content -->
+
+  <!-- Top Navbar -->
+  <nav class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow">
+    <div class="flex items-center space-x-4">
+      <a href="/chat" class="text-gray-600 dark:text-gray-300 hover:underline font-bold text-xl">← Back to Chat</a>
+      <span class="font-bold text-xl">Settings</span>
+    </div>
+    <form method="POST" action="/logout" class="px-4">
+      <button type="submit" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded">
+        Logout
+      </button>
+    </form>
+  </nav>
+
+  <!-- Settings Section -->
+  <div class="flex-1 overflow-y-auto p-6">
+    <h1 class="text-3xl font-bold mb-6">Settings</h1>
+
+    <form method="POST" class="space-y-6">
+
+      <!-- Theme -->
+      <div>
+        <label for="theme" class="block mb-2 text-sm font-medium">Theme</label>
+        <select name="theme" id="theme" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600">
+          <option value="dark" {% if theme == 'dark' %}selected{% endif %}>Dark</option>
+          <option value="light" {% if theme == 'light' %}selected{% endif %}>Light</option>
+        </select>
+      </div>
+
+      <!-- Font Size -->
+      <div>
+        <label for="font_size" class="block mb-2 text-sm font-medium">Font Size</label>
+        <select name="font_size" id="font_size" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600">
+          <option value="small">Small</option>
+          <option value="base" selected>Base</option>
+          <option value="large">Large</option>
+        </select>
+      </div>
+
+      <!-- Assistant Personality -->
+      <div>
+        <label for="personality" class="block mb-2 text-sm font-medium">Assistant Personality</label>
+        <input type="text" name="personality" id="personality" placeholder="e.g., Friendly, Professional..." class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600">
+      </div>
+
+      <!-- Response Length -->
+      <div>
+        <label for="response_length" class="block mb-2 text-sm font-medium">Response Length</label>
+        <select name="response_length" id="response_length" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600">
+          <option value="short">Short</option>
+          <option value="medium" selected>Medium</option>
+          <option value="long">Long</option>
+        </select>
+      </div>
+
+      <button type="submit" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg">
+        Apply Settings
+      </button>
+
+    </form>
+
+  </div>
+
 </body>
 </html>
