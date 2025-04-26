@@ -1,0 +1,10 @@
+*.md
+*.zip
+*.tar.gz
+*.rar
+__pycache__/
+.env
+*.DS_Store
+.idea/
+.vscode/
+*.log
