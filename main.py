@@ -19,20 +19,6 @@ LOCAL_TIMEZONE             = os.getenv("LOCAL_TIMEZONE", "America/Toronto")
 CLIENT_SECRET_JSON         = os.getenv("GOOGLE_CLIENT_SECRET_JSON")
 FLASK_SECRET_KEY           = os.getenv("FLASK_SECRET_KEY")
 
-# Debugging: print to logs what DATABASE_URL is
-print("DATABASE_URL from ENV:", DATABASE_URL)
-
-# Validate presence of critical env vars
-missing = [k for k,v in {
-    "GROQ_API_KEY": GROQ_API_KEY,
-    "FIREBASE_CREDENTIALS_JSON": FIREBASE_CREDENTIALS_JSON,
-    "DATABASE_URL": DATABASE_URL,
-    "GOOGLE_CLIENT_SECRET_JSON": CLIENT_SECRET_JSON,
-    "FLASK_SECRET_KEY": FLASK_SECRET_KEY
-}.items() if not v]
-if missing:
-    raise ValueError(f"Missing environment variables: {', '.join(missing)}")
-
 # === FLASK & FIREBASE INIT ===
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
@@ -59,11 +45,12 @@ def delete_user(uid):
     db.reference(f'chat_memory/{clean_uid(uid)}').delete()
     db.reference(f'settings/{clean_uid(uid)}').delete()
 
+# === AI RESPONSE ===
 async def generate_response(prompt, memory=[]):
-    url     = "https://api.groq.com/openai/v1/chat/completions"
+    url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
     messages = [{"role": "system", "content": "You're a helpful assistant."}] + memory + [{"role": "user", "content": prompt}]
-    data    = {"model": "llama3-70b-8192", "messages": messages}
+    data = {"model": "llama3-70b-8192", "messages": messages}
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=data) as resp:
@@ -74,34 +61,21 @@ async def generate_response(prompt, memory=[]):
     except Exception as e:
         return f"❌ Groq connection error: {str(e)}"
 
+# === ROUTES ===
 @app.route("/")
 def index():
-    uid = session.get("user_email", None)
-    if uid:
-        return redirect("/chat")
-    else:
-        return render_template("welcome.html")
+    return redirect("/chat")
 
 @app.route("/login")
 def login():
     flow = Flow.from_client_config(
         json.loads(CLIENT_SECRET_JSON),
-        scopes=[
-            "openid",
-            "https://www.googleapis.com/auth/userinfo.email",
-            "https://www.googleapis.com/auth/userinfo.profile"
-        ],
-        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
+        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
+        redirect_uri=url_for("oauth_callback", _external=True)
     )
     auth_url, state = flow.authorization_url()
     session["state"] = state
     return redirect(auth_url)
-
-@app.route("/continue_as_guest", methods=["POST"])
-def continue_as_guest():
-    session.clear()
-    session["user_email"] = "guest"
-    return redirect("/chat")
 
 @app.route("/logout", methods=["POST"])
 def logout():
@@ -112,12 +86,8 @@ def logout():
 def oauth_callback():
     flow = Flow.from_client_config(
         json.loads(CLIENT_SECRET_JSON),
-        scopes=[
-            "openid",
-            "https://www.googleapis.com/auth/userinfo.email",
-            "https://www.googleapis.com/auth/userinfo.profile"
-        ],
-        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
+        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
+        redirect_uri=url_for("oauth_callback", _external=True)
     )
     flow.fetch_token(code=request.args["code"])
     creds = flow.credentials
@@ -159,13 +129,13 @@ def settings():
     uid = session.get("user_email", "guest")
     if request.method == "POST":
         data = {
-            "theme": request.form.get("theme", "light"),
+            "theme": request.form.get("theme", "dark"),
             "font_size": request.form.get("font_size", "base"),
             "personality": request.form.get("personality", ""),
             "length": request.form.get("length", "medium")
         }
         save_settings(uid, data)
-        return redirect("/settings")
+        return redirect("/chat")  # <=== redirect back to chat immediately after applying
     settings = get_settings(uid)
     return render_template("settings.html", settings=settings)
 
