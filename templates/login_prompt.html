@@ -1,26 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" {% if theme == 'dark' %}class="dark"{% endif %}>
 <head>
     <meta charset="UTF-8">
-    <title>Welcome to Opixelz Chatbot</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen flex flex-col justify-center items-center">
 
-    <div class="text-center space-y-6">
-        <h1 class="text-4xl font-bold text-gray-800">Welcome to Chatbot!</h1>
-        <p class="text-gray-600">Log in with your Google account or continue as a guest.</p>
+    <div class="bg-white dark:bg-gray-800 p-8 rounded shadow-md w-full max-w-sm">
+        <h1 class="text-2xl font-bold mb-6 text-center">Welcome!</h1>
+        <p class="text-gray-600 dark:text-gray-400 mb-4 text-center">Please log in to continue.</p>
 
-        <div class="space-y-4">
-            <a href="/login" class="block w-48 mx-auto py-3 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600">
-                Login with Google
-            </a>
-
-            <a href="/chat" class="block w-48 mx-auto py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg hover:bg-gray-400">
-                Continue as Guest
-            </a>
-        </div>
+        <a href="/login" class="w-full flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded space-x-2">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google Logo" class="w-5 h-5">
+            <span>Sign in with Google</span>
+        </a>
     </div>
 
 </body>
