@@ -1,46 +1,21 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>My Conversations - Chatbot</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Conversation</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 flex flex-col min-h-screen">
-
-  <nav class="bg-white p-4 flex justify-between items-center shadow">
-    <div class="text-xl font-bold">My Conversations</div>
-    <div>
-      <a href="/chat" class="text-blue-500 hover:underline">Back to Chat</a>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-6">  <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-md">
+    <h1 class="text-2xl font-bold mb-6 text-center">Create a New Conversation</h1>
+    <form action="/new_conversation" method="POST" class="flex flex-col gap-4">
+      <div>
+        <label for="topic" class="block text-sm font-semibold mb-1">Conversation Topic</label>
+        <input type="text" name="topic" id="topic" placeholder="Enter a topic (optional)" class="w-full p-3 rounded-xl bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <button type="submit" class="bg-blue-600 hover:bg-blue-700 transition p-3 rounded-xl text-lg font-bold">Create</button>
+    </form>
+    <div class="text-center mt-6">
+      <a href="/chat" class="text-blue-400 hover:underline">Back to Chat</a>
     </div>
-  </nav>
-
-  <div class="flex-1 p-8">
-    <h2 class="text-2xl font-bold mb-6">Select a Conversation</h2>
-
-    <div class="grid gap-4">
-      {% for cid, convo in conversations.items() %}
-        <a href="/chat?conversation={{ cid }}" class="block p-4 bg-white shadow rounded hover:bg-blue-50">
-          <div class="font-semibold text-lg">
-            {{ convo.get('title', 'Untitled Conversation') }}
-          </div>
-          <div class="text-sm text-gray-500">
-            Started {{ convo.get('created_at', 'Unknown') }}
-          </div>
-        </a>
-      {% else %}
-        <div class="text-gray-600">No conversations yet. Start a new one!</div>
-      {% endfor %}
-    </div>
-
-    <div class="mt-8">
-      <form method="POST" action="/new_conversation">
-        <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded">
-          Start New Conversation
-        </button>
-      </form>
-    </div>
-  </div>
-
-</body>
+  </div></body>
 </html>
