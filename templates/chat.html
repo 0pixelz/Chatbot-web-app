@@ -6,7 +6,7 @@
   <title>Chat</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="flex flex-col min-h-screen {% if theme == 'dark' %}dark bg-gray-900{% else %}bg-gray-100{% endif %}">
+<body class="flex flex-col min-h-screen {% if settings.theme == 'dark' %}dark bg-gray-900{% else %}bg-gray-100{% endif %}">
 
 <!-- Top Navbar -->
 <header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow z-50 fixed w-full top-0">
@@ -14,17 +14,19 @@
     ☰
   </button>
   <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">Chatbot</h1>
+  
+  <!-- Avatar -->
   <div class="relative">
     <button onclick="toggleMenu()" class="focus:outline-none">
       {% if session.get("user_picture") %}
         <img src="{{ session['user_picture'] }}" alt="Avatar" class="w-10 h-10 rounded-full">
       {% else %}
-        <div class="w-10 h-10 bg-white text-gray-800 font-bold flex items-center justify-center rounded-full border">G</div>
+        <img src="{{ url_for('static', filename='pngegg.png') }}" alt="Google Login" class="w-10 h-10 rounded-full">
       {% endif %}
     </button>
     <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded shadow-lg z-50">
       <a href="/settings" class="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
-      <form action="/clear_and_restart" method="POST">
+      <form action="/clear" method="POST">
         <button type="submit" class="w-full text-left px-4 py-2 text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-600">Start New Chat</button>
       </form>
       {% if session.get("user_email") %}
