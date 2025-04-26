@@ -51,14 +51,14 @@
 </div>
 
 <!-- Chat Area -->
-<main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20">
+<main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 text-gray-800 dark:text-gray-100">
   {% for msg in history %}
     <div class="mb-6">
-      <div class="font-bold {% if msg.role == 'user' %}text-blue-600{% else %}text-green-600{% endif %}">
+      <div class="font-bold {% if msg.role == 'user' %}text-blue-600{% else %}text-green-500{% endif %}">
         {{ msg.role.capitalize() }}
       </div>
       <div 
-        class="p-3 rounded mt-1 whitespace-pre-line
+        class="p-4 rounded-lg mt-1 text-base leading-relaxed whitespace-pre-wrap
           {% if settings.theme == 'dark' %}
             {% if msg.role == 'user' %} bg-gray-700 {% else %} bg-gray-700 {% endif %}
           {% else %}
@@ -108,29 +108,29 @@ function scrollToBottom() {
   chatArea.scrollTop = chatArea.scrollHeight;
 }
 
-// === Typing Animation ===
+// === Typing Animation (assistant only) ===
 function animateMessages() {
   const chatArea = document.getElementById('chatArea');
   const messages = chatArea.querySelectorAll('[data-role]');
   
   messages.forEach((div) => {
-    const fullText = div.innerText;
+    const fullText = div.textContent;
     const role = div.getAttribute('data-role');
-    div.innerText = '';
+    div.textContent = '';
 
     if (role === 'assistant') {
       let i = 0;
       function typeChar() {
         if (i < fullText.length) {
-          div.innerText += fullText.charAt(i);
+          div.textContent += fullText.charAt(i);
           i++;
           scrollToBottom();
-          setTimeout(typeChar, 10); // typing speed
+          setTimeout(typeChar, 15); // Typing speed
         }
       }
       typeChar();
     } else {
-      div.innerText = fullText; // user message appear instantly
+      div.textContent = fullText; // User messages instantly
     }
   });
 }
