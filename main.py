@@ -1,3 +1,4 @@
+
 import os
 import json
 import asyncio
@@ -69,8 +70,7 @@ def settings():
     theme = session.get('theme', 'dark')
     return render_template('settings.html', theme=theme)
 
-# Keep your other routes, handlers, AI replies, and reminder logic intact here...
-# (They don't need to change for the theme fix.)
-
-if __name__ == '__main__':
-    app.run(debug=True, port=8080)
+@app.route('/login')
+def login_prompt():
+    theme = session.get('theme', 'dark')
+    return render_template('login_prompt.html', theme=theme)
