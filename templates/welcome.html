@@ -4,19 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Welcome</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body.light {
-      background-color: #f7fafc;
-      color: #1a202c;
-    }
-    body.dark {
-      background-color: #1a202c;
-      color: #edf2f7;
-    }
-  </style>
+  <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="{% if theme == 'dark' %}dark{% else %}light{% endif %} min-h-screen flex flex-col items-center justify-center">
-<!-- Your original welcome content here -->
+<body class="{% if theme == 'dark' %}dark-theme{% else %}light-theme{% endif %}">
+<main>Welcome Content</main>
 </body>
 </html>
