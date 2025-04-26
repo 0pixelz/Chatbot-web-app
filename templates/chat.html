@@ -1,113 +1,103 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Chat with AI</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <title>Chatbot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    html, body { height: 100%; }
-    .typing::after {
-      content: "_";
-      animation: blink 1s step-start infinite;
-    }
-    @keyframes blink {
-      50% { opacity: 0; }
-    }
-  </style>
-  <script>
-    function scrollToBottom() {
-      const container = document.getElementById("messages");
-      if (!container.classList.contains("scroll-lock")) {
-        container.scrollTop = container.scrollHeight;
-      }
-    }
-    let autoScroll = true;
-    function handleScroll() {
-      const container = document.getElementById("messages");
-      const atBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 10;
-      container.classList.toggle("scroll-lock", !atBottom);
-    }
-    window.onload = scrollToBottom;
-  </script>
 </head>
-<body class="bg-gray-900 text-white flex flex-col h-screen">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen flex flex-col">
 
-  <header class="bg-black p-3 flex justify-between items-center shadow-md">
-    <div class="flex items-center space-x-3">
-      <div class="relative">
-        <button onclick="toggleMenu()" class="text-white text-2xl">&#9776;</button>
-        <div id="menu" class="hidden absolute bg-white text-black rounded shadow mt-2 z-50 w-40">
-          <form action="/clear" method="post"><button class="block w-full text-left px-4 py-2 hover:bg-gray-200">Clear Chat</button></form>
-          <a href="/settings" class="block px-4 py-2 hover:bg-gray-200">Settings</a>
-        </div>
-      </div>
-      <h1 class="text-xl font-bold">Web App</h1>
+  <!-- Top Bar -->
+  <div class="flex items-center justify-between p-4 bg-white dark:bg-gray-800 shadow">
+    <div class="flex items-center">
+      <button id="menu-button" class="mr-4 focus:outline-none">
+        <svg class="w-6 h-6 text-gray-700 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      <h1 class="text-xl font-semibold">Chatbot</h1>
     </div>
+    {% if session.get('user_email') %}
     <div class="relative">
-      {% if session.get('user_email') %}
-        <button onclick="toggleProfile()" class="w-8 h-8 rounded-full overflow-hidden">
-          <img src="{{ session['user_picture'] }}" alt="avatar" class="w-full h-full object-cover" />
-        </button>
-        <div id="profileMenu" class="hidden absolute right-0 bg-white text-black rounded shadow mt-2 z-50 w-48">
-          <div class="px-4 py-2 border-b text-sm">{{ session['user_email'] }}</div>
-          <a href="/settings" class="block px-4 py-2 hover:bg-gray-200 text-sm">Account Settings</a>
-          <form action="/logout" method="post">
-            <button class="w-full text-left px-4 py-2 hover:bg-gray-200 text-sm">Logout</button>
-          </form>
-        </div>
-      {% else %}
-        <a href="/login" class="rounded-full bg-gray-800 text-white px-4 py-1 text-sm hover:bg-gray-700 flex items-center gap-1">
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-4 h-4"> Login
-        </a>
-      {% endif %}
+      <button id="avatar-button" class="focus:outline-none">
+        {% if session.get('user_picture') %}
+          <img src="{{ session['user_picture'] }}" class="w-10 h-10 rounded-full" alt="User">
+        {% else %}
+          <div class="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-white">
+            {{ session['user_name'][0]|upper }}
+          </div>
+        {% endif %}
+      </button>
+      <div id="dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded shadow-md">
+        <form method="POST" action="/logout">
+          <button type="submit" class="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">Logout</button>
+        </form>
+        <a href="/settings" class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
+        <form method="POST" action="/delete_account">
+          <button type="submit" class="block w-full text-left px-4 py-2 hover:bg-red-100 dark:hover:bg-red-600 text-red-600 dark:text-red-300">Delete Account</button>
+        </form>
+      </div>
     </div>
-  </header>
-
-  <main id="messages" class="flex-1 overflow-y-auto px-4 py-2" onscroll="handleScroll()">
-    {% for m in history %}
-      <div class="mb-3 flex {{ 'justify-end' if m.role == 'user' else 'justify-start' }}">
-        <div class="max-w-[80%] rounded-2xl px-4 py-2 {{ 'bg-blue-600 text-white' if m.role == 'user' else 'bg-gray-800 text-gray-100' }}">
-          <div>{{ m.content }}</div>
-          <div class="text-xs text-gray-400 mt-1">{{ m.time }}</div>
-        </div>
-      </div>
-    {% endfor %}
-    {% if reply %}
-      <div class="mb-3 flex justify-start">
-        <div class="max-w-[80%] rounded-2xl px-4 py-2 bg-gray-800 text-gray-100 typing" id="aiReply">
-          <span id="aiText"></span>
-        </div>
-      </div>
-      <script>
-        const fullReply = `{{ reply | replace('\n', '\\n') }}`;
-        const span = document.getElementById("aiText");
-        let i = 0;
-        function typeNextChar() {
-          if (i < fullReply.length) {
-            span.textContent += fullReply.charAt(i);
-            i++;
-            scrollToBottom();
-            setTimeout(typeNextChar, 20);
-          }
-        }
-        typeNextChar();
-      </script>
     {% endif %}
-  </main>
+  </div>
 
-  <form method="post" class="bg-black p-3 flex gap-2 fixed bottom-0 w-full">
-    <input name="message" autofocus autocomplete="off" placeholder="Type your message..." class="flex-1 px-4 py-2 rounded-xl bg-gray-800 text-white focus:outline-none">
-    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-full text-xl hover:bg-blue-700 transition">&#9658;</button>
+  <!-- Sidebar (hidden by default) -->
+  <div id="sidebar" class="fixed top-0 left-0 h-full w-64 bg-white dark:bg-gray-800 shadow-lg transform -translate-x-full transition-transform">
+    <div class="flex flex-col h-full">
+      <div class="p-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold">Conversations</h2>
+        <form action="/new_conversation" method="POST">
+          <button type="submit" class="text-blue-500 hover:text-blue-700">+ New</button>
+        </form>
+      </div>
+      <div class="flex-1 overflow-y-auto">
+        {% for cid, convo in conversations.items() %}
+          <div class="{% if cid == current_convo_id %}bg-gray-200 dark:bg-gray-700{% endif %} p-3">
+            <form method="POST" action="/chat">
+              <input type="hidden" name="switch_conversation" value="{{ cid }}">
+              <button class="w-full text-left truncate">{{ convo.title }}</button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat Area -->
+  <div class="flex-1 p-6 overflow-y-auto">
+    <div class="space-y-4">
+      {% for m in history %}
+        <div class="p-3 rounded {{ 'bg-blue-100 dark:bg-blue-900' if m.role == 'user' else 'bg-gray-200 dark:bg-gray-700' }}">
+          <strong>{{ 'You' if m.role == 'user' else 'Bot' }}:</strong> {{ m.content }}
+          <div class="text-sm text-gray-500 mt-1">{{ m.time }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Input Bar -->
+  <form method="POST" class="p-4 bg-white dark:bg-gray-800 shadow flex">
+    <input name="message" required autocomplete="off" class="flex-1 rounded-l px-4 py-2 focus:outline-none dark:bg-gray-700" placeholder="Type your message...">
+    <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white rounded-r px-4 py-2">Send</button>
   </form>
 
   <script>
-    function toggleMenu() {
-      document.getElementById("menu").classList.toggle("hidden");
-    }
-    function toggleProfile() {
-      document.getElementById("profileMenu").classList.toggle("hidden");
-    }
+    // Hamburger menu toggle
+    const menuButton = document.getElementById('menu-button');
+    const sidebar = document.getElementById('sidebar');
+    menuButton.addEventListener('click', () => {
+      sidebar.classList.toggle('-translate-x-full');
+    });
+
+    // Avatar dropdown toggle
+    const avatarButton = document.getElementById('avatar-button');
+    const dropdown = document.getElementById('dropdown');
+    avatarButton.addEventListener('click', () => {
+      dropdown.classList.toggle('hidden');
+    });
   </script>
+
 </body>
 </html>
