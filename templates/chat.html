@@ -45,9 +45,16 @@
 
     {% if conversations %}
       {% for convo_id, messages in conversations.items() %}
-        <a href="/chat/{{ convo_id }}" class="block py-2 text-gray-800 dark:text-gray-200 hover:underline truncate">
-          {{ messages[-1]["content"][:20] if messages else 'New Chat' }}
-        </a>
+        <div class="flex items-center justify-between group">
+          <a href="/chat/{{ convo_id }}" class="block py-2 text-gray-800 dark:text-gray-200 hover:underline truncate flex-1">
+            {{ messages[-1]["content"][:20] if messages else 'New Chat' }}
+          </a>
+          <form action="/delete_conversation/{{ convo_id }}" method="POST" onsubmit="return confirm('Delete this conversation?');">
+            <button type="submit" class="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 px-2">
+              🗑️
+            </button>
+          </form>
+        </div>
       {% endfor %}
     {% else %}
       <div class="text-gray-400 py-2">No conversations yet</div>
