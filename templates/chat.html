@@ -58,12 +58,18 @@
       <div class="font-bold {% if msg.role == 'user' %}text-blue-500{% else %}text-green-400{% endif %}">
         {{ msg.role.capitalize() }}
       </div>
-      <div class="p-2 bg-gray-200 dark:bg-gray-700 rounded mt-1">
+      <div class="p-2 rounded mt-1
+           {% if settings.theme == 'dark' %}
+              {% if msg.role == 'user' %} bg-gray-700 {% else %} bg-gray-700 {% endif %}
+           {% else %}
+              {% if msg.role == 'user' %} bg-blue-100 {% else %} bg-gray-100 {% endif %}
+           {% endif %}">
         {{ msg.content }}
       </div>
     </div>
   {% endfor %}
 </main>
+
 
 <!-- Input at bottom -->
 <form method="POST" class="bg-white dark:bg-gray-800 p-4 flex items-center space-x-2">
