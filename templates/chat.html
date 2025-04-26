@@ -1,54 +1,63 @@
-<!-- chat.html --><!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chat</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8">
+    <title>Chatbot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100">
-<div class="flex flex-col h-screen">
-  <nav class="bg-white shadow p-4 flex justify-between items-center">
-    <div>
-      <form action="/new_conversation" method="post">
-        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">New Chat</button>
-      </form>
-    </div>
-    <div>
-      <form action="/logout" method="post">
-        <button type="submit" class="bg-red-500 text-white px-4 py-2 rounded">Logout</button>
-      </form>
-    </div>
-  </nav>  <div class="flex flex-1 overflow-hidden">
-    <aside class="w-64 bg-white shadow p-4 overflow-y-auto">
-      <h2 class="font-bold mb-4">Conversations</h2>
-      {% for cid, convo in chats.items() %}
-        <div>
-          <a href="/chat?conversation={{ cid }}" class="block py-2 text-blue-600 hover:underline">
-            {{ convo.title }}
-          </a>
+<body class="bg-gray-900 text-white h-screen flex flex-col">
+    <nav class="bg-gray-800 p-4 flex justify-between items-center">
+        <div class="flex space-x-2 items-center">
+            <form action="/new_chat" method="post">
+                <button type="submit" class="bg-green-500 hover:bg-green-700 px-3 py-1 rounded">
+                    + New Conversation
+                </button>
+            </form>
         </div>
-      {% endfor %}
-    </aside><main class="flex-1 p-6 overflow-y-auto">
-  <div class="space-y-4">
-    {% for item in history %}
-      <div class="{{ 'text-right' if item.role == 'user' else 'text-left' }}">
-        <div class="inline-block bg-{{ 'blue-200' if item.role == 'user' else 'gray-200' }} px-4 py-2 rounded">
-          <p>{{ item.content }}</p>
-          <small class="block text-gray-500">{{ item.time }}</small>
+        <div class="flex items-center space-x-4">
+            {% if session.get('user_picture') %}
+                <img src="{{ session['user_picture'] }}" alt="Avatar" class="w-8 h-8 rounded-full">
+            {% else %}
+                <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
+                    {{ session.get('user_name', 'G')[0]|upper }}
+                </div>
+            {% endif %}
+            <form action="/logout" method="post">
+                <button type="submit" class="text-sm bg-red-500 hover:bg-red-700 px-3 py-1 rounded">Logout</button>
+            </form>
         </div>
-      </div>
-    {% endfor %}
-  </div>
+    </nav>
 
-  <form method="post" class="mt-6">
-    <div class="flex">
-      <input name="message" type="text" placeholder="Type your message..." class="flex-1 p-2 border rounded-l" required>
-      <button type="submit" class="bg-blue-500 text-white px-6 py-2 rounded-r">Send</button>
+    <div class="flex flex-1 overflow-hidden">
+        <!-- Sidebar for conversation list -->
+        <div class="w-64 bg-gray-800 overflow-y-auto p-4 hidden md:block">
+            <h2 class="text-xl mb-4">Conversations</h2>
+            <ul class="space-y-2">
+                {% for chat_id, messages in chats.items() %}
+                    <li class="text-gray-300 text-sm truncate">
+                        {{ messages[0]['content'] if messages else 'New Chat' }}
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Chatbox -->
+        <div class="flex-1 flex flex-col p-4 overflow-y-auto">
+            <div class="flex-1 space-y-4 overflow-y-auto mb-4">
+                {% for item in history %}
+                    <div class="p-2 rounded {{ 'bg-gray-700' if item.role == 'user' else 'bg-gray-600' }}">
+                        <strong>{{ 'You' if item.role == 'user' else 'Bot' }}:</strong> {{ item.content }}
+                        <span class="text-xs text-gray-400 block">{{ item.time }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <form action="/chat" method="post" class="flex space-x-2">
+                <input type="text" name="message" placeholder="Type a message..." autocomplete="off"
+                    class="flex-1 p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none">
+                <button type="submit" class="bg-blue-500 hover:bg-blue-700 px-4 rounded">Send</button>
+            </form>
+        </div>
     </div>
-  </form>
-</main>
-
-  </div>
-</div>
 </body>
 </html>
