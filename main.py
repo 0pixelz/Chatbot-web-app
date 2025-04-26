@@ -1,4 +1,4 @@
-# === FULL main.py (FINAL corrected with working theme switching) ===
+# === FULL main.py (FINAL FINAL version for Render) ===
 
 import os
 import json
@@ -71,7 +71,7 @@ def settings():
         print("Selected theme:", selected_theme)  # Debugging print
         if selected_theme:
             session['theme'] = selected_theme
-            session.permanent = True  # 🔥 Keep the theme in session across page reloads
+            session.permanent = True  # 🔥 Keep theme setting across page reloads
             print("Theme now saved in session:", session.get('theme'))
         return redirect(url_for('settings'))
 
@@ -84,10 +84,14 @@ def login_prompt():
     theme = session.get('theme', 'dark')
     return render_template('login_prompt.html', theme=theme)
 
+# === Health Check for Render (Bonus) ===
+@app.route('/healthz')
+def healthcheck():
+    return 'OK', 200
+
 # === YOUR OTHER LOGIC (AI, REMINDERS, GMAIL, ETC.) ===
-# Keep all your existing AI chat handlers, /connectgmail routes, webhook listeners, self-ping functions etc here.
-# No changes needed for those to support the theme fix!
+# You can add here your chat handlers, connectgmail, webhook, etc.
 
 # === RUN ===
 if __name__ == '__main__':
-    app.run(debug=True, port=8080)
+    app.run(host='0.0.0.0', port=8080, debug=True)
