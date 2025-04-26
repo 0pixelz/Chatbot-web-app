@@ -1,4 +1,4 @@
-# === FULL FINAL main.py (Groq fixed + All functional) ===
+# === FULL FINAL main.py (Groq fixed + all features working) ===
 
 import os
 import json
@@ -28,7 +28,7 @@ app.secret_key = FLASK_SECRET_KEY
 cred = credentials.Certificate(json.loads(FIREBASE_CREDENTIALS_JSON))
 initialize_app(cred, {'databaseURL': DATABASE_URL})
 
-nest_asyncio.apply()  # 🔥 Needed for asyncio inside Flask!
+nest_asyncio.apply()
 
 # === UTILITIES ===
 def clean_uid(uid):
@@ -55,8 +55,12 @@ def generate_ai_response(prompt):
         "Content-Type": "application/json"
     }
     payload = {
+        "model": "mixtral-8x7b-32768",  # <-- Adjust here if needed
         "messages": [{"role": "user", "content": prompt}],
-        "model": "mixtral-8x7b-32768"
+        "temperature": 0.7,
+        "top_p": 1,
+        "stream": False,
+        "max_tokens": 1024
     }
 
     async def call_groq():
@@ -68,7 +72,7 @@ def generate_ai_response(prompt):
             ) as resp:
                 result = await resp.json()
                 if 'choices' not in result:
-                    print("Groq API Error:", result)  # Print error
+                    print("Groq API Error:", result)
                     return "I'm thinking... Please try again later!"
                 return result['choices'][0]['message']['content']
 
@@ -189,7 +193,6 @@ def continue_as_guest():
     session['guest'] = True
     return redirect(url_for('chat'))
 
-# === Health Check for Render ===
 @app.route('/healthz')
 def healthcheck():
     return 'OK', 200
