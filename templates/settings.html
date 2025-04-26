@@ -1,53 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" {% if settings.theme == 'dark' %}class="dark"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.2/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen flex flex-col items-center justify-center">
-    <div class="w-full max-w-md p-8 bg-white dark:bg-gray-800 shadow-md rounded-lg">
-        <h1 class="text-2xl font-bold mb-6 text-center">Settings</h1>
-        <form method="post" action="/settings" class="space-y-4">
+<body class="{% if settings.theme == 'dark' %}bg-gray-900 text-white{% else %}bg-gray-100 text-gray-900{% endif %} min-h-screen flex flex-col">
+
+    <div class="p-6 max-w-2xl mx-auto w-full">
+        <h1 class="text-2xl font-bold mb-6">Settings</h1>
+        <form method="post" class="space-y-6">
             <div>
-                <label for="theme" class="block text-sm font-medium mb-1">Theme</label>
-                <select id="theme" name="theme" class="w-full border rounded px-3 py-2 dark:bg-gray-700">
+                <label class="block mb-2 font-semibold">Theme</label>
+                <select name="theme" class="w-full p-2 rounded-md bg-white dark:bg-gray-800 text-black dark:text-white">
                     <option value="light" {% if settings.theme == 'light' %}selected{% endif %}>Light</option>
                     <option value="dark" {% if settings.theme == 'dark' %}selected{% endif %}>Dark</option>
                 </select>
             </div>
-
             <div>
-                <label for="font_size" class="block text-sm font-medium mb-1">Font Size</label>
-                <select id="font_size" name="font_size" class="w-full border rounded px-3 py-2 dark:bg-gray-700">
+                <label class="block mb-2 font-semibold">Font Size</label>
+                <select name="font_size" class="w-full p-2 rounded-md bg-white dark:bg-gray-800 text-black dark:text-white">
                     <option value="small" {% if settings.font_size == 'small' %}selected{% endif %}>Small</option>
-                    <option value="base" {% if settings.font_size == 'base' %}selected{% endif %}>Normal</option>
+                    <option value="base" {% if settings.font_size == 'base' %}selected{% endif %}>Base</option>
                     <option value="large" {% if settings.font_size == 'large' %}selected{% endif %}>Large</option>
                 </select>
             </div>
-
             <div>
-                <label for="personality" class="block text-sm font-medium mb-1">Personality Prompt</label>
-                <input type="text" id="personality" name="personality" value="{{ settings.personality }}" class="w-full border rounded px-3 py-2 dark:bg-gray-700">
+                <label class="block mb-2 font-semibold">Assistant Personality</label>
+                <input type="text" name="personality" value="{{ settings.personality or '' }}" class="w-full p-2 rounded-md bg-white dark:bg-gray-800 text-black dark:text-white">
             </div>
-
             <div>
-                <label for="length" class="block text-sm font-medium mb-1">Reply Length</label>
-                <select id="length" name="length" class="w-full border rounded px-3 py-2 dark:bg-gray-700">
+                <label class="block mb-2 font-semibold">Response Length</label>
+                <select name="length" class="w-full p-2 rounded-md bg-white dark:bg-gray-800 text-black dark:text-white">
                     <option value="short" {% if settings.length == 'short' %}selected{% endif %}>Short</option>
                     <option value="medium" {% if settings.length == 'medium' %}selected{% endif %}>Medium</option>
                     <option value="long" {% if settings.length == 'long' %}selected{% endif %}>Long</option>
                 </select>
             </div>
 
-            <div class="flex justify-between mt-6">
-                <a href="/chat" class="text-blue-500 hover:underline">Back to Chat</a>
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded">
-                    Apply Settings
-                </button>
+            <div class="flex justify-between">
+                <button type="submit" class="bg-blue-500 text-white px-6 py-2 rounded-md">Apply Settings</button>
+                <a href="/chat" class="bg-gray-500 text-white px-6 py-2 rounded-md">Back</a>
             </div>
         </form>
+
+        <form method="post" action="/delete_account" class="mt-6">
+            <button type="submit" class="bg-red-600 text-white px-6 py-2 rounded-md">Delete My Account</button>
+        </form>
     </div>
+
 </body>
 </html>
