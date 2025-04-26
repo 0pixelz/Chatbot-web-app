@@ -1,99 +1,93 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="{{ theme }}">
+<html lang="en" {% if settings.theme == 'dark' %}class="dark"{% endif %}>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Chatbot</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.2/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body class="flex h-screen bg-gray-100 dark:bg-gray-900">
-
-  <!-- Sidebar -->
-  <div id="sidebar" class="w-64 bg-white dark:bg-gray-800 p-4 overflow-y-auto hidden md:block">
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-xl font-bold dark:text-white">Conversations</h2>
-      <form method="post" action="/clear">
-        <button type="submit" class="text-red-500 hover:text-red-700 text-sm">Clear All</button>
-      </form>
-    </div>
-    <div class="space-y-4">
-      {% if chats %}
-        {% for cid, convo in chats.items() %}
-          <div class="p-2 bg-gray-200 dark:bg-gray-700 rounded">
-            {{ convo.get('title', 'Conversation') }}
-          </div>
-        {% endfor %}
-      {% else %}
-        <p class="text-gray-500 dark:text-gray-400 text-sm">No conversations yet.</p>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- Main Area -->
-  <div class="flex-1 flex flex-col">
-    <!-- Top Bar -->
-    <div class="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700 relative">
-      <button onclick="toggleSidebar()" class="md:hidden text-gray-700 dark:text-gray-200 focus:outline-none">
-        ☰
-      </button>
-
-      <!-- Avatar and Menu -->
-      <div class="relative">
-        <button onclick="toggleMenu()" class="flex items-center focus:outline-none">
-          {% if session.get('user_picture') %}
-            <img src="{{ session['user_picture'] }}" class="w-10 h-10 rounded-full">
-          {% else %}
-            <div class="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-white">
-              {{ uid[0]|upper }}
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen flex flex-col">
+    <!-- Top bar -->
+    <div class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow">
+        <div class="flex items-center space-x-2">
+            <button onclick="toggleSidebar()" class="focus:outline-none">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+                </svg>
+            </button>
+            <h1 class="text-xl font-semibold">Chatbot</h1>
+        </div>
+        {% if session.get("user_email") %}
+        <div class="relative inline-block text-left">
+            <button onclick="toggleDropdown()" class="rounded-full bg-gray-300 dark:bg-gray-700 w-10 h-10 flex items-center justify-center text-lg font-bold text-white">
+                {{ session.get("user_name")[0] }}
+            </button>
+            <div id="dropdownMenu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-lg z-50">
+                <form action="/logout" method="post">
+                    <button type="submit" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-200 dark:hover:bg-gray-600 text-red-600">Logout</button>
+                </form>
+                <a href="/settings" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">Settings</a>
             </div>
-          {% endif %}
-        </button>
-        <div id="menu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg py-2">
-          <a href="/settings" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
-          <form action="/logout" method="post">
-            <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-600">Logout</button>
-          </form>
         </div>
-      </div>
+        {% endif %}
     </div>
 
-    <!-- Messages -->
-    <div id="messages" class="flex-1 p-4 overflow-y-auto">
-      {% for m in history %}
-        <div class="mb-4">
-          <div class="font-bold {{ 'text-blue-500' if m.role == 'user' else 'text-green-500' }}">
-            {{ m.role.capitalize() }} <span class="text-gray-400 text-xs">{{ m.time }}</span>
-          </div>
-          <div class="dark:text-white">{{ m.content }}</div>
+    <!-- Sidebar -->
+    <div id="sidebar" class="fixed top-0 left-0 w-64 bg-white dark:bg-gray-800 h-full shadow transform -translate-x-full transition-transform duration-300 z-40">
+        <div class="p-4 flex justify-between items-center">
+            <h2 class="text-lg font-semibold">Conversations</h2>
+            <button onclick="toggleSidebar()" class="text-gray-600 dark:text-gray-400">✕</button>
         </div>
-      {% endfor %}
+        <div class="px-4">
+            <form action="/new_conversation" method="post" class="mb-4">
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700">+ New Chat</button>
+            </form>
+            {% if chats %}
+                {% for cid, convo in chats.items() %}
+                    <form action="/chat" method="get" class="mb-2">
+                        <input type="hidden" name="chat_id" value="{{ cid }}">
+                        <button type="submit" class="w-full text-left px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600">
+                            {{ convo.title }}
+                        </button>
+                    </form>
+                {% endfor %}
+            {% else %}
+                <p class="text-gray-500">No chats yet.</p>
+            {% endif %}
+        </div>
     </div>
 
-    <!-- Input Box -->
-    <form method="post" class="p-4 bg-white dark:bg-gray-800 border-t dark:border-gray-700">
-      <div class="flex gap-2">
-        <input name="message" required placeholder="Type your message..." class="flex-1 p-2 rounded border dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-        <button type="submit" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded">Send</button>
-      </div>
+    <!-- Main chat area -->
+    <div class="flex-1 overflow-y-auto p-6">
+        <div id="chat-messages" class="space-y-4">
+            {% for msg in history %}
+                <div class="flex flex-col {% if msg.role == 'user' %}items-end{% else %}items-start{% endif %}">
+                    <div class="bg-blue-100 dark:bg-blue-800 p-3 rounded-lg max-w-sm">
+                        <p class="font-semibold {% if msg.role == 'user' %}text-blue-600{% else %}text-green-400{% endif %}">{{ msg.role.capitalize() }} <span class="text-xs text-gray-400">{{ msg.time }}</span></p>
+                        <p class="mt-1">{{ msg.content }}</p>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Message input -->
+    <form method="post" class="flex items-center p-4 bg-gray-100 dark:bg-gray-800">
+        <input type="text" name="message" placeholder="Type your message..." class="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:outline-none focus:ring focus:border-blue-300">
+        <button type="submit" class="ml-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Send</button>
     </form>
-  </div>
 
-<script>
-function toggleSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  sidebar.classList.toggle('hidden');
-}
+    <!-- Scripts -->
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+        }
 
-function toggleMenu() {
-  const menu = document.getElementById('menu');
-  menu.classList.toggle('hidden');
-}
-
-window.onload = () => {
-  const messages = document.getElementById('messages');
-  messages.scrollTop = messages.scrollHeight;
-};
-</script>
-
+        function toggleDropdown() {
+            const menu = document.getElementById('dropdownMenu');
+            menu.classList.toggle('hidden');
+        }
+    </script>
 </body>
 </html>
