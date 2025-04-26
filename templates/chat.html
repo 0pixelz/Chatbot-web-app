@@ -8,7 +8,7 @@
 </head>
 <body class="flex flex-col min-h-screen {% if theme == 'dark' %}dark bg-gray-900{% else %}bg-gray-100{% endif %}">
 
-<!-- Top Navbar (Always on Top) -->
+<!-- Top Navbar -->
 <header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow z-50 fixed w-full top-0">
   <button onclick="toggleSidebar()" id="menuButton" class="text-2xl text-gray-800 dark:text-gray-200 focus:outline-none">
     ☰
@@ -19,19 +19,26 @@
       {% if session.get("user_picture") %}
         <img src="{{ session['user_picture'] }}" alt="Avatar" class="w-10 h-10 rounded-full">
       {% else %}
-        <div class="w-10 h-10 rounded-full bg-gray-400 text-white flex items-center justify-center">G</div>
+        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" class="w-8 h-8 rounded-full bg-white p-1" alt="G">
       {% endif %}
     </button>
     <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded shadow-lg z-50">
       <a href="/settings" class="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
-      <form action="/logout" method="POST" class="block">
-        <button type="submit" class="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-600">Logout</button>
+      <form action="/clear" method="POST">
+        <button type="submit" class="w-full text-left px-4 py-2 text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-600">Start New Chat</button>
       </form>
+      {% if session.get("user_email") %}
+        <form action="/logout" method="POST">
+          <button type="submit" class="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-600">Logout</button>
+        </form>
+      {% else %}
+        <a href="/login" class="block px-4 py-2 text-green-600 hover:bg-gray-100 dark:hover:bg-gray-600">Login with Google</a>
+      {% endif %}
     </div>
   </div>
 </header>
 
-<!-- Sidebar (underneath Navbar) -->
+<!-- Sidebar -->
 <div id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-white dark:bg-gray-800 transform -translate-x-full transition-transform duration-300 ease-in-out z-40 flex flex-col shadow-lg">
   <div class="p-4 text-xl font-bold text-gray-800 dark:text-gray-200">Menu</div>
   <nav class="flex-1 px-4">
@@ -42,7 +49,7 @@
   </div>
 </div>
 
-<!-- Main content -->
+<!-- Main chat content -->
 <main class="flex-1 overflow-y-auto p-4 mt-20">
   {% for msg in history %}
     <div class="mb-4">
@@ -56,7 +63,7 @@
   {% endfor %}
 </main>
 
-<!-- Input at bottom -->
+<!-- Chat input fixed at bottom -->
 <form method="POST" class="bg-white dark:bg-gray-800 p-4 flex items-center space-x-2">
   <input type="text" name="message"
          class="flex-1 p-3 border rounded-lg focus:outline-none dark:bg-gray-700 dark:border-gray-600"
@@ -72,9 +79,9 @@ function toggleSidebar() {
   const button = document.getElementById('menuButton');
   sidebar.classList.toggle('-translate-x-full');
   if (sidebar.classList.contains('-translate-x-full')) {
-    button.innerText = '☰';  // Hamburger
+    button.innerText = '☰';
   } else {
-    button.innerText = '✖';  // Close X
+    button.innerText = '✖';
   }
 }
 
@@ -82,7 +89,7 @@ function closeSidebar() {
   const sidebar = document.getElementById('sidebar');
   const button = document.getElementById('menuButton');
   sidebar.classList.add('-translate-x-full');
-  button.innerText = '☰';  // Always back to hamburger
+  button.innerText = '☰';
 }
 
 function toggleMenu() {
