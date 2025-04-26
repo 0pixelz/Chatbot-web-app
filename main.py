@@ -37,14 +37,14 @@ def clean_uid(uid):
 
 def get_conversations(uid):
     ref = db.reference(f'chat_memory/{clean_uid(uid)}')
-    conversations = ref.get() or {}
-    return conversations
+    return ref.get() or {}
 
 def load_user_history(uid, convo_id):
-    return db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').get() or []
+    messages = db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}/messages').get()
+    return messages or []
 
-def save_user_history(uid, convo_id, data):
-    db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').set(data)
+def save_user_history(uid, convo_id, messages):
+    db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}/messages').set(messages)
 
 def get_settings(uid):
     return db.reference(f'settings/{clean_uid(uid)}').get() or {}
@@ -70,6 +70,25 @@ async def generate_response(prompt, memory=[]):
                 return result['choices'][0]['message']['content']
     except Exception as e:
         return f"❌ Groq connection error: {str(e)}"
+
+async def summarize_title(messages):
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+    prompt = "Summarize this conversation into a short title, maximum 5 words."
+
+    data = {
+        "model": "llama3-70b-8192",
+        "messages": [{"role": "system", "content": prompt}] + messages
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=data) as resp:
+                if resp.status != 200:
+                    return "New Chat"
+                result = await resp.json()
+                return result['choices'][0]['message']['content'].strip()
+    except Exception:
+        return "New Chat"
 
 # === ROUTES ===
 
@@ -128,14 +147,25 @@ def chat(convo_id):
         history.append({"role": "assistant", "content": reply, "time": now})
         save_user_history(uid, convo_id, history)
 
+        # Refresh title after first message or every 10 messages
+        if len(history) == 2 or (len(history) > 2 and len(history) % 10 == 0):
+            summary = asyncio.run(summarize_title(history))
+            db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}/title').set(summary)
+
     return render_template("chat.html", uid=uid, message=message, reply=reply, history=history, settings=settings, conversations=conversations, convo_id=convo_id)
 
 @app.route("/start_new_chat")
 def start_new_chat():
-    convo_id = str(uuid.uuid4())  # New conversation ID
+    convo_id = str(uuid.uuid4())
     uid = session.get("user_email", "guest")
-    save_user_history(uid, convo_id, [])  # Create empty new conversation
+    db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}/messages').set([])
     return redirect(f"/chat/{convo_id}")
+
+@app.route("/delete_conversation/<convo_id>", methods=["POST"])
+def delete_conversation(convo_id):
+    uid = session.get("user_email", "guest")
+    db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').delete()
+    return redirect("/start_new_chat")
 
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
