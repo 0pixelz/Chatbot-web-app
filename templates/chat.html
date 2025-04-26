@@ -9,23 +9,22 @@
 <body class="flex min-h-screen flex-col {% if theme == 'dark' %}dark bg-gray-900{% else %}bg-gray-100{% endif %}">
 
 <!-- Sidebar -->
-<div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-white dark:bg-gray-800 transform -translate-x-full transition-transform duration-300 ease-in-out z-50 flex flex-col shadow-lg">
+<div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-white dark:bg-gray-800 transform -translate-x-full transition-transform duration-300 ease-in-out z-40 flex flex-col shadow-lg">
   <div class="p-4 text-xl font-bold text-gray-800 dark:text-gray-200">Menu</div>
   <nav class="flex-1 px-4">
-    <a href="/conversations" class="block py-2 text-blue-600 dark:text-blue-400 hover:underline">Conversations</a>
+    <a href="/conversations" class="block py-2 text-blue-600 dark:text-blue-400 hover:underline" onclick="closeSidebar()">Conversations</a>
   </nav>
   <div class="px-4 py-4 mt-auto">
-    <a href="/settings" class="block py-2 text-blue-600 dark:text-blue-400 hover:underline">Settings</a>
+    <a href="/settings" class="block py-2 text-blue-600 dark:text-blue-400 hover:underline" onclick="closeSidebar()">Settings</a>
   </div>
 </div>
 
 <!-- Top Navbar -->
-<header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow z-40">
-  <button onclick="toggleSidebar()" class="text-2xl text-gray-800 dark:text-gray-200 focus:outline-none">
+<header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow z-30">
+  <button onclick="toggleSidebar()" id="menuButton" class="text-2xl text-gray-800 dark:text-gray-200 focus:outline-none">
     ☰
   </button>
   <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">Chatbot</h1>
-
   {% if session.get("user_picture") %}
     <img src="{{ session['user_picture'] }}" alt="Avatar" class="w-10 h-10 rounded-full">
   {% else %}
@@ -60,7 +59,20 @@
 <script>
 function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
+  const button = document.getElementById('menuButton');
   sidebar.classList.toggle('-translate-x-full');
+  if (sidebar.classList.contains('-translate-x-full')) {
+    button.innerText = '☰';  // Hamburger
+  } else {
+    button.innerText = '✖';  // Close X
+  }
+}
+
+function closeSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const button = document.getElementById('menuButton');
+  sidebar.classList.add('-translate-x-full');
+  button.innerText = '☰';  // Always go back to hamburger
 }
 </script>
 
