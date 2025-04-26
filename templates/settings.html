@@ -1,76 +1,58 @@
 <!DOCTYPE html>
 <html lang="en" {% if settings.theme == 'dark' %}class="dark"{% endif %}>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Settings - Chatbot</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen flex flex-col">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen p-6">
+  <div class="flex justify-between items-center mb-4">
+    <a href="/chat" class="text-xl font-bold">&larr; Back to Chat</a>
+    <form method="POST" action="/logout">
+      <button type="submit" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded">
+        Logout
+      </button>
+    </form>
+  </div>
 
-    <!-- Navbar -->
-    <nav class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow">
-        <div class="flex items-center space-x-4">
-            <a href="/chat" class="font-bold text-xl text-gray-800 dark:text-gray-100">← Back to Chat</a>
-        </div>
-        <div class="flex items-center space-x-4">
-            {% if session.get("user_picture") %}
-                <img src="{{ session['user_picture'] }}" alt="Avatar" class="w-10 h-10 rounded-full">
-            {% else %}
-                <div class="w-10 h-10 rounded-full bg-gray-400 text-white flex items-center justify-center">G</div>
-            {% endif %}
-        </div>
-    </nav>
+  <h1 class="text-3xl font-bold mb-6">Settings</h1>
 
-    <!-- Settings Form -->
-    <div class="flex-1 p-6">
-        <h1 class="text-2xl font-bold mb-6">Settings</h1>
-
-        <form method="POST" class="space-y-6">
-
-            <!-- Theme -->
-            <div>
-                <label class="block mb-2 font-semibold">Theme</label>
-                <select name="theme" class="w-full p-2 rounded border dark:bg-gray-700 dark:border-gray-600">
-                    <option value="light" {% if settings.theme == 'light' %}selected{% endif %}>Light</option>
-                    <option value="dark" {% if settings.theme == 'dark' %}selected{% endif %}>Dark</option>
-                </select>
-            </div>
-
-            <!-- Font Size -->
-            <div>
-                <label class="block mb-2 font-semibold">Font Size</label>
-                <select name="font_size" class="w-full p-2 rounded border dark:bg-gray-700 dark:border-gray-600">
-                    <option value="sm" {% if settings.font_size == 'sm' %}selected{% endif %}>Small</option>
-                    <option value="base" {% if settings.font_size == 'base' %}selected{% endif %}>Normal</option>
-                    <option value="lg" {% if settings.font_size == 'lg' %}selected{% endif %}>Large</option>
-                </select>
-            </div>
-
-            <!-- Personality -->
-            <div>
-                <label class="block mb-2 font-semibold">Assistant Personality</label>
-                <input type="text" name="personality" value="{{ settings.personality or '' }}" class="w-full p-2 rounded border dark:bg-gray-700 dark:border-gray-600" placeholder="e.g., Friendly, Professional...">
-            </div>
-
-            <!-- Response Length -->
-            <div>
-                <label class="block mb-2 font-semibold">Response Length</label>
-                <select name="length" class="w-full p-2 rounded border dark:bg-gray-700 dark:border-gray-600">
-                    <option value="short" {% if settings.length == 'short' %}selected{% endif %}>Short</option>
-                    <option value="medium" {% if settings.length == 'medium' %}selected{% endif %}>Medium</option>
-                    <option value="long" {% if settings.length == 'long' %}selected{% endif %}>Long</option>
-                </select>
-            </div>
-
-            <!-- Submit Button -->
-            <div>
-                <button type="submit" class="px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700">
-                    Apply Settings
-                </button>
-            </div>
-        </form>
+  <form method="POST" action="/settings">
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-2">Theme</label>
+      <select name="theme" class="bg-gray-100 dark:bg-gray-800 border rounded px-3 py-2 w-full">
+        <option value="light" {% if settings.theme == 'light' %}selected{% endif %}>Light</option>
+        <option value="dark" {% if settings.theme == 'dark' %}selected{% endif %}>Dark</option>
+      </select>
     </div>
 
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-2">Font Size</label>
+      <select name="font_size" class="bg-gray-100 dark:bg-gray-800 border rounded px-3 py-2 w-full">
+        <option value="small" {% if settings.font_size == 'small' %}selected{% endif %}>Small</option>
+        <option value="base" {% if settings.font_size == 'base' %}selected{% endif %}>Base</option>
+        <option value="large" {% if settings.font_size == 'large' %}selected{% endif %}>Large</option>
+      </select>
+    </div>
+
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-2">Assistant Personality</label>
+      <input type="text" name="personality" placeholder="e.g., Friendly, Professional..." class="bg-gray-100 dark:bg-gray-800 border rounded px-3 py-2 w-full" value="{{ settings.personality }}">
+    </div>
+
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-2">Response Length</label>
+      <select name="length" class="bg-gray-100 dark:bg-gray-800 border rounded px-3 py-2 w-full">
+        <option value="short" {% if settings.length == 'short' %}selected{% endif %}>Short</option>
+        <option value="medium" {% if settings.length == 'medium' %}selected{% endif %}>Medium</option>
+        <option value="long" {% if settings.length == 'long' %}selected{% endif %}>Long</option>
+      </select>
+    </div>
+
+    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+      Apply Settings
+    </button>
+  </form>
 </body>
 </html>
