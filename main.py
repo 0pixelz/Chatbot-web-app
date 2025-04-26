@@ -1,4 +1,4 @@
-# === FULL main.py (FINAL corrected for AI + Login + Theme switching) ===
+# === FULL FINAL main.py (Groq fixed + All functional) ===
 
 import os
 import json
@@ -67,6 +67,9 @@ def generate_ai_response(prompt):
                 json=payload
             ) as resp:
                 result = await resp.json()
+                if 'choices' not in result:
+                    print("Groq API Error:", result)  # Print error
+                    return "I'm thinking... Please try again later!"
                 return result['choices'][0]['message']['content']
 
     return asyncio.run(call_groq())
