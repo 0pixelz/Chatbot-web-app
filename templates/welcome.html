@@ -1,18 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Welcome - Chatbot</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8">
+    <title>Welcome | Chatbot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 flex flex-col items-center justify-center h-screen">
-
-  <div class="text-center">
-    <h1 class="text-4xl font-bold mb-4">Welcome to Chatbot!</h1>
-    <p class="text-gray-600 mb-6">Log in with your Google account to start chatting.</p>
-    <a href="/login" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-full text-lg">Login with Google</a>
-  </div>
-
+<body class="bg-gray-900 text-white h-screen flex items-center justify-center">
+    <div class="text-center">
+        <h1 class="text-4xl mb-6">Welcome to the Chatbot</h1>
+        <div class="flex justify-center space-x-4">
+            <form action="/login" method="get">
+                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    Login with Google
+                </button>
+            </form>
+            <form action="/continue_as_guest" method="post">
+                <button class="bg-gray-600 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded">
+                    Continue as Guest
+                </button>
+            </form>
+        </div>
+    </div>
 </body>
 </html>
