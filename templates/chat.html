@@ -4,40 +4,65 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chat</title>
-  <link rel="stylesheet" href="/static/style.css">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="flex flex-col min-h-screen {% if theme == 'dark' %}dark{% endif %}">
+<body class="flex min-h-screen {% if theme == 'dark' %}dark{% endif %}">
 
-<nav class="p-4 flex justify-between bg-white dark:bg-gray-800 shadow">
-  <div>
-    <a href="/conversations" class="text-purple-700 dark:text-purple-300 font-semibold">Conversations</a> |
-    <a href="/settings" class="text-purple-700 dark:text-purple-300 font-semibold">Settings</a>
+<!-- Sidebar -->
+<div id="sidebar" class="bg-gray-100 dark:bg-gray-800 w-64 h-screen fixed top-0 left-0 transform -translate-x-full transition-transform duration-300 ease-in-out z-50 flex flex-col">
+  <div class="p-4 text-xl font-bold text-gray-800 dark:text-gray-200">Menu</div>
+  <nav class="flex-1 px-4">
+    <a href="/conversations" class="block py-2 text-blue-600 dark:text-blue-400 hover:underline">Conversations</a>
+  </nav>
+  <div class="px-4 py-4 mt-auto">
+    <a href="/settings" class="block py-2 text-blue-600 dark:text-blue-400 hover:underline">Settings</a>
   </div>
-</nav>
+</div>
 
-<main class="flex-1 p-4 overflow-y-auto">
-  {% for msg in history %}
-    <div class="mb-4">
-      <div class="font-bold {% if msg.role == 'user' %}text-blue-500{% else %}text-green-400{% endif %}">
-        {{ msg.role.capitalize() }}
-      </div>
-      <div class="p-2 rounded bg-gray-200 dark:bg-gray-700 mt-1">
-        {{ msg.content }}
-      </div>
-    </div>
-  {% endfor %}
-</main>
+<!-- Main content -->
+<div class="flex-1 flex flex-col ml-0">
 
-<!-- ChatGPT Style Input fixed at bottom -->
-<form method="POST" class="bg-white dark:bg-gray-800 p-4 flex items-center space-x-2 mt-auto">
-  <input type="text" name="message" 
-         class="flex-1 p-3 border rounded-lg focus:outline-none dark:bg-gray-700 dark:border-gray-600"
-         placeholder="Type your message..." required>
-  <button type="submit" class="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
-    ➔
-  </button>
-</form>
+  <!-- Top Navbar -->
+  <header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow">
+    <button onclick="toggleSidebar()" class="text-gray-800 dark:text-gray-200 focus:outline-none">
+      ☰
+    </button>
+    <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">Chatbot</h1>
+    <div></div> <!-- Empty div for spacing -->
+  </header>
+
+  <!-- Chat messages -->
+  <main class="flex-1 overflow-y-auto p-4">
+    {% for msg in history %}
+      <div class="mb-4">
+        <div class="font-bold {% if msg.role == 'user' %}text-blue-500{% else %}text-green-400{% endif %}">
+          {{ msg.role.capitalize() }}
+        </div>
+        <div class="p-2 bg-gray-200 dark:bg-gray-700 rounded mt-1">
+          {{ msg.content }}
+        </div>
+      </div>
+    {% endfor %}
+  </main>
+
+  <!-- Input form at bottom -->
+  <form method="POST" class="bg-white dark:bg-gray-800 p-4 flex items-center space-x-2">
+    <input type="text" name="message" 
+           class="flex-1 p-3 border rounded-lg focus:outline-none dark:bg-gray-700 dark:border-gray-600"
+           placeholder="Type your message..." required>
+    <button type="submit" class="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+      ➔
+    </button>
+  </form>
+
+</div>
+
+<script>
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  sidebar.classList.toggle('-translate-x-full');
+}
+</script>
 
 </body>
 </html>
