@@ -10,6 +10,7 @@ from pytz import timezone
 from google_auth_oauthlib.flow import Flow
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
+from werkzeug.middleware.proxy_fix import ProxyFix  # ✅ Add ProxyFix
 
 # === CONFIG FROM ENV ===
 GROQ_API_KEY               = os.getenv("GROQ_API_KEY")
@@ -23,13 +24,16 @@ FLASK_SECRET_KEY           = os.getenv("FLASK_SECRET_KEY")
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
 
+# ✅ Tell Flask it's behind proxy (important for HTTPS on Render)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
 cred = credentials.Certificate(json.loads(FIREBASE_CREDENTIALS_JSON))
 initialize_app(cred, {'databaseURL': DATABASE_URL})
 
 nest_asyncio.apply()
 
 # === UTILITIES ===
-def clean_uid(uid): 
+def clean_uid(uid):
     return uid.replace('.', '_')
 
 def load_user_history(uid):
@@ -51,12 +55,9 @@ def delete_user(uid):
 # === AI RESPONSE ===
 async def generate_response(prompt, memory=[]):
     url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer " + GROQ_API_KEY, "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
     messages = [{"role": "system", "content": "You're a helpful assistant."}] + memory + [{"role": "user", "content": prompt}]
-    data = {
-        "model": "llama3-70b-8192",
-        "messages": messages,
-    }
+    data = {"model": "llama3-70b-8192", "messages": messages}
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=data) as resp:
@@ -78,7 +79,7 @@ def login():
     flow = Flow.from_client_config(
         json.loads(CLIENT_SECRET_JSON),
         scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-        redirect_uri=url_for("oauth_callback", _external=True)
+        redirect_uri=url_for("oauth_callback", _external=True)  # ✅ HTTPS respected now
     )
     auth_url, state = flow.authorization_url()
     session["state"] = state
@@ -94,7 +95,7 @@ def oauth_callback():
     flow = Flow.from_client_config(
         json.loads(CLIENT_SECRET_JSON),
         scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-        redirect_uri=url_for("oauth_callback", _external=True)
+        redirect_uri=url_for("oauth_callback", _external=True)  # ✅ HTTPS respected now
     )
     flow.fetch_token(code=request.args["code"])
     creds = flow.credentials
