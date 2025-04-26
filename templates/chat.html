@@ -25,8 +25,8 @@
     </button>
     <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded shadow-lg z-50">
       <a href="/settings" class="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
-      <form action="/clear" method="POST">
-        <button type="submit" class="w-full text-left px-4 py-2 text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-600">Start New Chat</button>
+      <form action="/clear" method="POST" onsubmit="return confirmNewChat();">
+        <button type="submit" class="w-full text-left px-4 py-2 text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-600">➕ Start New Chat</button>
       </form>
       {% if session.get("user_email") %}
         <form action="/logout" method="POST">
@@ -42,12 +42,13 @@
 <!-- Sidebar -->
 <div id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-white dark:bg-gray-800 transform -translate-x-full transition-transform duration-300 ease-in-out z-40 flex flex-col shadow-lg">
   <div class="p-4 text-xl font-bold text-gray-800 dark:text-gray-200">Menu</div>
-  <nav class="flex-1 px-4">
+  <nav class="flex-1 px-4 space-y-2">
     <a href="/conversations" class="block py-2 text-blue-600 dark:text-blue-400 hover:underline" onclick="closeSidebar()">Conversations</a>
-  </nav>
-  <div class="px-4 py-4 mt-auto">
     <a href="/settings" class="block py-2 text-blue-600 dark:text-blue-400 hover:underline" onclick="closeSidebar()">Settings</a>
-  </div>
+    <form action="/clear" method="POST" onsubmit="return confirmNewChat();">
+      <button type="submit" class="block py-2 text-blue-600 dark:text-blue-400 hover:underline w-full text-left">➕ Start New Chat</button>
+    </form>
+  </nav>
 </div>
 
 <!-- Chat Area -->
@@ -100,6 +101,10 @@ function closeSidebar() {
 function toggleMenu() {
   const menu = document.getElementById('userMenu');
   menu.classList.toggle('hidden');
+}
+
+function confirmNewChat() {
+  return confirm("Start a new conversation? This will clear your current chat.");
 }
 
 // === Chat Auto-Scroll ===
