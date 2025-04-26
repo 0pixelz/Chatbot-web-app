@@ -5,8 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Settings</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body.light {
+      background-color: #f7fafc;
+      color: #1a202c;
+    }
+    body.dark {
+      background-color: #1a202c;
+      color: #edf2f7;
+    }
+  </style>
 </head>
-<body class="{% if theme == 'dark' %}dark{% endif %} bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen flex flex-col">
+<body class="{% if theme == 'dark' %}dark{% else %}light{% endif %} min-h-screen flex flex-col">
 <!-- Your original settings content here -->
 </body>
 </html>
