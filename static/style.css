@@ -1,32 +1,68 @@
+/* Light Theme */
 body.light-theme {
-  background-color: #f0f0f0;
-  color: #222;
+  background: url('/static/bg-light.jpg') no-repeat center center fixed;
+  background-size: cover;
+  color: #1a202c;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+/* Dark Theme */
 body.dark-theme {
-  background-color: #121212;
-  color: #eee;
+  background: url('/static/bg-dark.jpg') no-repeat center center fixed;
+  background-size: cover;
+  color: #edf2f7;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+/* Navbar */
 nav {
-  background-color: inherit;
-  padding: 10px;
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 15px;
   font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  margin: 10px;
 }
 
+body.dark-theme nav {
+  background-color: rgba(26, 32, 44, 0.9);
+}
+
+/* Main content */
 main {
-  padding: 20px;
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 30px;
+  border-radius: 10px;
+  margin: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
+body.dark-theme main {
+  background-color: rgba(26, 32, 44, 0.95);
+}
+
+/* Buttons */
 button {
-  background-color: #007bff;
+  background: linear-gradient(135deg, #4299e1, #3182ce);
   color: white;
-  padding: 10px 20px;
-  border-radius: 5px;
+  padding: 12px 24px;
+  border-radius: 6px;
   border: none;
-  margin-top: 10px;
+  font-size: 1rem;
+  font-weight: bold;
+  margin-top: 20px;
+  cursor: pointer;
+  transition: background 0.3s ease;
 }
 
 button:hover {
-  background-color: #0056b3;
+  background: linear-gradient(135deg, #2b6cb0, #2c5282);
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  nav, main {
+    margin: 10px;
+    padding: 20px;
+  }
 }
