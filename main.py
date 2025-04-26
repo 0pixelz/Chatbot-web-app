@@ -1,4 +1,4 @@
-# === FULL FINAL main.py (Groq fixed + all features working) ===
+# === FULL FINAL main.py (restored + improved) ===
 
 import os
 import json
@@ -48,155 +48,128 @@ def save_settings(uid, data):
 
 def delete_user(uid):
     db.reference(f'chat_memory/{clean_uid(uid)}').delete()
+    db.reference(f'settings/{clean_uid(uid)}').delete()
 
-def generate_ai_response(prompt):
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "model": "mixtral-8x7b-32768",  # <-- Adjust here if needed
-        "messages": [{"role": "user", "content": prompt}],
+# === AI RESPONSE (async) ===
+async def generate_response(prompt, memory=[]):
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+    messages = [{"role": "system", "content": "You are a helpful assistant."}] + memory + [{"role": "user", "content": prompt}]
+    data = {
+        "model": "llama3-70b-8192",  # ✅ your original working model
+        "messages": messages,
         "temperature": 0.7,
         "top_p": 1,
         "stream": False,
         "max_tokens": 1024
     }
-
-    async def call_groq():
+    try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers=headers,
-                json=payload
-            ) as resp:
+            async with session.post(url, headers=headers, json=data) as resp:
+                if resp.status != 200:
+                    print("Groq API error:", await resp.text())
+                    return "❌ AI is unavailable at the moment."
                 result = await resp.json()
-                if 'choices' not in result:
-                    print("Groq API Error:", result)
-                    return "I'm thinking... Please try again later!"
                 return result['choices'][0]['message']['content']
-
-    return asyncio.run(call_groq())
+    except Exception as e:
+        print("Groq connection error:", str(e))
+        return "❌ Failed to connect to AI."
 
 # === ROUTES ===
 
-@app.route('/')
-def welcome():
-    theme = session.get('theme', 'dark')
-    return render_template('welcome.html', theme=theme)
+@app.route("/")
+def index():
+    return redirect("/chat")
 
-@app.route('/chat', methods=['GET', 'POST'])
-def chat():
-    theme = session.get('theme', 'dark')
-    user_id = session.get('user_id')
-    is_guest = session.get('guest', False)
-
-    if user_id and not is_guest:
-        history = load_user_history(user_id)
-    else:
-        history = session.get('history', [])
-
-    if request.method == 'POST':
-        message = request.form.get('message')
-        if message:
-            history.append({'role': 'user', 'content': message})
-            ai_reply = generate_ai_response(message)
-            history.append({'role': 'assistant', 'content': ai_reply})
-
-        if user_id and not is_guest:
-            save_user_history(user_id, history)
-        else:
-            session['history'] = history
-
-        return redirect(url_for('chat'))
-
-    return render_template('chat.html', theme=theme, history=history)
-
-@app.route('/conversations')
-def conversations():
-    theme = session.get('theme', 'dark')
-    user_id = session.get('user_id')
-    if not user_id:
-        return redirect(url_for('welcome'))
-
-    history = load_user_history(user_id)
-    return render_template('conversations.html', theme=theme, history=history)
-
-@app.route('/settings', methods=['GET', 'POST'])
-def settings():
-    user_id = session.get('user_id')
-    theme = session.get('theme', 'dark')
-
-    if request.method == 'POST':
-        selected_theme = request.form.get('theme')
-        font_size = request.form.get('font_size')
-        personality = request.form.get('personality')
-
-        if selected_theme:
-            session['theme'] = selected_theme
-            session.permanent = True
-
-        if user_id:
-            settings_data = {
-                'theme': selected_theme,
-                'font_size': font_size,
-                'personality': personality
-            }
-            save_settings(user_id, settings_data)
-
-        return redirect(url_for('settings'))
-
-    return render_template('settings.html', theme=theme)
-
-@app.route('/login')
-def login_prompt():
-    theme = session.get('theme', 'dark')
-
+@app.route("/login")
+def login():
     flow = Flow.from_client_config(
         json.loads(CLIENT_SECRET_JSON),
-        scopes=['https://www.googleapis.com/auth/userinfo.email', 'openid'],
-        redirect_uri=url_for('callback', _external=True)
+        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
+        redirect_uri=url_for("oauth_callback", _external=True)
     )
-    auth_url, _ = flow.authorization_url(prompt='consent')
+    auth_url, state = flow.authorization_url()
+    session["state"] = state
     return redirect(auth_url)
 
-@app.route('/login/callback')
-def callback():
-    flow = Flow.from_client_config(
-        json.loads(CLIENT_SECRET_JSON),
-        scopes=['https://www.googleapis.com/auth/userinfo.email', 'openid'],
-        redirect_uri=url_for('callback', _external=True)
-    )
-
-    flow.fetch_token(authorization_response=request.url)
-
-    credentials = flow.credentials
-    request_session = grequests.Request()
-    id_info = id_token.verify_oauth2_token(credentials._id_token, request_session)
-
-    email = id_info.get('email')
-    if email:
-        session['user_id'] = clean_uid(email)
-        session['guest'] = False
-        return redirect(url_for('chat'))
-
-    return redirect(url_for('welcome'))
-
-@app.route('/logout', methods=['POST'])
+@app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
-    return redirect(url_for('welcome'))
+    return redirect("/")
 
-@app.route('/continue_as_guest', methods=['POST'])
-def continue_as_guest():
+@app.route("/oauth_callback")
+def oauth_callback():
+    flow = Flow.from_client_config(
+        json.loads(CLIENT_SECRET_JSON),
+        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
+        redirect_uri=url_for("oauth_callback", _external=True)
+    )
+    flow.fetch_token(code=request.args["code"])
+    creds = flow.credentials
+    request_session = grequests.Request()
+    idinfo = id_token.verify_oauth2_token(creds._id_token, request_session)
+    session["user_email"] = idinfo["email"]
+    session["user_picture"] = idinfo.get("picture")
+    session["user_name"] = idinfo.get("name", idinfo["email"])
+    return redirect("/chat")
+
+@app.route("/chat", methods=["GET", "POST"])
+def chat():
+    uid = session.get("user_email", "guest")
+    message = ""
+    reply = ""
+    tz = timezone(LOCAL_TIMEZONE)
+    history = load_user_history(uid)
+    settings = get_settings(uid)
+
+    # Get the user's preferred theme
+    theme = settings.get("theme", "dark") if settings else "dark"
+
+    if request.method == "POST":
+        message = request.form["message"]
+        now = datetime.now(tz).strftime("%I:%M %p")
+        history.append({"role": "user", "content": message, "time": now})
+        trimmed = [{"role": m["role"], "content": m["content"]} for m in history[-10:]]  # Last 10 messages
+        reply = asyncio.run(generate_response(message, trimmed))
+        history.append({"role": "assistant", "content": reply, "time": now})
+        save_user_history(uid, history)
+
+    return render_template("chat.html", uid=uid, message=message, reply=reply, history=history, settings=settings, theme=theme)
+
+@app.route("/clear", methods=["POST"])
+def clear():
+    uid = session.get("user_email", "guest")
+    db.reference(f'chat_memory/{clean_uid(uid)}').delete()
+    return "", 204
+
+@app.route("/settings", methods=["GET", "POST"])
+def settings():
+    uid = session.get("user_email", "guest")
+    if request.method == "POST":
+        data = {
+            "theme": request.form.get("theme", "dark"),
+            "font_size": request.form.get("font_size", "base"),
+            "personality": request.form.get("personality", ""),
+            "length": request.form.get("length", "medium")
+        }
+        save_settings(uid, data)
+        return redirect("/chat")
+    
+    settings = get_settings(uid)
+    theme = settings.get("theme", "dark") if settings else "dark"
+    return render_template("settings.html", settings=settings, theme=theme)
+
+@app.route("/delete_account", methods=["POST"])
+def delete_account():
+    uid = session.get("user_email", "guest")
+    delete_user(uid)
     session.clear()
-    session['guest'] = True
-    return redirect(url_for('chat'))
+    return redirect("/")
 
-@app.route('/healthz')
+@app.route("/healthz")
 def healthcheck():
-    return 'OK', 200
+    return "OK", 200
 
 # === RUN ===
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=True)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080, debug=True)
