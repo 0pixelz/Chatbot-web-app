@@ -5,10 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chat</title>
   <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="{% if theme == 'dark' %}dark-theme{% else %}light-theme{% endif %} flex flex-col min-h-screen">
+<body class="flex flex-col min-h-screen {% if theme == 'dark' %}dark{% endif %}">
 
-<nav><a href="/conversations">Conversations</a> | <a href="/settings">Settings</a></nav>
+<nav class="p-4 flex justify-between bg-white dark:bg-gray-800 shadow">
+  <div>
+    <a href="/conversations" class="text-purple-700 dark:text-purple-300 font-semibold">Conversations</a> |
+    <a href="/settings" class="text-purple-700 dark:text-purple-300 font-semibold">Settings</a>
+  </div>
+</nav>
 
 <main class="flex-1 p-4 overflow-y-auto">
   {% for msg in history %}
@@ -16,20 +22,20 @@
       <div class="font-bold {% if msg.role == 'user' %}text-blue-500{% else %}text-green-400{% endif %}">
         {{ msg.role.capitalize() }}
       </div>
-      <div class="p-2 bg-gray-200 dark:bg-gray-700 rounded mt-1">
+      <div class="p-2 rounded bg-gray-200 dark:bg-gray-700 mt-1">
         {{ msg.content }}
       </div>
     </div>
   {% endfor %}
 </main>
 
-<!-- Input Form fixed at bottom -->
-<form method="POST" class="bg-white dark:bg-gray-800 p-4 flex space-x-4 mt-auto">
+<!-- ChatGPT Style Input fixed at bottom -->
+<form method="POST" class="bg-white dark:bg-gray-800 p-4 flex items-center space-x-2 mt-auto">
   <input type="text" name="message" 
-         class="flex-1 p-3 border rounded focus:outline-none dark:bg-gray-700 dark:border-gray-600"
+         class="flex-1 p-3 border rounded-lg focus:outline-none dark:bg-gray-700 dark:border-gray-600"
          placeholder="Type your message..." required>
-  <button type="submit" class="px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700">
-    Send
+  <button type="submit" class="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+    ➔
   </button>
 </form>
 
