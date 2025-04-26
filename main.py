@@ -1,4 +1,4 @@
-# === FULL main.py (corrected with theme fix) ===
+# === FULL main.py (FINAL corrected with working theme switching) ===
 
 import os
 import json
@@ -68,10 +68,15 @@ def conversations():
 def settings():
     if request.method == 'POST':
         selected_theme = request.form.get('theme')
+        print("Selected theme:", selected_theme)  # Debugging print
         if selected_theme:
             session['theme'] = selected_theme
+            session.permanent = True  # 🔥 Keep the theme in session across page reloads
+            print("Theme now saved in session:", session.get('theme'))
         return redirect(url_for('settings'))
+
     theme = session.get('theme', 'dark')
+    print("Rendering settings page with theme:", theme)  # Debugging print
     return render_template('settings.html', theme=theme)
 
 @app.route('/login')
