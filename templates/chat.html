@@ -6,16 +6,32 @@
   <title>Chat</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="{% if theme == 'dark' %}dark-theme{% else %}light-theme{% endif %}">
+<body class="{% if theme == 'dark' %}dark-theme{% else %}light-theme{% endif %} flex flex-col min-h-screen">
+
 <nav><a href="/conversations">Conversations</a> | <a href="/settings">Settings</a></nav>
-<main>
+
+<main class="flex-1 p-4 overflow-y-auto">
   {% for msg in history %}
-    <div><strong>{{ msg.role.capitalize() }}:</strong> {{ msg.content }}</div>
+    <div class="mb-4">
+      <div class="font-bold {% if msg.role == 'user' %}text-blue-500{% else %}text-green-400{% endif %}">
+        {{ msg.role.capitalize() }}
+      </div>
+      <div class="p-2 bg-gray-200 dark:bg-gray-700 rounded mt-1">
+        {{ msg.content }}
+      </div>
+    </div>
   {% endfor %}
-  <form method="POST" style="margin-top: 20px;">
-    <input type="text" name="message" placeholder="Type your message..." required style="width:80%; padding:10px; margin-right:10px;">
-    <button type="submit">Send</button>
-  </form>
 </main>
+
+<!-- Input Form fixed at bottom -->
+<form method="POST" class="bg-white dark:bg-gray-800 p-4 flex space-x-4 mt-auto">
+  <input type="text" name="message" 
+         class="flex-1 p-3 border rounded focus:outline-none dark:bg-gray-700 dark:border-gray-600"
+         placeholder="Type your message..." required>
+  <button type="submit" class="px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700">
+    Send
+  </button>
+</form>
+
 </body>
 </html>
