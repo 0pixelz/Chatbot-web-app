@@ -1,17 +1,18 @@
+# === main.py ===
+
 import os
 import json
 import asyncio
 import aiohttp
 import nest_asyncio
-
 from flask import Flask, request, render_template, redirect, session, url_for
-from werkzeug.middleware.proxy_fix import ProxyFix
 from firebase_admin import credentials, db, initialize_app
 from datetime import datetime
 from pytz import timezone
 from google_auth_oauthlib.flow import Flow
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
+import uuid
 
 # === CONFIG FROM ENV ===
 GROQ_API_KEY               = os.getenv("GROQ_API_KEY")
@@ -21,41 +22,28 @@ LOCAL_TIMEZONE             = os.getenv("LOCAL_TIMEZONE", "America/Toronto")
 CLIENT_SECRET_JSON         = os.getenv("GOOGLE_CLIENT_SECRET_JSON")
 FLASK_SECRET_KEY           = os.getenv("FLASK_SECRET_KEY")
 
-# Validate presence of critical env vars
-missing = [k for k,v in {
-    "GROQ_API_KEY": GROQ_API_KEY,
-    "FIREBASE_CREDENTIALS_JSON": FIREBASE_CREDENTIALS_JSON,
-    "DATABASE_URL": DATABASE_URL,
-    "GOOGLE_CLIENT_SECRET_JSON": CLIENT_SECRET_JSON,
-    "FLASK_SECRET_KEY": FLASK_SECRET_KEY
-}.items() if not v]
-if missing:
-    raise ValueError(f"Missing environment variables: {', '.join(missing)}")
-
 # === FLASK & FIREBASE INIT ===
 app = Flask(__name__)
-# trust X-Forwarded-Host & X-Forwarded-Proto so url_for(..., _external=True) is HTTPS
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 app.secret_key = FLASK_SECRET_KEY
 
 # Initialize Firebase
 cred = credentials.Certificate(json.loads(FIREBASE_CREDENTIALS_JSON))
 initialize_app(cred, {'databaseURL': DATABASE_URL})
 
-def clean_uid(uid):
-    return uid.replace('.', '_')
+def clean_uid(uid): return uid.replace('.', '_')
 
-def load_user_history(uid):
-    return db.reference(f'chat_memory/{clean_uid(uid)}').get() or []
+def load_user_history(uid, chat_id):
+    ref = db.reference(f'chat_memory/{clean_uid(uid)}/{chat_id}')
+    return ref.get() or []
 
-def save_user_history(uid, data):
-    db.reference(f'chat_memory/{clean_uid(uid)}').set(data)
+def save_user_history(uid, chat_id, data):
+    ref = db.reference(f'chat_memory/{clean_uid(uid)}/{chat_id}')
+    ref.set(data)
 
-def get_settings(uid):
-    return db.reference(f'settings/{clean_uid(uid)}').get() or {}
-
-def save_settings(uid, data):
-    db.reference(f'settings/{clean_uid(uid)}').set(data)
+def list_chats(uid):
+    ref = db.reference(f'chat_memory/{clean_uid(uid)}')
+    chats = ref.get()
+    return chats if chats else {}
 
 def delete_user(uid):
     db.reference(f'chat_memory/{clean_uid(uid)}').delete()
@@ -91,8 +79,7 @@ def login():
             "https://www.googleapis.com/auth/userinfo.email",
             "https://www.googleapis.com/auth/userinfo.profile"
         ],
-        # force https here:
-        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
+        redirect_uri=url_for("oauth_callback", _external=True)
     )
     auth_url, state = flow.authorization_url()
     session["state"] = state
@@ -112,7 +99,7 @@ def oauth_callback():
             "https://www.googleapis.com/auth/userinfo.email",
             "https://www.googleapis.com/auth/userinfo.profile"
         ],
-        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
+        redirect_uri=url_for("oauth_callback", _external=True)
     )
     flow.fetch_token(code=request.args["code"])
     creds           = flow.credentials
@@ -126,10 +113,16 @@ def oauth_callback():
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
     uid     = session.get("user_email", "guest")
+    tz      = timezone(LOCAL_TIMEZONE)
+    chat_id = session.get("chat_id")
+
+    if not chat_id:
+        session["chat_id"] = str(uuid.uuid4())
+        chat_id = session["chat_id"]
+
+    history = load_user_history(uid, chat_id)
     message = ""
     reply   = ""
-    tz      = timezone(LOCAL_TIMEZONE)
-    history = load_user_history(uid)
 
     if request.method == "POST":
         message = request.form["message"]
@@ -138,34 +131,24 @@ def chat():
         trimmed = [{"role": m["role"], "content": m["content"]} for m in history[-10:]]
         reply   = asyncio.run(generate_response(message, trimmed))
         history.append({"role": "assistant", "content": reply, "time": now})
-        save_user_history(uid, history)
 
-    return render_template("chat.html",
-                           uid=uid,
-                           message=message,
-                           reply=reply,
-                           history=history)
+        if uid != "guest":
+            save_user_history(uid, chat_id, history)
+
+    return render_template("chat.html", uid=uid, message=message, reply=reply, history=history, chats=list_chats(uid))
+
+@app.route("/new_chat", methods=["POST"])
+def new_chat():
+    session["chat_id"] = str(uuid.uuid4())
+    return redirect("/chat")
 
 @app.route("/clear", methods=["POST"])
 def clear():
     uid = session.get("user_email", "guest")
-    db.reference(f'chat_memory/{clean_uid(uid)}').delete()
+    chat_id = session.get("chat_id")
+    if uid != "guest" and chat_id:
+        db.reference(f'chat_memory/{clean_uid(uid)}/{chat_id}').delete()
     return "", 204
-
-@app.route("/settings", methods=["GET", "POST"])
-def settings():
-    uid = session.get("user_email", "guest")
-    if request.method == "POST":
-        data = {
-            "theme":       request.form.get("theme", "dark"),
-            "font_size":   request.form.get("font_size", "base"),
-            "personality": request.form.get("personality", ""),
-            "length":      request.form.get("length", "medium")
-        }
-        save_settings(uid, data)
-        return redirect("/settings")
-    settings = get_settings(uid)
-    return render_template("settings.html", settings=settings)
 
 @app.route("/delete_account", methods=["POST"])
 def delete_account():
