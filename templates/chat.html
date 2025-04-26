@@ -6,10 +6,10 @@
   <title>Chat</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="flex min-h-screen {% if theme == 'dark' %}dark{% endif %}">
+<body class="flex min-h-screen flex-col {% if theme == 'dark' %}dark bg-gray-900{% else %}bg-gray-100{% endif %}">
 
 <!-- Sidebar -->
-<div id="sidebar" class="bg-gray-100 dark:bg-gray-800 w-64 h-screen fixed top-0 left-0 transform -translate-x-full transition-transform duration-300 ease-in-out z-50 flex flex-col">
+<div id="sidebar" class="fixed top-0 left-0 w-64 h-full bg-white dark:bg-gray-800 transform -translate-x-full transition-transform duration-300 ease-in-out z-50 flex flex-col shadow-lg">
   <div class="p-4 text-xl font-bold text-gray-800 dark:text-gray-200">Menu</div>
   <nav class="flex-1 px-4">
     <a href="/conversations" class="block py-2 text-blue-600 dark:text-blue-400 hover:underline">Conversations</a>
@@ -19,43 +19,43 @@
   </div>
 </div>
 
-<!-- Main content -->
-<div class="flex-1 flex flex-col ml-0">
+<!-- Top Navbar -->
+<header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow z-40">
+  <button onclick="toggleSidebar()" class="text-2xl text-gray-800 dark:text-gray-200 focus:outline-none">
+    ☰
+  </button>
+  <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">Chatbot</h1>
 
-  <!-- Top Navbar -->
-  <header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow">
-    <button onclick="toggleSidebar()" class="text-gray-800 dark:text-gray-200 focus:outline-none">
-      ☰
-    </button>
-    <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">Chatbot</h1>
-    <div></div> <!-- Empty div for spacing -->
-  </header>
+  {% if session.get("user_picture") %}
+    <img src="{{ session['user_picture'] }}" alt="Avatar" class="w-10 h-10 rounded-full">
+  {% else %}
+    <div class="w-10 h-10 rounded-full bg-gray-400 text-white flex items-center justify-center">G</div>
+  {% endif %}
+</header>
 
-  <!-- Chat messages -->
-  <main class="flex-1 overflow-y-auto p-4">
-    {% for msg in history %}
-      <div class="mb-4">
-        <div class="font-bold {% if msg.role == 'user' %}text-blue-500{% else %}text-green-400{% endif %}">
-          {{ msg.role.capitalize() }}
-        </div>
-        <div class="p-2 bg-gray-200 dark:bg-gray-700 rounded mt-1">
-          {{ msg.content }}
-        </div>
+<!-- Main chat content -->
+<main class="flex-1 overflow-y-auto p-4">
+  {% for msg in history %}
+    <div class="mb-4">
+      <div class="font-bold {% if msg.role == 'user' %}text-blue-500{% else %}text-green-400{% endif %}">
+        {{ msg.role.capitalize() }}
       </div>
-    {% endfor %}
-  </main>
+      <div class="p-2 bg-gray-200 dark:bg-gray-700 rounded mt-1">
+        {{ msg.content }}
+      </div>
+    </div>
+  {% endfor %}
+</main>
 
-  <!-- Input form at bottom -->
-  <form method="POST" class="bg-white dark:bg-gray-800 p-4 flex items-center space-x-2">
-    <input type="text" name="message" 
-           class="flex-1 p-3 border rounded-lg focus:outline-none dark:bg-gray-700 dark:border-gray-600"
-           placeholder="Type your message..." required>
-    <button type="submit" class="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
-      ➔
-    </button>
-  </form>
-
-</div>
+<!-- Chat input fixed at bottom -->
+<form method="POST" class="bg-white dark:bg-gray-800 p-4 flex items-center space-x-2">
+  <input type="text" name="message"
+         class="flex-1 p-3 border rounded-lg focus:outline-none dark:bg-gray-700 dark:border-gray-600"
+         placeholder="Type your message..." required>
+  <button type="submit" class="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+    ➔
+  </button>
+</form>
 
 <script>
 function toggleSidebar() {
