@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Conversations - Chatbot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex flex-col min-h-screen">
+
+  <nav class="bg-white p-4 flex justify-between items-center shadow">
+    <div class="text-xl font-bold">My Conversations</div>
+    <div>
+      <a href="/chat" class="text-blue-500 hover:underline">Back to Chat</a>
+    </div>
+  </nav>
+
+  <div class="flex-1 p-8">
+    <h2 class="text-2xl font-bold mb-6">Select a Conversation</h2>
+
+    <div class="grid gap-4">
+      {% for cid, convo in conversations.items() %}
+        <a href="/chat?conversation={{ cid }}" class="block p-4 bg-white shadow rounded hover:bg-blue-50">
+          <div class="font-semibold text-lg">
+            {{ convo.get('title', 'Untitled Conversation') }}
+          </div>
+          <div class="text-sm text-gray-500">
+            Started {{ convo.get('created_at', 'Unknown') }}
+          </div>
+        </a>
+      {% else %}
+        <div class="text-gray-600">No conversations yet. Start a new one!</div>
+      {% endfor %}
+    </div>
+
+    <div class="mt-8">
+      <form method="POST" action="/new_conversation">
+        <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded">
+          Start New Conversation
+        </button>
+      </form>
+    </div>
+  </div>
+
+</body>
+</html>
