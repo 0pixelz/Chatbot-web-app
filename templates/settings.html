@@ -9,21 +9,21 @@
 <body class="min-h-screen flex flex-col {% if settings.theme == 'dark' %}dark bg-gray-900{% else %}bg-white{% endif %}">
 
 <!-- Top Navbar -->
-<header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow z-50">
-  <a href="/chat" class="text-gray-800 dark:text-gray-200 hover:underline text-lg font-bold">← Back to Chat</a>
+<header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow">
+  <a href="/start_new_chat" class="text-gray-800 dark:text-gray-200 hover:underline text-lg font-bold">← Back to Chat</a>
   <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">Settings</h1>
 </header>
 
-<!-- Settings Section -->
+<!-- Settings Form -->
 <main class="flex-1 p-6 overflow-y-auto text-gray-800 dark:text-gray-100">
-  <div class="max-w-2xl mx-auto bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-    <h2 class="text-2xl font-bold mb-6">Customize Your Experience</h2>
+  <div class="max-w-2xl mx-auto bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg">
+    <h2 class="text-2xl font-bold mb-6">Customize your Chatbot</h2>
 
     <form method="POST" class="space-y-6">
       <!-- Theme -->
       <div>
         <label for="theme" class="block mb-2 text-sm font-medium">Theme</label>
-        <select id="theme" name="theme" class="w-full p-3 rounded border dark:bg-gray-700 dark:border-gray-600">
+        <select id="theme" name="theme" class="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
           <option value="dark" {% if settings.theme == 'dark' %}selected{% endif %}>Dark</option>
           <option value="light" {% if settings.theme == 'light' %}selected{% endif %}>Light</option>
         </select>
@@ -32,7 +32,7 @@
       <!-- Font Size -->
       <div>
         <label for="font_size" class="block mb-2 text-sm font-medium">Font Size</label>
-        <select id="font_size" name="font_size" class="w-full p-3 rounded border dark:bg-gray-700 dark:border-gray-600">
+        <select id="font_size" name="font_size" class="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
           <option value="small" {% if settings.font_size == 'small' %}selected{% endif %}>Small</option>
           <option value="base" {% if settings.font_size == 'base' or not settings.font_size %}selected{% endif %}>Base</option>
           <option value="large" {% if settings.font_size == 'large' %}selected{% endif %}>Large</option>
@@ -42,22 +42,23 @@
       <!-- Assistant Personality -->
       <div>
         <label for="personality" class="block mb-2 text-sm font-medium">Assistant Personality</label>
-        <input type="text" id="personality" name="personality" placeholder="e.g., Friendly, Professional..."
-               class="w-full p-3 rounded border dark:bg-gray-700 dark:border-gray-600"
-               value="{{ settings.personality or '' }}">
+        <input type="text" id="personality" name="personality"
+               value="{{ settings.personality or '' }}"
+               placeholder="e.g., Friendly, Professional..."
+               class="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
       </div>
 
       <!-- Response Length -->
       <div>
         <label for="length" class="block mb-2 text-sm font-medium">Response Length</label>
-        <select id="length" name="length" class="w-full p-3 rounded border dark:bg-gray-700 dark:border-gray-600">
+        <select id="length" name="length" class="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
           <option value="short" {% if settings.length == 'short' %}selected{% endif %}>Short</option>
           <option value="medium" {% if settings.length == 'medium' or not settings.length %}selected{% endif %}>Medium</option>
           <option value="long" {% if settings.length == 'long' %}selected{% endif %}>Long</option>
         </select>
       </div>
 
-      <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold">
+      <button type="submit" class="w-full py-3 mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg">
         Apply Settings
       </button>
     </form>
