@@ -3,18 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome</title>
+  <title>Welcome - Chatbot</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="{% if theme == 'dark' %}dark-theme{% else %}light-theme{% endif %}">
-<main style="text-align: center; margin-top: 100px;">
-  <h1>Welcome to Chatbot Web App</h1>
-  <form action="/continue_as_guest" method="POST" style="margin-top: 20px;">
-    <button type="submit">Continue as Guest</button>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen flex items-center justify-center">
+
+<div class="text-center p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl">
+  <h1 class="text-3xl font-bold mb-6">Welcome to Chatbot Web App</h1>
+
+  <form action="/continue_as_guest" method="POST" class="mb-4">
+    <button class="w-full bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg">
+      Continue as Guest
+    </button>
   </form>
-  <form action="/login" method="GET" style="margin-top: 10px;">
-    <button>Login with Google</button>
+
+  <form action="/login" method="GET">
+    <button class="w-full flex items-center justify-center bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-6 rounded-lg space-x-2">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="G" class="w-5 h-5">
+      <span>Login with Google</span>
+    </button>
   </form>
-</main>
+</div>
+
 </body>
 </html>
