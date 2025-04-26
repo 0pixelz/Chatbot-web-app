@@ -7,7 +7,28 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body class="{% if theme == 'dark' %}dark-theme{% else %}light-theme{% endif %}">
-<nav>Settings Navigation</nav>
-<main>Settings Content</main>
+<nav><a href="/chat">Chat</a> | <a href="/conversations">Conversations</a></nav>
+<main>
+  <h1>Settings</h1>
+  <form method="POST">
+    <label>Theme:</label><br>
+    <select name="theme">
+      <option value="dark" {% if theme == 'dark' %}selected{% endif %}>Dark</option>
+      <option value="light" {% if theme == 'light' %}selected{% endif %}>Light</option>
+    </select><br><br>
+
+    <label>Font Size:</label><br>
+    <select name="font_size">
+      <option value="small">Small</option>
+      <option value="base" selected>Base</option>
+      <option value="large">Large</option>
+    </select><br><br>
+
+    <label>Assistant Personality:</label><br>
+    <input type="text" name="personality" placeholder="e.g., Friendly, Professional"><br><br>
+
+    <button type="submit">Apply Settings</button>
+  </form>
+</main>
 </body>
 </html>

@@ -7,6 +7,14 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body class="{% if theme == 'dark' %}dark-theme{% else %}light-theme{% endif %}">
-<main>Welcome Content</main>
+<main style="text-align: center; margin-top: 100px;">
+  <h1>Welcome to Chatbot Web App</h1>
+  <form action="/continue_as_guest" method="POST" style="margin-top: 20px;">
+    <button type="submit">Continue as Guest</button>
+  </form>
+  <form action="/login" method="GET" style="margin-top: 10px;">
+    <button>Login with Google</button>
+  </form>
+</main>
 </body>
 </html>

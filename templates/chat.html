@@ -7,7 +7,15 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body class="{% if theme == 'dark' %}dark-theme{% else %}light-theme{% endif %}">
-<nav>Chat Navigation</nav>
-<main>Chat Content</main>
+<nav><a href="/conversations">Conversations</a> | <a href="/settings">Settings</a></nav>
+<main>
+  {% for msg in history %}
+    <div><strong>{{ msg.role.capitalize() }}:</strong> {{ msg.content }}</div>
+  {% endfor %}
+  <form method="POST" style="margin-top: 20px;">
+    <input type="text" name="message" placeholder="Type your message..." required style="width:80%; padding:10px; margin-right:10px;">
+    <button type="submit">Send</button>
+  </form>
+</main>
 </body>
 </html>

@@ -7,7 +7,14 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body class="{% if theme == 'dark' %}dark-theme{% else %}light-theme{% endif %}">
-<nav>Conversations Navigation</nav>
-<main>Conversations Content</main>
+<nav><a href="/chat">Chat</a> | <a href="/settings">Settings</a></nav>
+<main>
+  <h1>Conversations</h1>
+  <ul>
+    <li>Conversation 1</li>
+    <li>Conversation 2</li>
+    <li>Conversation 3</li>
+  </ul>
+</main>
 </body>
 </html>
