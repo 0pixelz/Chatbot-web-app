@@ -1,25 +1,19 @@
-<!DOCTYPE html>
-<html lang="en">
+<!-- templates/welcome.html --><!DOCTYPE html><html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Welcome | Chatbot</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome - Chatbot Web App</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-900 text-white h-screen flex items-center justify-center">
-    <div class="text-center">
-        <h1 class="text-4xl mb-6">Welcome to the Chatbot</h1>
-        <div class="flex justify-center space-x-4">
-            <form action="/login" method="get">
-                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                    Login with Google
-                </button>
-            </form>
-            <form action="/continue_as_guest" method="post">
-                <button class="bg-gray-600 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded">
-                    Continue as Guest
-                </button>
-            </form>
-        </div>
-    </div>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+  <div class="text-center p-6 bg-white rounded-2xl shadow-2xl">
+    <h1 class="text-3xl font-bold mb-6">Welcome to Chatbot Web App</h1>
+    <form action="/continue_as_guest" method="POST" class="mb-4">
+      <button class="w-full bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg">Continue as Guest</button>
+    </form>
+    <form action="/login" method="GET">
+      <button class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-6 rounded-lg">Login with Google</button>
+    </form>
+  </div>
 </body>
 </html>
