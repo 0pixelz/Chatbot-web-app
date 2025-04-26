@@ -19,12 +19,12 @@
       {% if session.get("user_picture") %}
         <img src="{{ session['user_picture'] }}" alt="Avatar" class="w-10 h-10 rounded-full">
       {% else %}
-        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" class="w-8 h-8 rounded-full bg-white p-1" alt="G">
+        <div class="w-10 h-10 bg-white text-gray-800 font-bold flex items-center justify-center rounded-full border">G</div>
       {% endif %}
     </button>
     <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded shadow-lg z-50">
       <a href="/settings" class="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
-      <form action="/clear" method="POST">
+      <form action="/clear_and_restart" method="POST">
         <button type="submit" class="w-full text-left px-4 py-2 text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-600">Start New Chat</button>
       </form>
       {% if session.get("user_email") %}
@@ -49,7 +49,7 @@
   </div>
 </div>
 
-<!-- Main chat content -->
+<!-- Main Chat -->
 <main class="flex-1 overflow-y-auto p-4 mt-20">
   {% for msg in history %}
     <div class="mb-4">
@@ -63,7 +63,7 @@
   {% endfor %}
 </main>
 
-<!-- Chat input fixed at bottom -->
+<!-- Input at bottom -->
 <form method="POST" class="bg-white dark:bg-gray-800 p-4 flex items-center space-x-2">
   <input type="text" name="message"
          class="flex-1 p-3 border rounded-lg focus:outline-none dark:bg-gray-700 dark:border-gray-600"
