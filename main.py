@@ -10,7 +10,6 @@ from pytz import timezone
 from google_auth_oauthlib.flow import Flow
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
-import uuid
 
 # === CONFIG FROM ENV ===
 GROQ_API_KEY               = os.getenv("GROQ_API_KEY")
@@ -20,10 +19,11 @@ LOCAL_TIMEZONE             = os.getenv("LOCAL_TIMEZONE", "America/Toronto")
 CLIENT_SECRET_JSON         = os.getenv("GOOGLE_CLIENT_SECRET_JSON")
 FLASK_SECRET_KEY           = os.getenv("FLASK_SECRET_KEY")
 
+# Debugging
 print("DATABASE_URL from ENV:", DATABASE_URL)
 
-# Validate presence of critical env vars
-missing = [k for k,v in {
+# Check all critical ENV variables
+missing = [k for k, v in {
     "GROQ_API_KEY": GROQ_API_KEY,
     "FIREBASE_CREDENTIALS_JSON": FIREBASE_CREDENTIALS_JSON,
     "DATABASE_URL": DATABASE_URL,
@@ -43,30 +43,23 @@ initialize_app(cred, {'databaseURL': DATABASE_URL})
 def clean_uid(uid): 
     return uid.replace('.', '_')
 
-def user_ref(uid): 
-    return db.reference(f'users/{clean_uid(uid)}')
+def load_user_history(uid):
+    return db.reference(f'chat_memory/{clean_uid(uid)}').get() or []
 
-def create_new_conversation(uid):
-    cid = str(uuid.uuid4())
-    convo = {
-        "title": "New Conversation",
-        "created_at": datetime.now(timezone(LOCAL_TIMEZONE)).strftime("%Y-%m-%d %H:%M:%S"),
-        "messages": []
-    }
-    user_ref(uid).child("conversations").child(cid).set(convo)
-    return cid
+def save_user_history(uid, data):
+    db.reference(f'chat_memory/{clean_uid(uid)}').set(data)
 
-def list_chats(uid):
-    ref = user_ref(uid).child("conversations").get()
-    return ref if ref else {}
+def get_settings(uid):
+    return db.reference(f'settings/{clean_uid(uid)}').get() or {}
 
-def load_conversation(uid, cid):
-    data = user_ref(uid).child(f"conversations/{cid}/messages").get()
-    return data if data else []
+def save_settings(uid, data):
+    db.reference(f'settings/{clean_uid(uid)}').set(data)
 
-def save_conversation(uid, cid, messages):
-    user_ref(uid).child(f"conversations/{cid}/messages").set(messages)
+def delete_user(uid):
+    db.reference(f'chat_memory/{clean_uid(uid)}').delete()
+    db.reference(f'settings/{clean_uid(uid)}').delete()
 
+# === AI RESPONSE ===
 async def generate_response(prompt, memory=[]):
     url     = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
@@ -83,7 +76,6 @@ async def generate_response(prompt, memory=[]):
         return f"❌ Groq connection error: {str(e)}"
 
 # === ROUTES ===
-
 @app.route("/")
 def index():
     return redirect("/chat")
@@ -97,7 +89,7 @@ def login():
             "https://www.googleapis.com/auth/userinfo.email",
             "https://www.googleapis.com/auth/userinfo.profile"
         ],
-        redirect_uri=url_for("oauth_callback", _external=True)
+        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
     )
     auth_url, state = flow.authorization_url()
     session["state"] = state
@@ -117,7 +109,7 @@ def oauth_callback():
             "https://www.googleapis.com/auth/userinfo.email",
             "https://www.googleapis.com/auth/userinfo.profile"
         ],
-        redirect_uri=url_for("oauth_callback", _external=True)
+        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
     )
     flow.fetch_token(code=request.args["code"])
     creds           = flow.credentials
@@ -130,60 +122,32 @@ def oauth_callback():
 
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
-    uid = session.get("user_email", None)
-    if not uid:
-        return render_template("welcome.html")  # New user page if not logged in
-
-    conversation_id = request.args.get("conversation")
-
-    if not conversation_id:
-        # Auto-create first conversation
-        conversation_id = create_new_conversation(uid)
-        return redirect(f"/chat?conversation={conversation_id}")
-
-    history = load_conversation(uid, conversation_id)
+    uid     = session.get("user_email", "guest")
+    message = ""
+    reply   = ""
     tz      = timezone(LOCAL_TIMEZONE)
-    message, reply = "", ""
+    history = load_user_history(uid)
 
     if request.method == "POST":
         message = request.form["message"]
-        now = datetime.now(tz).strftime("%I:%M %p")
+        now     = datetime.now(tz).strftime("%I:%M %p")
         history.append({"role": "user", "content": message, "time": now})
         trimmed = [{"role": m["role"], "content": m["content"]} for m in history[-10:]]
         reply   = asyncio.run(generate_response(message, trimmed))
         history.append({"role": "assistant", "content": reply, "time": now})
-        save_conversation(uid, conversation_id, history)
+        save_user_history(uid, history)
 
-    return render_template("chat.html", uid=uid, message=message, reply=reply, history=history, chats=list_chats(uid), current_conversation=conversation_id)
-
-@app.route("/conversations")
-def conversations():
-    uid = session.get("user_email", None)
-    if not uid:
-        return redirect("/chat")
-    conversations = list_chats(uid)
-    return render_template("conversations.html", conversations=conversations)
-
-@app.route("/new_conversation", methods=["POST"])
-def new_conversation():
-    uid = session.get("user_email", None)
-    if not uid:
-        return redirect("/chat")
-    cid = create_new_conversation(uid)
-    return redirect(f"/chat?conversation={cid}")
+    return render_template("chat.html", uid=uid, message=message, reply=reply, history=history)
 
 @app.route("/clear", methods=["POST"])
 def clear():
-    uid = session.get("user_email", None)
-    if uid:
-        db.reference(f'users/{clean_uid(uid)}/conversations').delete()
-    return '', 204
+    uid = session.get("user_email", "guest")
+    db.reference(f'chat_memory/{clean_uid(uid)}').delete()
+    return "", 204
 
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
-    uid = session.get("user_email", None)
-    if not uid:
-        return redirect("/chat")
+    uid = session.get("user_email", "guest")
     if request.method == "POST":
         data = {
             "theme":       request.form.get("theme", "dark"),
@@ -191,17 +155,16 @@ def settings():
             "personality": request.form.get("personality", ""),
             "length":      request.form.get("length", "medium")
         }
-        user_ref(uid).child("settings").set(data)
+        save_settings(uid, data)
         return redirect("/settings")
-    settings = user_ref(uid).child("settings").get() or {}
+    settings = get_settings(uid)
     return render_template("settings.html", settings=settings)
 
 @app.route("/delete_account", methods=["POST"])
 def delete_account():
-    uid = session.get("user_email", None)
-    if uid:
-        user_ref(uid).delete()
-        session.clear()
+    uid = session.get("user_email", "guest")
+    delete_user(uid)
+    session.clear()
     return redirect("/")
 
 # === RUN ===
