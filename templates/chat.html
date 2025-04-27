@@ -25,14 +25,14 @@
     }
     .dark .chat-bubble-user {
       background-color: #374151;
-      color: #cbd5e1;
+      color: #f1f5f9;
     }
     .dark .chat-bubble-assistant {
       background-color: #4b5563;
       color: #f9fafb;
     }
 
-    /* Thin scrollbar for textarea */
+    /* Thin scrollbar inside textarea */
     textarea::-webkit-scrollbar {
       width: 6px;
     }
@@ -111,16 +111,18 @@
 </main>
 
 <!-- Input Form -->
-<form method="POST" id="chatForm" action="/chat/{{ convo_id }}" class="fixed bottom-0 left-0 w-full bg-white dark:bg-gray-800 p-4 flex items-center space-x-2 shadow-inner z-50">
-  <textarea id="messageInput" name="message" rows="1"
-    class="flex-1 p-3 border rounded-2xl resize-none focus:outline-none dark:bg-gray-700 dark:border-gray-600"
-    placeholder="Type your message..." required style="max-height: 300px; overflow-y: auto;"></textarea>
-  <button id="sendButton" type="submit" class="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full disabled:opacity-50" disabled>
-    ➔
-  </button>
-  <button id="stopButton" type="button" onclick="stopTyping()" class="hidden p-3 bg-red-500 hover:bg-red-600 text-white rounded-full">
-    ❌
-  </button>
+<form method="POST" id="chatForm" action="/chat/{{ convo_id }}" class="fixed bottom-0 left-0 w-full bg-transparent p-4 flex items-center justify-center z-50">
+  <div id="input-container" class="w-full max-w-3xl bg-white dark:bg-gray-800 rounded-2xl shadow-lg flex items-center space-x-2 p-2">
+    <textarea id="messageInput" name="message" rows="1"
+      class="flex-1 p-2 rounded-2xl resize-none focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white text-gray-900"
+      placeholder="Type your message..." required style="max-height: 300px; overflow-y: auto;"></textarea>
+    <button id="sendButton" type="submit" class="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full disabled:opacity-50" disabled>
+      ➔
+    </button>
+    <button id="stopButton" type="button" onclick="stopTyping()" class="hidden p-3 bg-red-500 hover:bg-red-600 text-white rounded-full">
+      ⏹️
+    </button>
+  </div>
 </form>
 
 <!-- Scripts -->
