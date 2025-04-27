@@ -44,7 +44,7 @@
     <a href="/start_new_chat" class="block py-2 text-blue-600 dark:text-blue-400 hover:underline">➕ Start New Chat</a>
 
     {% if conversations %}
-      {% for convo_id, convo_data in conversations.items() %}
+      {% for convo_id, convo_data in conversations|default({})|dictsort %}
         <div class="flex items-center justify-between group">
           <a href="/chat/{{ convo_id }}" class="block py-2 text-gray-800 dark:text-gray-200 hover:underline truncate flex-1">
             {{ convo_data.title if convo_data.title else 'New Chat' }}
