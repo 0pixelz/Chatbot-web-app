@@ -1,167 +1,14 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chatbot</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="flex flex-col min-h-screen {% if settings.theme == 'dark' %}dark bg-gray-900{% else %}bg-white{% endif %}">
-
-<!-- Top Navbar -->
-<header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow z-50 fixed w-full top-0">
-  <button onclick="toggleSidebar()" id="menuButton" class="text-2xl text-gray-800 dark:text-gray-200 focus:outline-none">
-    ☰
-  </button>
-  <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">Chatbot</h1>
-
-  <div class="relative">
-    <button onclick="toggleMenu()" class="focus:outline-none">
-      {% if session.get("user_picture") %}
-        <img src="{{ session['user_picture'] }}" alt="Avatar" class="w-10 h-10 rounded-full">
-      {% else %}
-        <img src="{{ url_for('static', filename='pngegg.png') }}" alt="Google Login" class="w-10 h-10 rounded-full">
-      {% endif %}
-    </button>
-    <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded shadow-lg z-50">
-      <a href="/settings" class="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
-      <a href="/start_new_chat" class="block px-4 py-2 text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-600">➕ Start New Chat</a>
-      {% if session.get("user_email") %}
-        <form action="/logout" method="POST">
-          <button type="submit" class="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-600">Logout</button>
-        </form>
-      {% else %}
-        <a href="/login" class="block px-4 py-2 text-green-600 hover:bg-gray-100 dark:hover:bg-gray-600">Login with Google</a>
-      {% endif %}
-    </div>
-  </div>
-</header>
-
-<!-- Sidebar -->
-<div id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-white dark:bg-gray-800 transform -translate-x-full transition-transform duration-300 ease-in-out z-40 flex flex-col shadow-lg">
-  <div class="p-4 text-xl font-bold text-gray-800 dark:text-gray-200">Menu</div>
-  <nav class="flex-1 px-4 space-y-2 overflow-y-auto">
-    <a href="/start_new_chat" class="block py-2 text-blue-600 dark:text-blue-400 hover:underline">➕ Start New Chat</a>
-
-    {% if conversations %}
-      {% for convo_id, convo_data in conversations.items() %}
-        <div class="flex items-center justify-between group">
-          <a href="/chat/{{ convo_id }}" class="block py-2 text-gray-800 dark:text-gray-200 hover:underline truncate flex-1">
-            {{ convo_data.title if convo_data.title else 'New Chat' }}
-          </a>
-          <form action="/delete_conversation/{{ convo_id }}" method="POST" onsubmit="return confirm('Delete this conversation?');">
-            <button type="submit" class="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 px-2">
-              🗑️
-            </button>
-          </form>
-        </div>
-      {% endfor %}
-    {% else %}
-      <div class="text-gray-400 py-2">No conversations yet</div>
-    {% endif %}
-  </nav>
-</div>
-
-<!-- Chat Area -->
-<main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 text-gray-800 dark:text-gray-100">
-  {% for msg in history %}
-    <div class="mb-6">
-      <div class="font-bold {% if msg.role == 'user' %}text-blue-600{% else %}text-green-500{% endif %}">
-        {{ msg.role.capitalize() }}
-      </div>
-      <div 
-        class="p-4 rounded-lg mt-1 text-base leading-relaxed whitespace-pre-wrap
-          {% if settings.theme == 'dark' %}
-            {% if msg.role == 'user' %} bg-gray-700 {% else %} bg-gray-700 {% endif %}
-          {% else %}
-            {% if msg.role == 'user' %} bg-blue-100 {% else %} bg-gray-100 {% endif %}
-          {% endif %}"
-        data-role="{{ msg.role }}">
-        {{ msg.content }}
-      </div>
-    </div>
-  {% endfor %}
-
-  <!-- Typing Indicator -->
-  <div id="typingIndicator" class="hidden mb-6">
-    <div class="font-bold text-green-500">Assistant</div>
-    <div class="p-4 rounded-lg mt-1 text-base leading-relaxed whitespace-pre-wrap bg-gray-200 dark:bg-gray-700 animate-pulse">
-      Typing...
-    </div>
-  </div>
-</main>
-
-<!-- Input Form -->
-<form method="POST" action="/chat/{{ convo_id }}" class="bg-white dark:bg-gray-800 p-4 flex items-center space-x-2" onsubmit="showPopup()">
-  <input type="text" name="message"
-         class="flex-1 p-3 border rounded-lg focus:outline-none dark:bg-gray-700 dark:border-gray-600"
-         placeholder="Type your message..." required>
-  <button type="submit" class="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
-    ➔
-  </button>
-</form>
-
-<!-- Popup Notification -->
-<div id="popupNotification" class="hidden fixed bottom-6 right-6 bg-green-500 text-white py-2 px-4 rounded shadow-lg">
-  Message sent!
-</div>
-
-<!-- Scripts -->
 <script>
-function toggleSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  const button = document.getElementById('menuButton');
-  sidebar.classList.toggle('-translate-x-full');
-  button.innerText = sidebar.classList.contains('-translate-x-full') ? '☰' : '✖';
-}
+let typingInterval = null;
+let isTyping = false;
 
-function closeSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  const button = document.getElementById('menuButton');
-  sidebar.classList.add('-translate-x-full');
-  button.innerText = '☰';
-}
+// === Sidebar toggle ===
+function toggleSidebar() { ... }
+function closeSidebar() { ... }
+function toggleMenu() { ... }
+function scrollToBottom() { ... }
 
-function toggleMenu() {
-  const menu = document.getElementById('userMenu');
-  menu.classList.toggle('hidden');
-}
-
-function scrollToBottom() {
-  const chatArea = document.getElementById('chatArea');
-  chatArea.scrollTop = chatArea.scrollHeight;
-}
-
-function animateMessages() {
-  const chatArea = document.getElementById('chatArea');
-  const messages = chatArea.querySelectorAll('[data-role]');
-  const typingIndicator = document.getElementById('typingIndicator');
-
-  messages.forEach((div) => {
-    const fullText = div.textContent;
-    const role = div.getAttribute('data-role');
-    div.textContent = '';
-
-    if (role === 'assistant') {
-      typingIndicator.classList.remove('hidden');
-      let i = 0;
-      function typeChar() {
-        if (i < fullText.length) {
-          div.textContent += fullText.charAt(i);
-          i++;
-          scrollToBottom();
-          setTimeout(typeChar, 15);
-        } else {
-          typingIndicator.classList.add('hidden');
-        }
-      }
-      typeChar();
-    } else {
-      div.textContent = fullText;
-    }
-  });
-}
-
+// === Popup notification after send ===
 function showPopup() {
   const popup = document.getElementById('popupNotification');
   popup.classList.remove('hidden');
@@ -170,11 +17,104 @@ function showPopup() {
   }, 2000);
 }
 
+// === Typing effect and Disable Textarea ===
+function animateMessages() {
+  const chatArea = document.getElementById('chatArea');
+  const messages = chatArea.querySelectorAll('[data-role]');
+  const typingIndicator = document.getElementById('typingIndicator');
+  const textarea = document.getElementById('messageInput');
+  const stopButton = document.getElementById('stopButton');
+
+  messages.forEach((div, index) => {
+    const fullText = div.textContent;
+    const role = div.getAttribute('data-role');
+    div.textContent = '';
+
+    if (role === 'assistant') {
+      typingIndicator.classList.remove('hidden');
+      textarea.disabled = true;
+      stopButton.classList.remove('hidden');
+      isTyping = true;
+
+      let i = 0;
+      function typeChar() {
+        if (!isTyping) return;
+        if (i < fullText.length) {
+          div.textContent += fullText.charAt(i);
+          i++;
+          scrollToBottom();
+          typingInterval = setTimeout(typeChar, 15);
+        } else {
+          finishTyping();
+        }
+      }
+      typeChar();
+    } else {
+      div.textContent = fullText;
+    }
+  });
+
+  // === Add Edit Button to Last User Message ===
+  const lastUser = [...messages].reverse().find(div => div.getAttribute('data-role') === 'user');
+  if (lastUser) {
+    const editBtn = document.createElement('button');
+    editBtn.innerText = '✏️ Edit';
+    editBtn.className = 'ml-2 text-sm text-blue-600 hover:underline';
+    editBtn.onclick = () => {
+      textarea.value = lastUser.innerText.trim();
+      textarea.focus();
+    };
+    lastUser.parentElement.appendChild(editBtn);
+  }
+}
+
+function finishTyping() {
+  const typingIndicator = document.getElementById('typingIndicator');
+  const textarea = document.getElementById('messageInput');
+  const stopButton = document.getElementById('stopButton');
+
+  typingIndicator.classList.add('hidden');
+  textarea.disabled = false;
+  stopButton.classList.add('hidden');
+  isTyping = false;
+  clearTimeout(typingInterval);
+}
+
+// === Stop Generating Button Function ===
+function stopTyping() {
+  isTyping = false;
+  finishTyping();
+}
+
+// === Auto-grow textarea and Shift+Enter ===
+const textarea = document.getElementById('messageInput');
+const sendButton = document.getElementById('sendButton');
+const chatForm = document.getElementById('chatForm');
+
+textarea.addEventListener('input', () => {
+  textarea.style.height = 'auto';
+  textarea.style.height = (textarea.scrollHeight) + 'px';
+
+  if (textarea.value.trim().length > 0) {
+    sendButton.disabled = false;
+  } else {
+    sendButton.disabled = true;
+  }
+});
+
+chatForm.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (!sendButton.disabled && !textarea.disabled) {
+      chatForm.submit();
+      textarea.value = '';
+      sendButton.disabled = true;
+    }
+  }
+});
+
 window.onload = function() {
   animateMessages();
   scrollToBottom();
 }
 </script>
-
-</body>
-</html>
