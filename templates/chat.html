@@ -2,18 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Personal AI Bot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .chat-bubble {
-      max-width: 65%;
+      max-width: 70%;
       margin: 0.5rem auto;
       padding: 0.75rem 1rem;
       border-radius: 1rem;
       word-wrap: break-word;
       overflow-wrap: break-word;
-      font-size: 1rem;
     }
     .chat-bubble-user {
       background-color: #374151;
@@ -33,71 +32,54 @@
     textarea::-webkit-scrollbar-track {
       background: transparent;
     }
-    /* Ensure chat input floats properly */
-    #chatForm {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background-color: transparent;
-      z-index: 50;
-    }
-    #chatArea {
-      scroll-behavior: smooth;
-    }
   </style>
 </head>
 
-<body class="flex flex-col min-h-screen bg-gray-900 text-white">
+<body class="flex flex-col min-h-screen dark bg-gray-900">
 
 <!-- Navbar -->
-<header class="flex items-center justify-between p-4 bg-gray-800 shadow fixed w-full top-0 z-50">
-  <button onclick="toggleSidebar()" id="menuButton" class="text-2xl text-white">☰</button>
-  <h1 class="text-xl font-bold">Personal AI Bot</h1>
-  <div class="relative">
-    {% if session.get("user_picture") %}
+<header class="flex items-center justify-between bg-gray-800 p-4 shadow fixed w-full top-0 z-50">
+  <button onclick="toggleSidebar()" class="text-2xl text-white focus:outline-none">☰</button>
+  <h1 class="text-xl font-bold text-white">Personal AI Bot</h1>
+  {% if session.get("user_picture") %}
+    <div class="relative">
       <button onclick="toggleMenu()" class="focus:outline-none">
         <img src="{{ session['user_picture'] }}" alt="Avatar" class="w-10 h-10 rounded-full">
       </button>
-      <div id="userMenu" class="hidden absolute right-0 mt-2 w-40 bg-white dark:bg-gray-700 rounded shadow-lg">
-        <a href="/settings" class="block px-4 py-2 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
+      <div id="userMenu" class="hidden absolute right-0 mt-2 w-40 bg-gray-700 rounded shadow-lg">
         <form action="/logout" method="POST">
-          <button type="submit" class="w-full text-left px-4 py-2 text-red-500 hover:bg-gray-100 dark:hover:bg-gray-600">Logout</button>
+          <button type="submit" class="block w-full text-red-500 hover:bg-gray-600 px-4 py-2 text-center">
+            Logout
+          </button>
         </form>
       </div>
-    {% else %}
-      <a href="/login">
-        <div class="flex items-center bg-black rounded-full px-3 py-1">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" class="w-5 h-5 mr-2" alt="Google">
-          <span class="text-white text-sm">Sign in with Google</span>
-        </div>
-      </a>
-    {% endif %}
-  </div>
+    </div>
+  {% else %}
+    <a href="/login" class="flex items-center bg-black text-white rounded-full px-4 py-2 text-sm hover:bg-gray-700">
+      <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google" class="w-5 h-5 mr-2"> Sign in with Google
+    </a>
+  {% endif %}
 </header>
 
 <!-- Sidebar -->
-<aside id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-gray-800 transform -translate-x-full transition-transform duration-300 ease-in-out z-40 flex flex-col shadow-lg">
+<aside id="sidebar" class="fixed top-16 left-0 w-64 bg-gray-800 transform -translate-x-full transition-transform duration-300 h-full shadow-lg z-40">
   <div class="p-4 text-lg font-bold text-white">Dashboard</div>
-  <nav class="flex-1 px-4 space-y-2 overflow-y-auto">
-    {% if uid != 'guest' %}
-      <a href="/start_new_chat" class="flex items-center space-x-2 text-blue-400 hover:underline">
-        <span>➕</span><span>Start New Chat</span>
-      </a>
-      <a href="/calendar" class="flex items-center space-x-2 text-blue-400 hover:underline">
-        <span>📅</span><span>Calendar</span>
+  <nav class="flex flex-col px-4 space-y-2 overflow-y-auto text-white">
+    {% if uid != "guest" %}
+      <a href="/start_new_chat" class="flex items-center text-white hover:text-blue-400">
+        <span class="text-xl mr-2">➕</span> Start New Chat
       </a>
     {% else %}
-      <div class="text-gray-400">Sign in to save conversations</div>
+      <div class="text-gray-400 text-sm">Sign in to save conversations</div>
     {% endif %}
     {% if conversations %}
       {% for convo_id, convo_data in conversations.items() %}
-        <div class="flex items-center justify-between">
-          <a href="/chat/{{ convo_id }}" class="truncate w-40 text-white hover:underline">
-            {{ convo_data.title if convo_data.title else 'New Chat' }}
+        <div class="flex items-center justify-between group">
+          <a href="/chat/{{ convo_id }}" class="truncate max-w-[150px] hover:text-blue-400">
+            {{ convo_data.title or 'New Chat' }}
           </a>
           <form action="/delete_conversation/{{ convo_id }}" method="POST" onsubmit="return confirm('Delete this conversation?');">
-            <button type="submit" class="text-red-500 px-2 hover:underline">🗑️</button>
+            <button type="submit" class="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-lg">🗑️</button>
           </form>
         </div>
       {% endfor %}
@@ -105,27 +87,26 @@
   </nav>
 </aside>
 
-<!-- Chat Area -->
-<main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 mb-32">
+<!-- Chat area -->
+<main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 mb-24 text-white">
   {% for msg in history %}
-    <div class="mb-6" id="message-{{ loop.index }}">
+    <div class="mb-4">
       <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant{% endif %}"
-        data-role="{{ msg.role }}" data-full-text="{{ msg.content }}">
+           data-role="{{ msg.role }}" data-full-text="{{ msg.content }}">
       </div>
     </div>
   {% endfor %}
 </main>
 
-<!-- Chat Form -->
-<form method="POST" id="chatForm" action="/chat/{{ convo_id }}" class="p-2 flex items-center justify-center">
-  <div id="input-container" class="w-full max-w-3xl bg-gray-800 rounded-2xl shadow-lg flex items-center space-x-2 p-2">
-    <textarea id="messageInput" name="message" rows="1"
-      class="flex-1 p-2 rounded-2xl resize-none focus:outline-none bg-gray-700 text-white"
-      placeholder="Type your message..." required></textarea>
-    <button id="sendButton" type="submit" class="p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full disabled:opacity-50" disabled>
+<!-- Input form -->
+<form method="POST" id="chatForm" action="/chat/{{ convo_id }}" class="fixed bottom-0 left-0 w-full bg-gray-900 p-4 flex items-center justify-center z-50">
+  <div id="input-container" class="w-full max-w-3xl bg-gray-700 rounded-2xl flex items-center space-x-2 p-2">
+    <textarea id="messageInput" name="message" rows="1" class="flex-1 p-2 rounded-2xl bg-gray-600 text-white resize-none focus:outline-none"
+      placeholder="Type your message..." required style="max-height: 300px; overflow-y: auto;"></textarea>
+    <button id="sendButton" type="submit" class="p-3 bg-gray-600 hover:bg-gray-500 text-white rounded-full disabled:opacity-50">
       ➔
     </button>
-    <button id="stopButton" type="button" onclick="stopTyping()" class="hidden p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full">
+    <button id="stopButton" type="button" onclick="stopTyping()" class="hidden p-3 bg-orange-500 hover:bg-orange-400 text-white rounded-full">
       ⏹️
     </button>
   </div>
@@ -140,41 +121,28 @@ function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('-translate-x-full');
 }
 function toggleMenu() {
-  const menu = document.getElementById('userMenu');
-  if (menu) menu.classList.toggle('hidden');
+  document.getElementById('userMenu').classList.toggle('hidden');
 }
 function scrollToBottom() {
   const chatArea = document.getElementById('chatArea');
   chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
 }
-function resizeForKeyboard() {
+function isNearBottom() {
   const chatArea = document.getElementById('chatArea');
-  if (window.innerHeight < 600) {
-    chatArea.style.paddingBottom = '300px';
-  } else {
-    chatArea.style.paddingBottom = '100px';
-  }
+  return (chatArea.scrollHeight - chatArea.scrollTop - chatArea.clientHeight) < 150;
 }
-window.addEventListener('resize', resizeForKeyboard);
 
 function animateLastMessage() {
   const chatArea = document.getElementById('chatArea');
   const messages = chatArea.querySelectorAll('[data-role]');
-  const textarea = document.getElementById('messageInput');
-  const sendButton = document.getElementById('sendButton');
-  const stopButton = document.getElementById('stopButton');
-
-  if (messages.length === 0) return;
-
-  const lastMessage = messages[messages.length - 1];
+  const lastMessage = messages[messages.length-1];
+  if (!lastMessage) return;
   const fullText = lastMessage.getAttribute('data-full-text');
   const role = lastMessage.getAttribute('data-role');
+
   lastMessage.textContent = '';
 
   if (role === 'assistant') {
-    textarea.disabled = true;
-    sendButton.disabled = true;
-    stopButton.classList.remove('hidden');
     isTyping = true;
     let i = 0;
     function typeChar() {
@@ -183,7 +151,7 @@ function animateLastMessage() {
         lastMessage.textContent += fullText.charAt(i);
         i++;
         if (isNearBottom()) scrollToBottom();
-        typingInterval = setTimeout(typeChar, 15);
+        typingInterval = setTimeout(typeChar, 20);
       } else {
         finishTyping();
       }
@@ -192,7 +160,6 @@ function animateLastMessage() {
   } else {
     lastMessage.textContent = fullText;
   }
-  scrollToBottom();
 }
 
 function finishTyping() {
@@ -231,8 +198,8 @@ chatForm.addEventListener('keydown', (e) => {
 
 window.onload = function() {
   animateLastMessage();
-  resizeForKeyboard();
-};
+  scrollToBottom();
+}
 </script>
 
 </body>
