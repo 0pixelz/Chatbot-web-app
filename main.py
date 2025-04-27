@@ -94,6 +94,7 @@ async def generate_title_from_message(message):
         return None
 
 # === ROUTES ===
+
 @app.route("/")
 def home():
     return redirect("/chat")
@@ -102,8 +103,12 @@ def home():
 def login():
     flow = Flow.from_client_config(
         json.loads(CLIENT_SECRET_JSON),
-        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-        redirect_uri=url_for("oauth_callback", _external=True)
+        scopes=[
+            "openid",
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile"
+        ],
+        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
     )
     auth_url, state = flow.authorization_url()
     session["state"] = state
@@ -113,8 +118,12 @@ def login():
 def oauth_callback():
     flow = Flow.from_client_config(
         json.loads(CLIENT_SECRET_JSON),
-        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-        redirect_uri=url_for("oauth_callback", _external=True)
+        scopes=[
+            "openid",
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile"
+        ],
+        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
     )
     flow.fetch_token(code=request.args["code"])
     creds = flow.credentials
@@ -128,7 +137,7 @@ def oauth_callback():
 @app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
-    return redirect("/")
+    return redirect("/chat")
 
 @app.route("/chat", methods=["GET"])
 def chat_redirect():
@@ -153,7 +162,7 @@ def chat(convo_id):
         history.append({"role": "assistant", "content": reply, "time": now})
         save_user_history(uid, convo_id, history)
 
-        # === AI Title generation ===
+        # AI Title generation if needed
         convo_ref = db.reference(f'conversations/{clean_uid(uid)}/{convo_id}')
         current_title = convo_ref.child('title').get()
 
@@ -162,7 +171,6 @@ def chat(convo_id):
             if title:
                 convo_ref.child('title').set(title)
             else:
-                # fallback
                 fallback_title = message.strip()
                 if len(fallback_title) > 30:
                     fallback_title = fallback_title[:27] + "..."
