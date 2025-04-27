@@ -231,7 +231,13 @@ def save_event_route(event_id):
     if not uid:
         return redirect("/chat")
     data = request.get_json()
-    save_event(uid, event_id, data)
+    # SAVE start_time and end_time if present
+    save_event(uid, event_id, {
+        "title": data["title"],
+        "date": data["date"],
+        "start_time": data.get("start_time"),
+        "end_time": data.get("end_time")
+    })
     return "", 204
 
 @app.route("/delete_event/<event_id>", methods=["POST"])
