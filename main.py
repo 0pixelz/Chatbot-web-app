@@ -133,6 +133,7 @@ def chat(convo_id):
         history.append({"role": "assistant", "content": reply, "time": now})
         save_user_history(uid, convo_id, history)
 
+        # === Save title if missing
         if uid != "guest":
             convo_ref = db.reference(f'conversations/{clean_uid(uid)}/{convo_id}')
             if not convo_ref.child('title').get():
