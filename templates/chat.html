@@ -44,10 +44,10 @@
     <a href="/start_new_chat" class="block py-2 text-blue-600 dark:text-blue-400 hover:underline">➕ Start New Chat</a>
 
     {% if conversations %}
-      {% for convo_id, messages in conversations.items() %}
+      {% for convo_id, convo_data in conversations.items() %}
         <div class="flex items-center justify-between group">
           <a href="/chat/{{ convo_id }}" class="block py-2 text-gray-800 dark:text-gray-200 hover:underline truncate flex-1">
-            {{ messages[-1]["content"][:20] if messages else 'New Chat' }}
+            {{ convo_data.title if convo_data.title else 'New Chat' }}
           </a>
           <form action="/delete_conversation/{{ convo_id }}" method="POST" onsubmit="return confirm('Delete this conversation?');">
             <button type="submit" class="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 px-2">
@@ -81,10 +81,18 @@
       </div>
     </div>
   {% endfor %}
+
+  <!-- Typing Indicator -->
+  <div id="typingIndicator" class="hidden mb-6">
+    <div class="font-bold text-green-500">Assistant</div>
+    <div class="p-4 rounded-lg mt-1 text-base leading-relaxed whitespace-pre-wrap bg-gray-200 dark:bg-gray-700 animate-pulse">
+      Typing...
+    </div>
+  </div>
 </main>
 
 <!-- Input Form -->
-<form method="POST" action="/chat/{{ convo_id }}" class="bg-white dark:bg-gray-800 p-4 flex items-center space-x-2">
+<form method="POST" action="/chat/{{ convo_id }}" class="bg-white dark:bg-gray-800 p-4 flex items-center space-x-2" onsubmit="showPopup()">
   <input type="text" name="message"
          class="flex-1 p-3 border rounded-lg focus:outline-none dark:bg-gray-700 dark:border-gray-600"
          placeholder="Type your message..." required>
@@ -92,6 +100,11 @@
     ➔
   </button>
 </form>
+
+<!-- Popup Notification -->
+<div id="popupNotification" class="hidden fixed bottom-6 right-6 bg-green-500 text-white py-2 px-4 rounded shadow-lg">
+  Message sent!
+</div>
 
 <!-- Scripts -->
 <script>
@@ -122,13 +135,15 @@ function scrollToBottom() {
 function animateMessages() {
   const chatArea = document.getElementById('chatArea');
   const messages = chatArea.querySelectorAll('[data-role]');
-  
+  const typingIndicator = document.getElementById('typingIndicator');
+
   messages.forEach((div) => {
     const fullText = div.textContent;
     const role = div.getAttribute('data-role');
     div.textContent = '';
 
     if (role === 'assistant') {
+      typingIndicator.classList.remove('hidden');
       let i = 0;
       function typeChar() {
         if (i < fullText.length) {
@@ -136,6 +151,8 @@ function animateMessages() {
           i++;
           scrollToBottom();
           setTimeout(typeChar, 15);
+        } else {
+          typingIndicator.classList.add('hidden');
         }
       }
       typeChar();
@@ -143,6 +160,14 @@ function animateMessages() {
       div.textContent = fullText;
     }
   });
+}
+
+function showPopup() {
+  const popup = document.getElementById('popupNotification');
+  popup.classList.remove('hidden');
+  setTimeout(() => {
+    popup.classList.add('hidden');
+  }, 2000);
 }
 
 window.onload = function() {
