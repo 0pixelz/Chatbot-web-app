@@ -149,7 +149,7 @@ def chat(convo_id):
     uid = session.get("user_email", "guest")
     tz = timezone(LOCAL_TIMEZONE)
 
-    # === if guest and GET: wipe old guest chat
+    # === if guest and GET: wipe old guest chat on refresh
     if uid == "guest" and request.method == "GET":
         guest_path = f'chat_memory/{clean_uid(uid)}/{convo_id}'
         db.reference(guest_path).delete()
