@@ -40,9 +40,32 @@
     textarea::-webkit-scrollbar-track {
       background: transparent;
     }
+    .google-login-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background-color: #4285F4;
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .google-login-btn svg {
+      width: 20px;
+      height: 20px;
+    }
+    #messageInput {
+      width: 100%;
+      height: 40px;
+      padding: 10px;
+      border-radius: 20px;
+      background-color: #1f2937;
+      color: white;
+      border: 1px solid #4b5563;
+    }
   </style>
 </head>
-
 <body class="flex flex-col min-h-screen {% if settings.theme == 'dark' %}dark bg-gray-900{% else %}bg-white{% endif %}">
 
 <!-- Navbar -->
@@ -53,6 +76,7 @@
   <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">Chatbot</h1>
   <div class="relative">
     {% if session.get("user_picture") %}
+      <!-- Logged in: show avatar + Logout -->
       <button onclick="toggleMenu()" class="focus:outline-none">
         <img src="{{ session['user_picture'] }}" alt="Avatar" class="w-10 h-10 rounded-full">
       </button>
@@ -64,17 +88,17 @@
         </form>
       </div>
     {% else %}
-      <button onclick="toggleMenu()" class="focus:outline-none">
-        <div class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md px-3 py-2">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-6 h-6"><path fill="#4285F4" d="M24 9.5c3.35 0 6.1 1.16 8.38 3.05l6.24-6.23C34.27 2.6 29.56.5 24 .5 14.8.5 7.06 6.86 4.36 15.3l7.28 5.65c1.48-4.68 5.78-8.08 10.36-8.08z"/><path fill="#34A853" d="M46.5 24c0-1.75-.16-3.43-.46-5H24v9.5h12.7c-1.05 5.23-5.78 9.06-11.2 9.06-6.38 0-11.68-5.32-11.68-11.8 0-1.74.36-3.4 1-4.92l-7.28-5.65C5.04 17.66 4 20.7 4 24c0 11.05 8.94 20 20 20s20-8.95 20-20z"/></svg>
-          <span class="text-sm">Login</span>
-        </div>
-      </button>
-      <div id="userMenu" class="hidden absolute right-0 mt-2 w-40 bg-white dark:bg-gray-700 rounded shadow-lg">
-        <a href="/login" class="block px-4 py-2 text-blue-600 text-center hover:bg-gray-100 dark:hover:bg-gray-600">
-          Sign in with Google
-        </a>
-      </div>
+      <!-- Not logged in: show Google logo + Login -->
+      <a href="/login" class="google-login-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5">
+          <title>Sign in with Google</title>
+          <path d="M12 3c1.28 0 2.5.47 3.42 1.26l2.56-2.56c-1.28-1.2-2.97-1.88-5.06-1.88-3.52 0-6.42 2.3-7.51 5.5H2v3h2.58C5.59 9.59 8.01 7.5 12 7.5z" fill="#4285F4"></path>
+          <path d="M12 0c-1.58 0-3.04.5-4.23 1.35L5.07 3.77C6.35 2.77 8.05 2 10 2c2.71 0 5.03 1.16 6.68 3.05l2.62-2.61C16.47 1.62 14.36 0 12 0z" fill="#34A853"></path>
+          <path d="M12 24c-2.02 0-3.85-.78-5.21-2.09l-2.8 2.8c2.07 1.95 4.81 3.29 7.68 3.29 4.67 0 8.56-3.11 9.93-7.32h-3.88c-.75 1.89-2.53 3.14-4.76 3.14z" fill="#FBBC05"></path>
+          <path d="M12 16.5c-1.45 0-2.69-.57-3.61-1.51l-2.56 2.56c1.6 1.42 3.74 2.39 6.17 2.39 3.15 0 5.86-1.56 7.51-3.85h-3.67c-.63.6-1.51.94-2.44.94z" fill="#0F9D58"></path>
+        </svg>
+        <span class="text-sm text-white tracking-wider">Sign in with Google</span>
+      </a>
     {% endif %}
   </div>
 </header>
@@ -83,38 +107,39 @@
 <aside id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-white dark:bg-gray-800 transform -translate-x-full transition-transform duration-300 ease-in-out z-40 flex flex-col shadow-lg">
   <div class="p-4 text-xl font-bold text-gray-800 dark:text-gray-200">Menu</div>
   <nav class="flex-1 px-4 space-y-2 overflow-y-auto">
-    {% if uid != 'guest' %}
     <a href="/start_new_chat" class="block py-2 text-blue-600 dark:text-blue-400 hover:underline">➕ Start New Chat</a>
-      {% if conversations %}
-        {% for convo_id, convo_data in conversations.items() %}
-          <div class="flex items-center justify-between group">
-            <a href="/chat/{{ convo_id }}" class="block py-2 text-gray-800 dark:text-gray-200 hover:underline truncate w-40">
-              {{ convo_data.title if convo_data.title else 'New Chat' }}
-            </a>
-            <form action="/delete_conversation/{{ convo_id }}" method="POST" onsubmit="return confirm('Delete this conversation?');">
-              <button type="submit" class="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 px-2">
-                🗑️
-              </button>
-            </form>
-          </div>
-        {% endfor %}
-      {% else %}
-        <div class="text-gray-400 py-2">No conversations yet</div>
-      {% endif %}
+    {% if conversations %}
+      {% for convo_id, convo_data in conversations.items() %}
+        <div class="flex items-center justify-between group">
+          <a href="/chat/{{ convo_id }}" class="block py-2 text-gray-800 dark:text-gray-200 hover:underline truncate w-40">
+            {{ convo_data.title if convo_data.title else 'New Chat' }}
+          </a>
+          <form action="/delete_conversation/{{ convo_id }}" method="POST" onsubmit="return confirm('Delete this conversation?');">
+            <button type="submit" class="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 px-2">
+              🗑️
+            </button>
+          </form>
+        </div>
+      {% endfor %}
     {% else %}
-      <div class="text-gray-400 text-sm">Login to save chats</div>
+      <div class="text-gray-400 py-2">No conversations yet</div>
     {% endif %}
   </nav>
 </aside>
 
 <!-- Chat Area -->
-<main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 text-gray-800 dark:text-gray-100 mb-32">
+<main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 text-gray-800 dark:text-gray-100">
   {% for msg in history %}
     <div class="mb-6" id="message-{{ loop.index }}">
-      <div 
-        class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user ml-auto{% else %}chat-bubble-assistant mr-auto{% endif %}"
-        data-role="{{ msg.role }}" data-full-text="{{ msg.content }}">
-      </div>
+      {% if msg.role == 'user' %}
+        <div class="chat-bubble chat-bubble-user">
+          {{ msg.content }}
+        </div>
+      {% else %}
+        <div class="chat-bubble chat-bubble-assistant" data-role="assistant" data-full-text="{{ msg.content }}">
+          <!-- animated typing for assistant will happen here -->
+        </div>
+      {% endif %}
     </div>
   {% endfor %}
 </main>
@@ -162,36 +187,42 @@ function isNearBottom() {
 function animateMessages() {
   const chatArea = document.getElementById('chatArea');
   const messages = chatArea.querySelectorAll('[data-role]');
-  const lastAssistant = [...messages].reverse().find(div => div.getAttribute('data-role') === 'assistant');
   const textarea = document.getElementById('messageInput');
   const sendButton = document.getElementById('sendButton');
   const stopButton = document.getElementById('stopButton');
 
-  if (lastAssistant) {
-    const fullText = lastAssistant.getAttribute('data-full-text');
-    lastAssistant.textContent = '';
-    textarea.disabled = true;
-    sendButton.disabled = true;
-    stopButton.classList.remove('hidden');
-    isTyping = true;
-    let i = 0;
-    function typeChar() {
-      if (!isTyping) return;
-      if (i < fullText.length) {
-        lastAssistant.textContent += fullText.charAt(i);
-        i++;
-        if (isNearBottom()) {
-          scrollToBottom();
+  messages.forEach((div) => {
+    const fullText = div.getAttribute('data-full-text');
+    const role = div.getAttribute('data-role');
+    div.textContent = '';
+
+    if (role === 'assistant') {
+      textarea.disabled = true;
+      sendButton.disabled = true;
+      stopButton.classList.remove('hidden');
+      isTyping = true;
+
+      let i = 0;
+      function typeChar() {
+        if (!isTyping) return;
+        if (i < fullText.length) {
+          div.textContent += fullText.charAt(i);
+          i++;
+          if (isNearBottom()) {
+            scrollToBottom();
+          }
+          typingInterval = setTimeout(typeChar, 15);
+        } else {
+          finishTyping();
         }
-        typingInterval = setTimeout(typeChar, 15);
-      } else {
-        finishTyping();
       }
+      typeChar();
+    } else {
+      div.textContent = fullText;
     }
-    typeChar();
-  } else {
-    scrollToBottom();
-  }
+  });
+
+  scrollToBottom();
 }
 
 function finishTyping() {
