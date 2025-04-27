@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Personal AI Bot</title>
+  <title>Personal AI Bot - Chat</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .chat-bubble {
@@ -13,19 +13,20 @@
       border-radius: 1rem;
       word-wrap: break-word;
       overflow-wrap: break-word;
-      opacity: 0;
-      transform: translateY(10px);
-      transition: opacity 0.6s ease, transform 0.6s ease;
-    }
-    .chat-bubble.show {
-      opacity: 1;
-      transform: translateY(0);
     }
     .chat-bubble-user {
+      background-color: #c7d2fe;
+      color: #1e3a8a;
+    }
+    .chat-bubble-assistant {
+      background-color: #e5e7eb;
+      color: #111827;
+    }
+    .dark .chat-bubble-user {
       background-color: #374151;
       color: #f1f5f9;
     }
-    .chat-bubble-assistant {
+    .dark .chat-bubble-assistant {
       background-color: #4b5563;
       color: #f9fafb;
     }
@@ -42,30 +43,35 @@
   </style>
 </head>
 
-<body class="flex flex-col min-h-screen dark bg-gray-900">
+<body class="flex flex-col min-h-screen {% if settings.theme == 'dark' %}dark bg-gray-900{% else %}bg-white{% endif %}">
 
 <!-- Navbar -->
 <header class="flex items-center justify-between bg-gray-800 p-4 shadow fixed w-full top-0 z-50">
-  <button onclick="toggleSidebar()" id="menuButton" class="text-2xl text-gray-200 focus:outline-none">
+  <button onclick="toggleSidebar()" id="menuButton" class="text-2xl text-white focus:outline-none">
     ☰
   </button>
-  <h1 class="text-xl font-bold text-gray-200">Personal AI Bot</h1>
+  <h1 class="text-xl font-bold text-white">Personal AI Bot</h1>
   <div class="relative">
     {% if session.get("user_picture") %}
       <button onclick="toggleMenu()" class="focus:outline-none">
         <img src="{{ session['user_picture'] }}" alt="Avatar" class="w-10 h-10 rounded-full">
       </button>
-      <div id="userMenu" class="hidden absolute right-0 mt-2 w-40 bg-gray-700 rounded shadow-lg">
-        <a href="/settings" class="block w-full px-4 py-2 text-white hover:bg-gray-600 text-center">Settings</a>
+      <div id="userMenu" class="hidden absolute right-0 mt-2 w-40 bg-white dark:bg-gray-700 rounded shadow-lg">
         <form action="/logout" method="POST">
-          <button type="submit" class="block w-full px-4 py-2 text-red-400 hover:bg-gray-600 text-center">Logout</button>
+          <button type="submit" class="block w-full px-4 py-2 text-red-500 hover:bg-gray-100 dark:hover:bg-gray-600">
+            Logout
+          </button>
         </form>
       </div>
     {% else %}
-      <a href="/login" class="flex items-center bg-black text-white rounded-full px-3 py-2 hover:bg-gray-800">
-        <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google Logo" class="h-5 w-5 mr-2">
-        Sign in with Google
-      </a>
+      <button onclick="toggleMenu()" class="focus:outline-none">
+        <div class="w-10 h-10 rounded-full bg-black flex items-center justify-center text-white font-bold">G</div>
+      </button>
+      <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded shadow-lg">
+        <a href="/login" class="block w-full text-center text-white bg-black px-4 py-2 rounded hover:bg-gray-900">
+          Sign in with Google
+        </a>
+      </div>
     {% endif %}
   </div>
 </header>
@@ -76,6 +82,7 @@
   <nav class="flex-1 px-4 space-y-2 overflow-y-auto">
     {% if uid != "guest" %}
       <a href="/start_new_chat" class="block py-2 text-white hover:underline">➕ Start New Chat</a>
+      <a href="/calendar" class="block py-2 text-white hover:underline">📅 Calendar</a>
       {% if conversations %}
         {% for convo_id, convo_data in conversations.items() %}
           <div class="flex items-center justify-between group">
@@ -99,12 +106,12 @@
 </aside>
 
 <!-- Chat Area -->
-<main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 text-gray-100">
+<main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 text-gray-800 dark:text-gray-100">
   {% for msg in history %}
     <div class="mb-6" id="message-{{ loop.index }}">
       <div 
         class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant{% endif %}"
-        data-role="{{ msg.role }}" data-full-text="{{ msg.content }}" {% if loop.index != history|length and msg.role == 'assistant' %}data-static="true"{% endif %}>
+        data-role="{{ msg.role }}" data-full-text="{{ msg.content }}">
       </div>
     </div>
   {% endfor %}
@@ -112,26 +119,28 @@
 
 <!-- Input Form -->
 <form method="POST" id="chatForm" action="/chat/{{ convo_id }}" class="fixed bottom-0 left-0 w-full bg-transparent p-4 flex items-center justify-center z-50">
-  <div id="input-container" class="w-full max-w-3xl bg-gray-800 rounded-2xl shadow-lg flex items-center space-x-2 p-2">
+  <div id="input-container" class="w-full max-w-3xl bg-white dark:bg-gray-800 rounded-2xl shadow-lg flex items-center space-x-2 p-2">
     <textarea id="messageInput" name="message" rows="1"
-      class="flex-1 p-2 rounded-2xl resize-none focus:outline-none bg-gray-700 border-none text-white"
+      class="flex-1 p-2 rounded-2xl resize-none focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white text-gray-900"
       placeholder="Type your message..." required style="max-height: 300px; overflow-y: auto;"></textarea>
     <button id="sendButton" type="submit" class="p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full disabled:opacity-50" disabled>
       ➔
     </button>
     <button id="stopButton" type="button" onclick="stopTyping()" class="hidden p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-        <rect x="6" y="6" width="12" height="12" rx="2" ry="2" />
-      </svg>
+      ⏹️
     </button>
   </div>
 </form>
 
 <!-- Scripts -->
 <script>
+let typingInterval = null;
+let isTyping = false;
+
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('-translate-x-full');
 }
+
 function toggleMenu() {
   document.getElementById('userMenu').classList.toggle('hidden');
 }
@@ -144,21 +153,51 @@ function scrollToBottom() {
   });
 }
 
-function animateLastMessageFade() {
-  const chatArea = document.getElementById('chatArea');
-  const messages = chatArea.querySelectorAll('.chat-bubble');
-  const lastBubble = messages[messages.length - 1];
-  if (lastBubble) {
-    setTimeout(() => {
-      lastBubble.classList.add('show');
-    }, 200);
+function animateLatestAssistantReply() {
+  const messages = document.querySelectorAll('[data-role="assistant"]');
+  const lastAssistant = messages[messages.length - 1];
+
+  if (!lastAssistant) return;
+
+  const fullText = lastAssistant.getAttribute('data-full-text');
+  lastAssistant.textContent = "";
+
+  const textarea = document.getElementById('messageInput');
+  const sendButton = document.getElementById('sendButton');
+  const stopButton = document.getElementById('stopButton');
+
+  textarea.disabled = true;
+  sendButton.disabled = true;
+  stopButton.classList.remove('hidden');
+  isTyping = true;
+
+  let i = 0;
+  function typeChar() {
+    if (!isTyping) return;
+    if (i < fullText.length) {
+      lastAssistant.textContent += fullText.charAt(i);
+      i++;
+      scrollToBottom();
+      typingInterval = setTimeout(typeChar, 15);
+    } else {
+      finishTyping();
+    }
   }
-  scrollToBottom();
+  typeChar();
 }
 
-window.onload = function() {
-  animateLastMessageFade();
-};
+function finishTyping() {
+  document.getElementById('messageInput').disabled = false;
+  document.getElementById('sendButton').disabled = false;
+  document.getElementById('stopButton').classList.add('hidden');
+  isTyping = false;
+  clearTimeout(typingInterval);
+}
+
+function stopTyping() {
+  isTyping = false;
+  finishTyping();
+}
 
 const textarea = document.getElementById('messageInput');
 const sendButton = document.getElementById('sendButton');
@@ -180,6 +219,11 @@ chatForm.addEventListener('keydown', (e) => {
     }
   }
 });
+
+window.onload = function() {
+  animateLatestAssistantReply();
+  scrollToBottom();
+}
 </script>
 
 </body>
