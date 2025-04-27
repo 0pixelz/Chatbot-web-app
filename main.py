@@ -12,12 +12,12 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 
 # === CONFIG FROM ENV ===
-GROQ_API_KEY               = os.getenv("GROQ_API_KEY")
-FIREBASE_CREDENTIALS_JSON  = os.getenv("FIREBASE_CREDENTIALS_JSON")
-DATABASE_URL               = os.getenv("DATABASE_URL")
-LOCAL_TIMEZONE             = os.getenv("LOCAL_TIMEZONE", "America/Toronto")
-CLIENT_SECRET_JSON         = os.getenv("GOOGLE_CLIENT_SECRET_JSON")
-FLASK_SECRET_KEY           = os.getenv("FLASK_SECRET_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_CREDENTIALS_JSON")
+DATABASE_URL = os.getenv("DATABASE_URL")
+LOCAL_TIMEZONE = os.getenv("LOCAL_TIMEZONE", "America/Toronto")
+CLIENT_SECRET_JSON = os.getenv("GOOGLE_CLIENT_SECRET_JSON")
+FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
 
 # === FLASK & FIREBASE INIT ===
 app = Flask(__name__)
