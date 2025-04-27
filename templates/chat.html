@@ -2,18 +2,46 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Chatbot</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @keyframes dots {
-      0% { content: "."; }
-      33% { content: ".."; }
-      66% { content: "..."; }
+    /* Chat bubbles */
+    .chat-bubble {
+      max-width: 65%;
+      margin: 0.5rem auto;
+      padding: 0.75rem 1rem;
+      border-radius: 1rem;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
-    .typing-dots::after {
-      content: ".";
-      animation: dots 1s infinite steps(3, jump-none);
+    .chat-bubble-user {
+      background-color: #c7d2fe;
+      color: #1e3a8a;
+    }
+    .chat-bubble-assistant {
+      background-color: #e5e7eb;
+      color: #111827;
+    }
+    .dark .chat-bubble-user {
+      background-color: #374151;
+      color: #cbd5e1;
+    }
+    .dark .chat-bubble-assistant {
+      background-color: #4b5563;
+      color: #f9fafb;
+    }
+
+    /* Thin scrollbar for textarea */
+    textarea::-webkit-scrollbar {
+      width: 6px;
+    }
+    textarea::-webkit-scrollbar-thumb {
+      background-color: rgba(100, 116, 139, 0.5);
+      border-radius: 8px;
+    }
+    textarea::-webkit-scrollbar-track {
+      background: transparent;
     }
   </style>
 </head>
@@ -70,17 +98,12 @@
 <!-- Chat Area -->
 <main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 text-gray-800 dark:text-gray-100">
   {% for msg in history %}
-    <div class="mb-6">
-      <div class="font-bold {% if msg.role == 'user' %}text-blue-600{% else %}text-green-500{% endif %}">
-        {{ msg.role.capitalize() }}
-      </div>
+    <div class="mb-6" id="message-{{ loop.index }}">
+      {% if msg.role == 'assistant' %}
+        <div class="font-bold text-green-500 mb-1">Assistant</div>
+      {% endif %}
       <div 
-        class="p-4 rounded-lg mt-1 text-base leading-relaxed whitespace-pre-wrap
-          {% if settings.theme == 'dark' %}
-            {% if msg.role == 'user' %} bg-gray-700 {% else %} bg-gray-700 {% endif %}
-          {% else %}
-            {% if msg.role == 'user' %} bg-blue-100 {% else %} bg-gray-100 {% endif %}
-          {% endif %}"
+        class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant{% endif %}"
         data-role="{{ msg.role }}" data-full-text="{{ msg.content }}">
       </div>
     </div>
@@ -90,8 +113,8 @@
 <!-- Input Form -->
 <form method="POST" id="chatForm" action="/chat/{{ convo_id }}" class="fixed bottom-0 left-0 w-full bg-white dark:bg-gray-800 p-4 flex items-center space-x-2 shadow-inner z-50">
   <textarea id="messageInput" name="message" rows="1"
-         class="flex-1 p-3 border rounded-2xl resize-none focus:outline-none dark:bg-gray-700 dark:border-gray-600"
-         placeholder="Type your message..." required></textarea>
+    class="flex-1 p-3 border rounded-2xl resize-none focus:outline-none dark:bg-gray-700 dark:border-gray-600"
+    placeholder="Type your message..." required style="max-height: 300px; overflow-y: auto;"></textarea>
   <button id="sendButton" type="submit" class="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full disabled:opacity-50" disabled>
     ➔
   </button>
@@ -106,27 +129,18 @@ let typingInterval = null;
 let isTyping = false;
 
 function toggleSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  sidebar.classList.toggle('-translate-x-full');
+  document.getElementById('sidebar').classList.toggle('-translate-x-full');
 }
 
 function toggleMenu() {
-  const menu = document.getElementById('userMenu');
-  menu.classList.toggle('hidden');
+  document.getElementById('userMenu').classList.toggle('hidden');
 }
 
-function isNearBottom() {
-  const chatArea = document.getElementById('chatArea');
-  return chatArea.scrollHeight - chatArea.scrollTop <= chatArea.clientHeight + 100;
-}
-
-function scrollToBottom() {
-  const chatArea = document.getElementById('chatArea');
-  if (isNearBottom()) {
-    chatArea.scrollTo({
-      top: chatArea.scrollHeight,
-      behavior: 'smooth'
-    });
+function scrollLastUserMessageIntoView() {
+  const messages = document.querySelectorAll('[data-role]');
+  const lastUser = [...messages].reverse().find(div => div.getAttribute('data-role') === 'user');
+  if (lastUser) {
+    lastUser.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 }
 
@@ -148,18 +162,13 @@ function animateMessages() {
       stopButton.classList.remove('hidden');
       isTyping = true;
 
-      const typingDots = document.createElement('span');
-      typingDots.id = 'typingDots';
-      typingDots.className = 'typing-dots';
-      div.appendChild(typingDots);
-
       let i = 0;
       function typeChar() {
         if (!isTyping) return;
         if (i < fullText.length) {
-          typingDots.insertAdjacentText('beforebegin', fullText.charAt(i));
+          div.textContent += fullText.charAt(i);
           i++;
-          if (i % 3 === 0) scrollToBottom();
+          if (i % 2 === 0) div.scrollIntoView({ block: 'end', behavior: 'smooth' });
           typingInterval = setTimeout(typeChar, 15);
         } else {
           finishTyping();
@@ -171,33 +180,13 @@ function animateMessages() {
     }
   });
 
-  const lastUser = [...messages].reverse().find(div => div.getAttribute('data-role') === 'user');
-  if (lastUser) {
-    const editBtn = document.createElement('button');
-    editBtn.title = "Edit message";
-    editBtn.className = "ml-2 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600";
-    editBtn.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline" viewBox="0 0 20 20" fill="currentColor">
-        <path d="M17.414 2.586a2 2 0 00-2.828 0L6 11.172V14h2.828l8.586-8.586a2 2 0 000-2.828z"/>
-        <path fill-rule="evenodd" d="M4 16a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2h-5.586l-2 2H16v10H4V16z" clip-rule="evenodd"/>
-      </svg>`;
-    editBtn.onclick = () => {
-      textarea.value = lastUser.innerText.trim();
-      textarea.focus();
-    };
-    lastUser.parentElement.appendChild(editBtn);
-  }
+  scrollLastUserMessageIntoView();
 }
 
 function finishTyping() {
-  const textarea = document.getElementById('messageInput');
-  const sendButton = document.getElementById('sendButton');
-  const stopButton = document.getElementById('stopButton');
-  document.getElementById('typingDots')?.remove();
-
-  textarea.disabled = false;
-  sendButton.disabled = textarea.value.trim().length === 0;
-  stopButton.classList.add('hidden');
+  document.getElementById('messageInput').disabled = false;
+  document.getElementById('sendButton').disabled = false;
+  document.getElementById('stopButton').classList.add('hidden');
   isTyping = false;
   clearTimeout(typingInterval);
 }
@@ -230,7 +219,6 @@ chatForm.addEventListener('keydown', (e) => {
 
 window.onload = function() {
   animateMessages();
-  scrollToBottom();
 }
 </script>
 
