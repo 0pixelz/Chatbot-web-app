@@ -4,20 +4,20 @@
   <meta charset="UTF-8">
   <title>Calendar - Personal AI Bot</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     .calendar-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 6px;
+      gap: 5px;
     }
     .calendar-cell {
-      min-height: 80px;
-      background-color: #374151;
+      min-height: 90px;
       border-radius: 8px;
+      background-color: #374151;
+      color: white;
       padding: 6px;
-      overflow-y: auto;
       position: relative;
+      overflow-y: auto;
       cursor: pointer;
     }
     .calendar-cell.today {
@@ -27,98 +27,87 @@
     .event-badge {
       background: #60a5fa;
       color: white;
-      font-size: 0.75rem;
-      border-radius: 6px;
       padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.75rem;
       margin-top: 4px;
       display: block;
       text-align: center;
-      cursor: pointer;
     }
   </style>
 </head>
 
-<body class="bg-gray-900 text-white min-h-screen flex flex-col p-4">
+<body class="bg-gray-900 min-h-screen text-white p-4">
 
 <!-- Header -->
 <div class="flex justify-between items-center mb-6">
   <h1 class="text-2xl font-bold">My Calendar</h1>
   <div class="flex space-x-2">
-    <button onclick="prevMonth()" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded">&lt;</button>
-    <button onclick="nextMonth()" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded">&gt;</button>
+    <button onclick="prevMonth()" class="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600">&lt;</button>
+    <h2 id="monthTitle" onclick="openDatePicker()" class="text-xl font-semibold cursor-pointer"></h2>
+    <button onclick="nextMonth()" class="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600">&gt;</button>
   </div>
 </div>
 
-<!-- Month title (clickable) -->
-<h2 id="monthTitle" class="text-xl font-semibold text-center mb-4 cursor-pointer hover:underline" onclick="openDatePicker()"></h2>
-<input type="month" id="datePicker" onchange="goToPickedMonth()" style="position:absolute; left:-9999px;">
-
 <!-- Days Header -->
-<div class="grid grid-cols-7 gap-2 text-center text-gray-400 mb-2 text-sm">
-  <div>Sun</div>
-  <div>Mon</div>
-  <div>Tue</div>
-  <div>Wed</div>
-  <div>Thu</div>
-  <div>Fri</div>
-  <div>Sat</div>
+<div class="grid grid-cols-7 text-center mb-2 font-bold">
+  <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
 </div>
 
-<!-- Calendar grid -->
-<div id="calendar" class="calendar-grid flex-1"></div>
+<!-- Calendar -->
+<div id="calendar" class="calendar-grid"></div>
 
-<!-- Event list below -->
+<!-- Divider -->
 <hr class="my-6 border-gray-700">
-<h2 class="text-lg font-bold mb-2">Your Events</h2>
-<div id="eventList" class="space-y-2"></div>
+
+<!-- Event List -->
+<div id="eventList" class="space-y-3"></div>
 
 <!-- Modal -->
-<div id="modal" class="fixed top-0 left-0 w-full h-full bg-black bg-opacity-70 hidden items-center justify-center z-50">
+<div id="modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
   <div class="bg-gray-800 p-6 rounded-lg w-80">
     <h3 id="modalTitle" class="text-lg font-bold mb-4">New Event</h3>
     <input type="hidden" id="modalDate">
     <input id="eventName" type="text" placeholder="Event Title" class="w-full mb-4 p-2 rounded bg-gray-700 text-white">
-    <div class="flex justify-between gap-2">
-      <button onclick="saveModal()" class="flex-1 bg-blue-500 hover:bg-blue-600 p-2 rounded">Save</button>
-      <button onclick="deleteModal()" id="deleteButton" class="hidden flex-1 bg-red-500 hover:bg-red-600 p-2 rounded">Delete</button>
-      <button onclick="closeModal()" class="flex-1 bg-gray-600 hover:bg-gray-700 p-2 rounded">Cancel</button>
+    <input id="eventTime" type="time" class="w-full mb-4 p-2 rounded bg-gray-700 text-white">
+    <div class="flex justify-between space-x-2">
+      <button onclick="saveModal()" class="flex-1 bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded">Save</button>
+      <button onclick="deleteModal()" id="deleteButton" class="flex-1 bg-red-500 hover:bg-red-600 px-4 py-2 rounded hidden">Delete</button>
+      <button onclick="closeModal()" class="flex-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Cancel</button>
     </div>
   </div>
 </div>
 
+<!-- Scripts -->
 <script>
-// === Global Variables ===
 let currentMonth = new Date().getMonth();
 let currentYear = new Date().getFullYear();
 const events = {{ events|tojson }};
 
-// === Calendar Rendering ===
 function renderCalendar() {
   const monthTitle = document.getElementById('monthTitle');
   const calendar = document.getElementById('calendar');
-  const eventList = document.getElementById('eventList');
+  const date = new Date(currentYear, currentMonth);
+  const monthName = date.toLocaleString('default', { month: 'long' });
+  monthTitle.textContent = `${monthName} ${currentYear}`;
   
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
   
-  const monthName = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' });
-  monthTitle.textContent = `${monthName} ${currentYear}`;
-  
   let html = "";
-  
+
   for (let i = 0; i < firstDay; i++) {
     html += `<div></div>`;
   }
-  
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const today = (new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString());
+    let today = (new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString());
     html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')">
       <div class="text-sm">${day}</div>
       ${renderEvents(dateStr)}
     </div>`;
   }
-  
+
   calendar.innerHTML = html;
   renderEventList();
 }
@@ -128,7 +117,8 @@ function renderEvents(dateStr) {
   if (events) {
     for (const [id, evt] of Object.entries(events)) {
       if (evt.date === dateStr) {
-        out += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}')">${evt.title}</span>`;
+        const timeStr = evt.time ? `(${evt.time}) ` : '';
+        out += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}', '${evt.time || ''}')">${timeStr}${evt.title}</span>`;
       }
     }
   }
@@ -147,19 +137,20 @@ function renderEventList() {
     eventList.innerHTML = "<div class='text-gray-500'>No events this month.</div>";
   } else {
     for (const [id, evt] of filtered) {
+      const timeStr = evt.time ? `(${evt.time}) ` : '';
       eventList.innerHTML += `<div class="bg-gray-700 p-3 rounded flex justify-between">
-        <div>${evt.date}: <b>${evt.title}</b></div>
-        <button onclick="openModal('${evt.date}', '${id}', '${evt.title}')" class="text-blue-400 hover:underline">Edit</button>
+        <div>${evt.date} ${timeStr}<b>${evt.title}</b></div>
+        <button onclick="openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time || ''}')" class="text-blue-400 hover:underline">Edit</button>
       </div>`;
     }
   }
 }
 
-// === Modal Logic ===
-function openModal(dateStr, eventId=null, title='') {
+function openModal(dateStr, eventId=null, title='', time='') {
   const modal = document.getElementById('modal');
   document.getElementById('modalDate').value = dateStr;
   document.getElementById('eventName').value = title;
+  document.getElementById('eventTime').value = time;
   document.getElementById('modalTitle').textContent = eventId ? "Edit Event" : "New Event";
   
   if (eventId) {
@@ -169,7 +160,7 @@ function openModal(dateStr, eventId=null, title='') {
     delete modal.dataset.eventId;
     document.getElementById('deleteButton').classList.add('hidden');
   }
-  
+
   modal.style.display = 'flex';
 }
 
@@ -180,13 +171,14 @@ function closeModal() {
 async function saveModal() {
   const date = document.getElementById('modalDate').value;
   const title = document.getElementById('eventName').value.trim();
+  const time = document.getElementById('eventTime').value.trim();
   const eventId = document.getElementById('modal').dataset.eventId || crypto.randomUUID();
 
   if (title) {
     await fetch(`/save_event/${eventId}`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({title, date})
+      body: JSON.stringify({title, date, time})
     });
   }
   closeModal();
@@ -196,13 +188,12 @@ async function saveModal() {
 async function deleteModal() {
   const eventId = document.getElementById('modal').dataset.eventId;
   if (eventId) {
-    await fetch(`/delete_event/${eventId}`, {method: 'POST'});
+    await fetch(`/delete_event/${eventId}`, { method: 'POST' });
   }
   closeModal();
   location.reload();
 }
 
-// === Navigation Logic ===
 function prevMonth() {
   currentMonth--;
   if (currentMonth < 0) {
@@ -219,45 +210,22 @@ function nextMonth() {
   }
   renderCalendar();
 }
+
 function openDatePicker() {
-  const picker = document.getElementById('datePicker');
-  picker.focus();
-  picker.click();
-}
-function goToPickedMonth() {
-  const picked = document.getElementById('datePicker').value;
-  if (picked) {
-    const [year, month] = picked.split("-");
-    currentYear = parseInt(year);
-    currentMonth = parseInt(month) - 1;
+  const input = document.createElement('input');
+  input.type = 'month';
+  input.value = `${currentYear}-${String(currentMonth+1).padStart(2, '0')}`;
+  input.classList.add('hidden');
+  document.body.appendChild(input);
+  input.click();
+  input.addEventListener('change', () => {
+    const parts = input.value.split('-');
+    currentYear = parseInt(parts[0]);
+    currentMonth = parseInt(parts[1]) - 1;
     renderCalendar();
-  }
+    document.body.removeChild(input);
+  });
 }
-
-// === Swipe Logic ===
-let touchStartX = 0;
-let touchEndX = 0;
-
-document.addEventListener('touchstart', e => {
-  touchStartX = e.changedTouches[0].screenX;
-});
-document.addEventListener('touchend', e => {
-  touchEndX = e.changedTouches[0].screenX;
-  handleSwipe();
-});
-
-function handleSwipe() {
-  const diff = touchStartX - touchEndX;
-  if (Math.abs(diff) > 50) {
-    if (diff > 0) {
-      nextMonth();
-    } else {
-      prevMonth();
-    }
-  }
-}
-
-// === Init ===
 window.onload = renderCalendar;
 </script>
 
