@@ -39,14 +39,10 @@ def save_user_history(uid, convo_id, data):
     db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').set(data)
 
 def get_settings(uid):
-    return db.reference(f'settings/{clean_uid(uid)}').get() or {}
+    return db.reference(f'settings/{clean_uid(uid)}').get() or {"theme": "dark"}
 
 def save_settings(uid, data):
     db.reference(f'settings/{clean_uid(uid)}').set(data)
-
-def delete_user(uid):
-    db.reference(f'chat_memory/{clean_uid(uid)}').delete()
-    db.reference(f'settings/{clean_uid(uid)}').delete()
 
 def list_conversations(uid):
     return db.reference(f'conversations/{clean_uid(uid)}').get() or {}
@@ -68,7 +64,6 @@ async def generate_response(prompt, memory=[]):
     except Exception as e:
         return f"❌ Groq connection error: {str(e)}"
 
-# === AI TITLE GENERATOR ===
 async def generate_title_from_message(message):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
@@ -103,12 +98,16 @@ def login():
     flow = Flow.from_client_config(
         json.loads(CLIENT_SECRET_JSON),
         scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-        # force https here:
         redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
     )
     auth_url, state = flow.authorization_url()
     session["state"] = state
     return redirect(auth_url)
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return redirect("/chat")
 
 @app.route("/oauth_callback")
 def oauth_callback():
@@ -126,18 +125,20 @@ def oauth_callback():
     session["user_name"] = idinfo.get("name", idinfo["email"])
     return redirect("/chat")
 
-@app.route("/logout", methods=["POST"])
-def logout():
-    session.clear()
-    return redirect("/")
-
 @app.route("/chat", methods=["GET"])
 def chat_redirect():
     return redirect("/start_new_chat")
 
 @app.route("/chat/<convo_id>", methods=["GET", "POST"])
 def chat(convo_id):
-    uid = session.get("user_email", "guest")
+    uid = session.get("user_email", None)
+    if not uid:
+        # Temporary guest session based on session ID
+        if not session.get("guest_id"):
+            import uuid
+            session["guest_id"] = str(uuid.uuid4())
+        uid = session["guest_id"]
+
     tz = timezone(LOCAL_TIMEZONE)
     settings = get_settings(uid)
     conversations = list_conversations(uid)
@@ -154,52 +155,48 @@ def chat(convo_id):
         history.append({"role": "assistant", "content": reply, "time": now})
         save_user_history(uid, convo_id, history)
 
-        # AI Title generation
-        convo_ref = db.reference(f'conversations/{clean_uid(uid)}/{convo_id}')
-        current_title = convo_ref.child('title').get()
-
-        if not current_title:
-            title = asyncio.run(generate_title_from_message(message))
-            if title:
-                convo_ref.child('title').set(title)
-            else:
-                fallback_title = message.strip()
-                if len(fallback_title) > 30:
-                    fallback_title = fallback_title[:27] + "..."
-                convo_ref.child('title').set(fallback_title.capitalize())
+        if session.get("user_email"):  # Only if logged
+            convo_ref = db.reference(f'conversations/{clean_uid(uid)}/{convo_id}')
+            current_title = convo_ref.child('title').get()
+            if not current_title:
+                title = asyncio.run(generate_title_from_message(message))
+                convo_ref.child('title').set(title or "New Chat")
 
         return redirect(f"/chat/{convo_id}")
 
-    # 🛠️ THE IMPORTANT PART
-    return render_template(
-        "chat.html",
-        uid=uid,
-        history=history,
-        conversations=conversations,
-        convo_id=convo_id,
-        settings=settings  # ✅ Pass settings to template
-    )
+    return render_template("chat.html", uid=uid, settings=settings, history=history, conversations=conversations, convo_id=convo_id)
 
 @app.route("/start_new_chat")
 def start_new_chat():
     import uuid
     convo_id = str(uuid.uuid4())
-    uid = session.get("user_email", "guest")
-    db.reference(f'conversations/{clean_uid(uid)}/{convo_id}').set({
-        'title': None
-    })
+    uid = session.get("user_email", None)
+    if not uid:
+        if not session.get("guest_id"):
+            session["guest_id"] = str(uuid.uuid4())
+        uid = session["guest_id"]
+
+    if session.get("user_email"):  # Only save conversation if logged
+        db.reference(f'conversations/{clean_uid(uid)}/{convo_id}').set({
+            'title': None
+        })
+
     return redirect(f"/chat/{convo_id}")
 
 @app.route("/delete_conversation/<convo_id>", methods=["POST"])
 def delete_conversation(convo_id):
-    uid = session.get("user_email", "guest")
-    db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').delete()
-    db.reference(f'conversations/{clean_uid(uid)}/{convo_id}').delete()
+    uid = session.get("user_email", None)
+    if uid:
+        db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').delete()
+        db.reference(f'conversations/{clean_uid(uid)}/{convo_id}').delete()
     return redirect("/chat")
 
 @app.route("/settings", methods=["GET", "POST"])
 def settings_page():
-    uid = session.get("user_email", "guest")
+    uid = session.get("user_email", None)
+    if not uid:
+        return redirect("/chat")
+    
     if request.method == "POST":
         data = {
             "theme": request.form.get("theme", "dark"),
@@ -212,12 +209,6 @@ def settings_page():
 
     settings = get_settings(uid)
     return render_template("settings.html", settings=settings)
-
-@app.route("/clear", methods=["POST"])
-def clear_chat():
-    uid = session.get("user_email", "guest")
-    db.reference(f'chat_memory/{clean_uid(uid)}').delete()
-    return redirect("/chat")
 
 # === RUN ===
 if __name__ == "__main__":
