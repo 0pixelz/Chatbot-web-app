@@ -68,31 +68,6 @@ async def generate_response(prompt, memory=[]):
     except Exception as e:
         return f"❌ Groq connection error: {str(e)}"
 
-# === AI TITLE GENERATOR ===
-async def generate_title_from_message(message):
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-    data = {
-        "model": "llama3-70b-8192",
-        "messages": [
-            {"role": "system", "content": "Summarize the following user message into a short 3-5 word title. No quotes, no punctuation, just the title."},
-            {"role": "user", "content": message}
-        ],
-        "temperature": 0.5,
-        "max_tokens": 15
-    }
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=data) as resp:
-                if resp.status != 200:
-                    return None
-                result = await resp.json()
-                return result['choices'][0]['message']['content'].strip()
-    except Exception as e:
-        print(f"Error generating title: {str(e)}")
-        return None
-
 # === ROUTES ===
 @app.route("/")
 def home():
