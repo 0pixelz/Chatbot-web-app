@@ -33,16 +33,10 @@ def clean_uid(uid):
     return uid.replace('.', '_')
 
 def load_user_history(uid, convo_id):
-    if uid == "guest":
-        return session.get("guest_history", [])
-    else:
-        return db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').get() or []
+    return db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').get() or []
 
 def save_user_history(uid, convo_id, history):
-    if uid == "guest":
-        session["guest_history"] = history
-    else:
-        db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').set(history)
+    db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').set(history)
 
 def get_settings(uid):
     if uid == "guest":
@@ -155,9 +149,10 @@ def chat(convo_id):
     uid = session.get("user_email", "guest")
     tz = timezone(LOCAL_TIMEZONE)
 
-    # New guest conversation if refresh
+    # === if guest and GET: wipe old guest chat
     if uid == "guest" and request.method == "GET":
-        session["guest_history"] = []
+        guest_path = f'chat_memory/{clean_uid(uid)}/{convo_id}'
+        db.reference(guest_path).delete()
 
     history = load_user_history(uid, convo_id)
     settings = get_settings(uid)
