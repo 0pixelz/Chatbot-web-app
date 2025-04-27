@@ -33,7 +33,7 @@
     textarea::-webkit-scrollbar-track {
       background: transparent;
     }
-    /* Ensure chat input floats above the keyboard */
+    /* Ensure chat input floats properly */
     #chatForm {
       position: fixed;
       bottom: 0;
@@ -42,7 +42,6 @@
       background-color: transparent;
       z-index: 50;
     }
-    /* Smooth scroll */
     #chatArea {
       scroll-behavior: smooth;
     }
@@ -55,11 +54,17 @@
 <header class="flex items-center justify-between p-4 bg-gray-800 shadow fixed w-full top-0 z-50">
   <button onclick="toggleSidebar()" id="menuButton" class="text-2xl text-white">☰</button>
   <h1 class="text-xl font-bold">Personal AI Bot</h1>
-  <div>
+  <div class="relative">
     {% if session.get("user_picture") %}
       <button onclick="toggleMenu()" class="focus:outline-none">
         <img src="{{ session['user_picture'] }}" alt="Avatar" class="w-10 h-10 rounded-full">
       </button>
+      <div id="userMenu" class="hidden absolute right-0 mt-2 w-40 bg-white dark:bg-gray-700 rounded shadow-lg">
+        <a href="/settings" class="block px-4 py-2 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
+        <form action="/logout" method="POST">
+          <button type="submit" class="w-full text-left px-4 py-2 text-red-500 hover:bg-gray-100 dark:hover:bg-gray-600">Logout</button>
+        </form>
+      </div>
     {% else %}
       <a href="/login">
         <div class="flex items-center bg-black rounded-full px-3 py-1">
@@ -87,12 +92,12 @@
     {% endif %}
     {% if conversations %}
       {% for convo_id, convo_data in conversations.items() %}
-        <div class="flex items-center justify-between group">
+        <div class="flex items-center justify-between">
           <a href="/chat/{{ convo_id }}" class="truncate w-40 text-white hover:underline">
             {{ convo_data.title if convo_data.title else 'New Chat' }}
           </a>
           <form action="/delete_conversation/{{ convo_id }}" method="POST" onsubmit="return confirm('Delete this conversation?');">
-            <button type="submit" class="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity px-2">🗑️</button>
+            <button type="submit" class="text-red-500 px-2 hover:underline">🗑️</button>
           </form>
         </div>
       {% endfor %}
@@ -134,20 +139,23 @@ let isTyping = false;
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('-translate-x-full');
 }
-
 function toggleMenu() {
-  document.getElementById('userMenu')?.classList.toggle('hidden');
+  const menu = document.getElementById('userMenu');
+  if (menu) menu.classList.toggle('hidden');
 }
-
 function scrollToBottom() {
   const chatArea = document.getElementById('chatArea');
   chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
 }
-
-function isNearBottom() {
+function resizeForKeyboard() {
   const chatArea = document.getElementById('chatArea');
-  return (chatArea.scrollHeight - chatArea.scrollTop - chatArea.clientHeight) < 150;
+  if (window.innerHeight < 600) {
+    chatArea.style.paddingBottom = '300px';
+  } else {
+    chatArea.style.paddingBottom = '100px';
+  }
 }
+window.addEventListener('resize', resizeForKeyboard);
 
 function animateLastMessage() {
   const chatArea = document.getElementById('chatArea');
@@ -157,7 +165,7 @@ function animateLastMessage() {
   const stopButton = document.getElementById('stopButton');
 
   if (messages.length === 0) return;
-  
+
   const lastMessage = messages[messages.length - 1];
   const fullText = lastMessage.getAttribute('data-full-text');
   const role = lastMessage.getAttribute('data-role');
@@ -184,7 +192,6 @@ function animateLastMessage() {
   } else {
     lastMessage.textContent = fullText;
   }
-
   scrollToBottom();
 }
 
@@ -224,6 +231,7 @@ chatForm.addEventListener('keydown', (e) => {
 
 window.onload = function() {
   animateLastMessage();
+  resizeForKeyboard();
 };
 </script>
 
