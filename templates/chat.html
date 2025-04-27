@@ -15,10 +15,18 @@
       overflow-wrap: break-word;
     }
     .chat-bubble-user {
+      background-color: #c7d2fe;
+      color: #1e3a8a;
+    }
+    .chat-bubble-assistant {
+      background-color: #e5e7eb;
+      color: #111827;
+    }
+    .dark .chat-bubble-user {
       background-color: #374151;
       color: #f1f5f9;
     }
-    .chat-bubble-assistant {
+    .dark .chat-bubble-assistant {
       background-color: #4b5563;
       color: #f9fafb;
     }
@@ -35,11 +43,11 @@
   </style>
 </head>
 
-<body class="flex flex-col min-h-screen {% if settings.theme == 'dark' %}dark bg-gray-900{% else %}bg-white{% endif %}">
+<body class="flex flex-col min-h-screen {% if settings and settings.theme == 'dark' %}dark bg-gray-900{% else %}bg-white{% endif %}">
 
 <!-- Navbar -->
 <header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow fixed w-full top-0 z-50">
-  <button onclick="toggleSidebar()" id="menuButton" class="text-2xl text-gray-800 dark:text-gray-200 focus:outline-none">
+  <button onclick="toggleSidebar()" class="text-2xl text-gray-800 dark:text-gray-200 focus:outline-none">
     ☰
   </button>
   <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">Chatbot</h1>
@@ -49,17 +57,15 @@
         <img src="{{ session['user_picture'] }}" alt="Avatar" class="w-10 h-10 rounded-full">
       </button>
       <div id="userMenu" class="hidden absolute right-0 mt-2 w-40 bg-white dark:bg-gray-700 rounded shadow-lg">
-        <a href="/settings" class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
+        <a href="/settings" class="block w-full px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
         <form action="/logout" method="POST">
-          <button type="submit" class="block w-full px-4 py-2 text-red-500 hover:bg-gray-100 dark:hover:bg-gray-600">
-            Logout
-          </button>
+          <button type="submit" class="block w-full px-4 py-2 text-red-500 hover:bg-gray-100 dark:hover:bg-gray-600">Logout</button>
         </form>
       </div>
     {% else %}
-      <a href="/login" class="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-full">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" class="w-5 h-5" alt="Google logo">
-        Sign in with Google
+      <a href="/login" class="flex items-center gap-2 bg-black text-white py-2 px-4 rounded-md">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" class="w-5 h-5" alt="Google Logo">
+        <span class="text-sm">Sign in with Google</span>
       </a>
     {% endif %}
   </div>
@@ -71,24 +77,22 @@
   <nav class="flex-1 px-4 space-y-2 overflow-y-auto">
     {% if uid != 'guest' %}
       <a href="/start_new_chat" class="block py-2 text-blue-600 dark:text-blue-400 hover:underline">➕ Start New Chat</a>
+      {% if conversations %}
+        {% for convo_id, convo_data in conversations.items() %}
+          <div class="flex items-center justify-between group">
+            <a href="/chat/{{ convo_id }}" class="block py-2 text-gray-800 dark:text-gray-200 hover:underline truncate w-40">
+              {{ convo_data.title if convo_data.title else 'New Chat' }}
+            </a>
+            <form action="/delete_conversation/{{ convo_id }}" method="POST" onsubmit="return confirm('Delete this conversation?');">
+              <button type="submit" class="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 px-2">🗑️</button>
+            </form>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="text-gray-400 py-2">No conversations yet</div>
+      {% endif %}
     {% else %}
-      <div class="text-gray-400 py-2 text-center">Sign in to create chats</div>
-    {% endif %}
-    {% if conversations %}
-      {% for convo_id, convo_data in conversations.items() %}
-        <div class="flex items-center justify-between group">
-          <a href="/chat/{{ convo_id }}" class="block py-2 text-gray-800 dark:text-gray-200 hover:underline truncate w-40">
-            {{ convo_data.title if convo_data.title else 'New Chat' }}
-          </a>
-          {% if uid != 'guest' %}
-          <form action="/delete_conversation/{{ convo_id }}" method="POST" onsubmit="return confirm('Delete this conversation?');">
-            <button type="submit" class="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 px-2">
-              🗑️
-            </button>
-          </form>
-          {% endif %}
-        </div>
-      {% endfor %}
+      <div class="text-gray-400 py-2">Login to save conversations</div>
     {% endif %}
   </nav>
 </aside>
@@ -97,12 +101,8 @@
 <main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 text-gray-800 dark:text-gray-100">
   {% for msg in history %}
     <div class="mb-6" id="message-{{ loop.index }}">
-      <div 
-        class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant{% endif %}"
-        data-role="{{ msg.role }}"
-        data-full-text="{{ msg.content }}"
-        {% if loop.index != history|length or msg.role == 'user' %}data-instant{% endif %}
-      ></div>
+      <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant{% endif %}" data-role="{{ msg.role }}" data-full-text="{{ msg.content }}">
+      </div>
     </div>
   {% endfor %}
 </main>
@@ -116,13 +116,9 @@
     <button id="sendButton" type="submit" class="p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full disabled:opacity-50" disabled>
       ➔
     </button>
-    <button id="stopButton" type="button" onclick="stopTyping()" class="hidden p-3 bg-red-500 hover:bg-red-600 text-white rounded-full">
-      ⏹️
-    </button>
   </div>
 </form>
 
-<!-- Scripts -->
 <script>
 let typingInterval = null;
 let isTyping = false;
@@ -136,31 +132,18 @@ function toggleMenu() {
 
 function scrollToBottom() {
   const chatArea = document.getElementById('chatArea');
-  chatArea.scrollTo({
-    top: chatArea.scrollHeight,
-    behavior: 'smooth'
-  });
+  chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
 }
 
 function animateMessages() {
   const chatArea = document.getElementById('chatArea');
   const messages = chatArea.querySelectorAll('[data-role]');
-  const textarea = document.getElementById('messageInput');
-  const sendButton = document.getElementById('sendButton');
-  const stopButton = document.getElementById('stopButton');
 
   messages.forEach((div, index) => {
     const fullText = div.getAttribute('data-full-text');
     const role = div.getAttribute('data-role');
-    const isInstant = div.hasAttribute('data-instant');
-
-    if (role === 'assistant' && !isInstant) {
+    if (index === messages.length - 1 && role === 'assistant') {
       div.textContent = '';
-      textarea.disabled = true;
-      sendButton.disabled = true;
-      stopButton.classList.remove('hidden');
-      isTyping = true;
-
       let i = 0;
       function typeChar() {
         if (!isTyping) return;
@@ -170,29 +153,16 @@ function animateMessages() {
           scrollToBottom();
           typingInterval = setTimeout(typeChar, 15);
         } else {
-          finishTyping();
+          isTyping = false;
+          clearTimeout(typingInterval);
         }
       }
+      isTyping = true;
       typeChar();
     } else {
       div.textContent = fullText;
     }
   });
-
-  scrollToBottom();
-}
-
-function finishTyping() {
-  document.getElementById('messageInput').disabled = false;
-  document.getElementById('sendButton').disabled = false;
-  document.getElementById('stopButton').classList.add('hidden');
-  isTyping = false;
-  clearTimeout(typingInterval);
-}
-
-function stopTyping() {
-  isTyping = false;
-  finishTyping();
 }
 
 const textarea = document.getElementById('messageInput');
@@ -218,6 +188,7 @@ chatForm.addEventListener('keydown', (e) => {
 
 window.onload = function() {
   animateMessages();
+  scrollToBottom();
 }
 </script>
 
