@@ -103,7 +103,7 @@ def login():
     flow = Flow.from_client_config(
         json.loads(CLIENT_SECRET_JSON),
         scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-        redirect_uri=url_for("oauth_callback", _external=True)
+        redirect_uri=url_for("oauth_callback", _external=True)  # Ensure _external=True adds https
     )
     auth_url, state = flow.authorization_url()
     session["state"] = state
