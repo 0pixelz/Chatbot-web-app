@@ -8,17 +8,18 @@
     .calendar-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 5px;
+      gap: 4px;
     }
     .calendar-cell {
-      min-height: 100px;
+      min-height: 80px;
       border-radius: 8px;
       background-color: #374151;
       color: white;
       padding: 6px;
-      position: relative;
-      cursor: pointer;
+      font-size: 0.9rem;
       overflow-y: auto;
+      display: flex;
+      flex-direction: column;
     }
     .calendar-cell.today {
       background-color: #4b5563;
@@ -27,13 +28,19 @@
     .event-badge {
       background: #60a5fa;
       color: white;
-      padding: 2px 6px;
+      padding: 2px 4px;
       border-radius: 6px;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       margin-top: 4px;
-      display: block;
       text-align: center;
       cursor: pointer;
+      word-break: break-word;
+    }
+    @media (max-width: 640px) {
+      .calendar-cell {
+        min-height: 60px;
+        font-size: 0.75rem;
+      }
     }
   </style>
 </head>
@@ -41,8 +48,8 @@
 <body class="bg-gray-900 min-h-screen text-white p-4">
 
 <!-- Header -->
-<div class="flex justify-between items-center mb-6">
-  <h1 class="text-2xl font-bold">My Calendar</h1>
+<div class="flex justify-between items-center mb-4">
+  <h1 class="text-xl font-bold">My Calendar</h1>
   <div class="flex space-x-2">
     <button onclick="prevMonth()" class="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600">&lt;</button>
     <button onclick="nextMonth()" class="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600">&gt;</button>
@@ -50,21 +57,21 @@
 </div>
 
 <!-- Month title -->
-<h2 id="monthTitle" class="text-xl font-semibold text-center mb-4"></h2>
+<h2 id="monthTitle" class="text-lg font-semibold text-center mb-3"></h2>
 
 <!-- Calendar grid -->
 <div id="calendar" class="calendar-grid"></div>
 
 <!-- Modal -->
-<div id="modal" class="fixed top-0 left-0 w-full h-full bg-black bg-opacity-60 hidden items-center justify-center z-50">
-  <div class="bg-gray-800 p-6 rounded-lg w-80">
+<div id="modal" class="fixed top-0 left-0 w-full h-full bg-black bg-opacity-60 hidden items-center justify-center z-50 p-4">
+  <div class="bg-gray-800 p-6 rounded-lg w-full max-w-xs mx-auto">
     <h3 id="modalTitle" class="text-lg font-bold mb-4">New Event</h3>
     <input type="hidden" id="modalDate">
     <input id="eventName" type="text" placeholder="Event Title" class="w-full mb-4 p-2 rounded bg-gray-700 text-white">
     <div class="flex justify-between space-x-2">
-      <button onclick="saveModal()" class="flex-1 bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded">Save</button>
-      <button onclick="deleteModal()" id="deleteButton" class="flex-1 bg-red-500 hover:bg-red-600 px-4 py-2 rounded hidden">Delete</button>
-      <button onclick="closeModal()" class="flex-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Cancel</button>
+      <button onclick="saveModal()" class="flex-1 bg-blue-500 hover:bg-blue-600 px-3 py-2 rounded">Save</button>
+      <button onclick="deleteModal()" id="deleteButton" class="flex-1 bg-red-500 hover:bg-red-600 px-3 py-2 rounded hidden">Delete</button>
+      <button onclick="closeModal()" class="flex-1 bg-gray-600 hover:bg-gray-700 px-3 py-2 rounded">Cancel</button>
     </div>
   </div>
 </div>
@@ -80,7 +87,7 @@ function renderCalendar() {
   const date = new Date(currentYear, currentMonth);
   const monthName = date.toLocaleString('default', { month: 'long' });
   monthTitle.textContent = `${monthName} ${currentYear}`;
-  
+
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
 
@@ -93,7 +100,7 @@ function renderCalendar() {
     const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     let today = (new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString());
     html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')">
-      <div class="text-sm">${day}</div>
+      <div>${day}</div>
       ${renderEvents(dateStr)}
     </div>`;
   }
