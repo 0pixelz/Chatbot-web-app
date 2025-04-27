@@ -65,12 +65,12 @@
         </form>
       </div>
     {% else %}
-      <!-- Not logged in: show Google logo + Login -->
+      <!-- Not logged in: show Google logo + Login Button -->
       <button onclick="toggleMenu()" class="focus:outline-none">
         <img src="{{ url_for('static', filename='pngegg.png') }}" alt="Google Login" class="w-10 h-10 rounded-full">
       </button>
-      <div id="userMenu" class="hidden absolute right-0 mt-2 w-40 bg-white dark:bg-gray-700 rounded shadow-lg">
-        <a href="/login" class="block w-full text-blue-600 text-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">
+      <div id="userMenu" class="hidden absolute right-0 mt-2 w-52 bg-white dark:bg-gray-700 rounded shadow-lg p-2">
+        <a href="/login" class="block w-full text-white bg-blue-600 hover:bg-blue-700 text-center py-2 rounded-lg">
           Login with Google
         </a>
       </div>
@@ -161,38 +161,35 @@ function animateMessages() {
   const sendButton = document.getElementById('sendButton');
   const stopButton = document.getElementById('stopButton');
 
-  messages.forEach((div) => {
-    const fullText = div.getAttribute('data-full-text');
-    const role = div.getAttribute('data-role');
-    div.textContent = '';
+  if (messages.length === 0) return;
 
-    if (role === 'assistant') {
-      textarea.disabled = true;
-      sendButton.disabled = true;
-      stopButton.classList.remove('hidden');
-      isTyping = true;
+  const lastMessage = messages[messages.length - 1];
+  const lastRole = lastMessage.getAttribute('data-role');
 
-      let i = 0;
-      function typeChar() {
-        if (!isTyping) return;
-        if (i < fullText.length) {
-          div.textContent += fullText.charAt(i);
-          i++;
-          if (isNearBottom()) {
-            scrollToBottom();
-          }
-          typingInterval = setTimeout(typeChar, 15);
-        } else {
-          finishTyping();
+  if (lastRole === 'assistant') {
+    const fullText = lastMessage.getAttribute('data-full-text');
+    lastMessage.textContent = '';
+    textarea.disabled = true;
+    sendButton.disabled = true;
+    stopButton.classList.remove('hidden');
+    isTyping = true;
+
+    let i = 0;
+    function typeChar() {
+      if (!isTyping) return;
+      if (i < fullText.length) {
+        lastMessage.textContent += fullText.charAt(i);
+        i++;
+        if (isNearBottom()) {
+          scrollToBottom();
         }
+        typingInterval = setTimeout(typeChar, 15);
+      } else {
+        finishTyping();
       }
-      typeChar();
-    } else {
-      div.textContent = fullText;
     }
-  });
-
-  scrollToBottom();
+    typeChar();
+  }
 }
 
 function finishTyping() {
