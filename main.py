@@ -3,6 +3,7 @@ import json
 import asyncio
 import aiohttp
 import nest_asyncio
+import uuid
 from flask import Flask, request, render_template, redirect, session, url_for
 from firebase_admin import credentials, db, initialize_app
 from datetime import datetime
@@ -11,15 +12,14 @@ from google_auth_oauthlib.flow import Flow
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 
-# === CONFIG FROM ENV ===
-GROQ_API_KEY               = os.getenv("GROQ_API_KEY")
-FIREBASE_CREDENTIALS_JSON  = os.getenv("FIREBASE_CREDENTIALS_JSON")
-DATABASE_URL               = os.getenv("DATABASE_URL")
-LOCAL_TIMEZONE             = os.getenv("LOCAL_TIMEZONE", "America/Toronto")
-CLIENT_SECRET_JSON         = os.getenv("GOOGLE_CLIENT_SECRET_JSON")
-FLASK_SECRET_KEY           = os.getenv("FLASK_SECRET_KEY")
+# === CONFIG ===
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_CREDENTIALS_JSON")
+DATABASE_URL = os.getenv("DATABASE_URL")
+LOCAL_TIMEZONE = os.getenv("LOCAL_TIMEZONE", "America/Toronto")
+CLIENT_SECRET_JSON = os.getenv("GOOGLE_CLIENT_SECRET_JSON")
+FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
 
-# === FLASK & FIREBASE INIT ===
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
 
@@ -33,44 +33,58 @@ def clean_uid(uid):
     return uid.replace('.', '_')
 
 def load_user_history(uid, convo_id):
-    return db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').get() or []
+    if uid == "guest":
+        return session.get("guest_history", [])
+    else:
+        return db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').get() or []
 
-def save_user_history(uid, convo_id, data):
-    db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').set(data)
+def save_user_history(uid, convo_id, history):
+    if uid == "guest":
+        session["guest_history"] = history
+    else:
+        db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').set(history)
 
 def get_settings(uid):
-    return db.reference(f'settings/{clean_uid(uid)}').get() or {"theme": "dark"}
-
-def save_settings(uid, data):
-    db.reference(f'settings/{clean_uid(uid)}').set(data)
+    if uid == "guest":
+        return {"theme": "dark"}
+    else:
+        return db.reference(f'settings/{clean_uid(uid)}').get() or {"theme": "dark"}
 
 def list_conversations(uid):
-    return db.reference(f'conversations/{clean_uid(uid)}').get() or {}
+    if uid == "guest":
+        return None
+    else:
+        return db.reference(f'conversations/{clean_uid(uid)}').get() or {}
 
-# === AI RESPONSE ===
 async def generate_response(prompt, memory=[]):
     url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-    messages = [{"role": "system", "content": "You're a helpful assistant."}] + memory + [{"role": "user", "content": prompt}]
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    messages = [{"role": "system", "content": "You are a helpful assistant."}] + memory + [{"role": "user", "content": prompt}]
     data = {"model": "llama3-70b-8192", "messages": messages}
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=data) as resp:
+        async with aiohttp.ClientSession() as session_http:
+            async with session_http.post(url, headers=headers, json=data) as resp:
                 if resp.status != 200:
-                    return f"❌ Groq API error {resp.status}"
+                    return "Error fetching AI response"
                 result = await resp.json()
                 return result['choices'][0]['message']['content']
     except Exception as e:
-        return f"❌ Groq connection error: {str(e)}"
+        return f"Error: {str(e)}"
 
 async def generate_title_from_message(message):
     url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json"
+    }
     data = {
         "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": "Summarize the following user message into a short 3-5 word title. No quotes, no punctuation, just the title."},
+            {"role": "system", "content": "Summarize the following user message into a short 3-5 word title. No quotes, no punctuation."},
             {"role": "user", "content": message}
         ],
         "temperature": 0.5,
@@ -78,14 +92,13 @@ async def generate_title_from_message(message):
     }
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=data) as resp:
+        async with aiohttp.ClientSession() as session_http:
+            async with session_http.post(url, headers=headers, json=data) as resp:
                 if resp.status != 200:
                     return None
                 result = await resp.json()
                 return result['choices'][0]['message']['content'].strip()
-    except Exception as e:
-        print(f"Error generating title: {str(e)}")
+    except Exception:
         return None
 
 # === ROUTES ===
@@ -97,7 +110,11 @@ def home():
 def login():
     flow = Flow.from_client_config(
         json.loads(CLIENT_SECRET_JSON),
-        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
+        scopes=[
+            "openid",
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile"
+        ],
         redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
     )
     auth_url, state = flow.authorization_url()
@@ -113,7 +130,11 @@ def logout():
 def oauth_callback():
     flow = Flow.from_client_config(
         json.loads(CLIENT_SECRET_JSON),
-        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
+        scopes=[
+            "openid",
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile"
+        ],
         redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
     )
     flow.fetch_token(code=request.args["code"])
@@ -131,18 +152,16 @@ def chat_redirect():
 
 @app.route("/chat/<convo_id>", methods=["GET", "POST"])
 def chat(convo_id):
-    uid = session.get("user_email", None)
-    if not uid:
-        # Temporary guest session based on session ID
-        if not session.get("guest_id"):
-            import uuid
-            session["guest_id"] = str(uuid.uuid4())
-        uid = session["guest_id"]
-
+    uid = session.get("user_email", "guest")
     tz = timezone(LOCAL_TIMEZONE)
+
+    # New guest conversation if refresh
+    if uid == "guest" and request.method == "GET":
+        session["guest_history"] = []
+
+    history = load_user_history(uid, convo_id)
     settings = get_settings(uid)
     conversations = list_conversations(uid)
-    history = load_user_history(uid, convo_id)
 
     if request.method == "POST":
         message = request.form["message"]
@@ -155,60 +174,32 @@ def chat(convo_id):
         history.append({"role": "assistant", "content": reply, "time": now})
         save_user_history(uid, convo_id, history)
 
-        if session.get("user_email"):  # Only if logged
+        if uid != "guest":
             convo_ref = db.reference(f'conversations/{clean_uid(uid)}/{convo_id}')
             current_title = convo_ref.child('title').get()
             if not current_title:
-                title = asyncio.run(generate_title_from_message(message))
-                convo_ref.child('title').set(title or "New Chat")
+                title = asyncio.run(generate_title_from_message(message)) or "New Chat"
+                convo_ref.child('title').set(title)
 
         return redirect(f"/chat/{convo_id}")
 
-    return render_template("chat.html", uid=uid, settings=settings, history=history, conversations=conversations, convo_id=convo_id)
+    return render_template("chat.html", uid=uid, history=history, conversations=conversations, convo_id=convo_id, settings=settings)
 
 @app.route("/start_new_chat")
 def start_new_chat():
-    import uuid
     convo_id = str(uuid.uuid4())
-    uid = session.get("user_email", None)
-    if not uid:
-        if not session.get("guest_id"):
-            session["guest_id"] = str(uuid.uuid4())
-        uid = session["guest_id"]
-
-    if session.get("user_email"):  # Only save conversation if logged
-        db.reference(f'conversations/{clean_uid(uid)}/{convo_id}').set({
-            'title': None
-        })
-
+    uid = session.get("user_email", "guest")
+    if uid != "guest":
+        db.reference(f'conversations/{clean_uid(uid)}/{convo_id}').set({'title': None})
     return redirect(f"/chat/{convo_id}")
 
 @app.route("/delete_conversation/<convo_id>", methods=["POST"])
 def delete_conversation(convo_id):
-    uid = session.get("user_email", None)
-    if uid:
+    uid = session.get("user_email", "guest")
+    if uid != "guest":
         db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').delete()
         db.reference(f'conversations/{clean_uid(uid)}/{convo_id}').delete()
     return redirect("/chat")
-
-@app.route("/settings", methods=["GET", "POST"])
-def settings_page():
-    uid = session.get("user_email", None)
-    if not uid:
-        return redirect("/chat")
-    
-    if request.method == "POST":
-        data = {
-            "theme": request.form.get("theme", "dark"),
-            "font_size": request.form.get("font_size", "base"),
-            "personality": request.form.get("personality", ""),
-            "length": request.form.get("length", "medium")
-        }
-        save_settings(uid, data)
-        return redirect("/chat")
-
-    settings = get_settings(uid)
-    return render_template("settings.html", settings=settings)
 
 # === RUN ===
 if __name__ == "__main__":
