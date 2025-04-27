@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>Personal AI Bot</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .chat-bubble {
@@ -15,10 +14,18 @@
       overflow-wrap: break-word;
     }
     .chat-bubble-user {
+      background-color: #c7d2fe;
+      color: #1e3a8a;
+    }
+    .chat-bubble-assistant {
+      background-color: #e5e7eb;
+      color: #111827;
+    }
+    .dark .chat-bubble-user {
       background-color: #374151;
       color: #f1f5f9;
     }
-    .chat-bubble-assistant {
+    .dark .chat-bubble-assistant {
       background-color: #4b5563;
       color: #f9fafb;
     }
@@ -35,78 +42,81 @@
   </style>
 </head>
 
-<body class="flex flex-col min-h-screen dark bg-gray-900">
+<body class="flex flex-col min-h-screen {% if settings.theme == 'dark' %}dark bg-gray-900{% else %}bg-white{% endif %}">
 
 <!-- Navbar -->
-<header class="flex items-center justify-between bg-gray-800 p-4 shadow fixed w-full top-0 z-50">
-  <button onclick="toggleSidebar()" class="text-2xl text-white focus:outline-none">☰</button>
-  <h1 class="text-xl font-bold text-white">Personal AI Bot</h1>
-  {% if session.get("user_picture") %}
-    <div class="relative">
+<header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow fixed w-full top-0 z-50">
+  <button onclick="toggleSidebar()" id="menuButton" class="text-2xl text-gray-800 dark:text-gray-200 focus:outline-none">
+    ☰
+  </button>
+  <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">Personal AI Bot</h1>
+  <div class="relative">
+    {% if session.get("user_picture") %}
       <button onclick="toggleMenu()" class="focus:outline-none">
         <img src="{{ session['user_picture'] }}" alt="Avatar" class="w-10 h-10 rounded-full">
       </button>
-      <div id="userMenu" class="hidden absolute right-0 mt-2 w-40 bg-gray-700 rounded shadow-lg">
+      <div id="userMenu" class="hidden absolute right-0 mt-2 w-40 bg-white dark:bg-gray-700 rounded shadow-lg">
+        <a href="/settings" class="block w-full px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
         <form action="/logout" method="POST">
-          <button type="submit" class="block w-full text-red-500 hover:bg-gray-600 px-4 py-2 text-center">
-            Logout
-          </button>
+          <button type="submit" class="block w-full px-4 py-2 text-red-500 hover:bg-gray-100 dark:hover:bg-gray-600">Logout</button>
         </form>
       </div>
-    </div>
-  {% else %}
-    <a href="/login" class="flex items-center bg-black text-white rounded-full px-4 py-2 text-sm hover:bg-gray-700">
-      <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google" class="w-5 h-5 mr-2"> Sign in with Google
-    </a>
-  {% endif %}
+    {% else %}
+      <a href="/login" class="flex items-center gap-2 text-white bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded-full">
+        <span class="material-icons">login</span> Sign in with Google
+      </a>
+    {% endif %}
+  </div>
 </header>
 
 <!-- Sidebar -->
-<aside id="sidebar" class="fixed top-16 left-0 w-64 bg-gray-800 transform -translate-x-full transition-transform duration-300 h-full shadow-lg z-40">
-  <div class="p-4 text-lg font-bold text-white">Dashboard</div>
-  <nav class="flex flex-col px-4 space-y-2 overflow-y-auto text-white">
+<aside id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-white dark:bg-gray-800 transform -translate-x-full transition-transform duration-300 ease-in-out z-40 flex flex-col shadow-lg">
+  <div class="p-4 text-xl font-bold text-gray-800 dark:text-gray-200">Dashboard</div>
+  <nav class="flex-1 px-4 space-y-2 overflow-y-auto">
     {% if uid != "guest" %}
       <a href="/start_new_chat" class="flex items-center text-white hover:text-blue-400">
         <span class="text-xl mr-2">➕</span> Start New Chat
       </a>
-    {% else %}
-      <div class="text-gray-400 text-sm">Sign in to save conversations</div>
-    {% endif %}
-    {% if conversations %}
+      <a href="/calendar" class="flex items-center text-white hover:text-blue-400">
+        <span class="text-xl mr-2">📅</span> Calendar
+      </a>
       {% for convo_id, convo_data in conversations.items() %}
-        <div class="flex items-center justify-between group">
-          <a href="/chat/{{ convo_id }}" class="truncate max-w-[150px] hover:text-blue-400">
-            {{ convo_data.title or 'New Chat' }}
+        <div class="flex justify-between items-center group">
+          <a href="/chat/{{ convo_id }}" class="block truncate text-gray-800 dark:text-gray-200 hover:underline">
+            {{ convo_data.title if convo_data.title else 'New Chat' }}
           </a>
           <form action="/delete_conversation/{{ convo_id }}" method="POST" onsubmit="return confirm('Delete this conversation?');">
-            <button type="submit" class="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-lg">🗑️</button>
+            <button type="submit" class="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 px-2">🗑️</button>
           </form>
         </div>
       {% endfor %}
+    {% else %}
+      <div class="text-gray-400 py-2 text-center">Sign in to save chats</div>
     {% endif %}
   </nav>
 </aside>
 
-<!-- Chat area -->
-<main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 mb-24 text-white">
+<!-- Chat Area -->
+<main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 text-gray-800 dark:text-gray-100">
   {% for msg in history %}
-    <div class="mb-4">
-      <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant{% endif %}"
-           data-role="{{ msg.role }}" data-full-text="{{ msg.content }}">
+    <div class="mb-6" id="message-{{ loop.index }}">
+      <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant{% endif %}">
+        {{ msg.content }}
       </div>
     </div>
   {% endfor %}
 </main>
 
-<!-- Input form -->
-<form method="POST" id="chatForm" action="/chat/{{ convo_id }}" class="fixed bottom-0 left-0 w-full bg-gray-900 p-4 flex items-center justify-center z-50">
-  <div id="input-container" class="w-full max-w-3xl bg-gray-700 rounded-2xl flex items-center space-x-2 p-2">
-    <textarea id="messageInput" name="message" rows="1" class="flex-1 p-2 rounded-2xl bg-gray-600 text-white resize-none focus:outline-none"
+<!-- Input Form -->
+<form method="POST" id="chatForm" action="/chat/{{ convo_id }}" class="fixed bottom-0 left-0 w-full bg-transparent p-4 flex items-center justify-center z-50">
+  <div id="input-container" class="w-full max-w-3xl bg-white dark:bg-gray-800 rounded-2xl shadow-lg flex items-center space-x-2 p-2">
+    <textarea id="messageInput" name="message" rows="1"
+      class="flex-1 p-2 rounded-2xl resize-none focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white text-gray-900"
       placeholder="Type your message..." required style="max-height: 300px; overflow-y: auto;"></textarea>
-    <button id="sendButton" type="submit" class="p-3 bg-gray-600 hover:bg-gray-500 text-white rounded-full disabled:opacity-50">
+    <button id="sendButton" type="submit" class="p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full disabled:opacity-50" disabled>
       ➔
     </button>
-    <button id="stopButton" type="button" onclick="stopTyping()" class="hidden p-3 bg-orange-500 hover:bg-orange-400 text-white rounded-full">
+    <button id="stopButton" type="button" onclick="stopTyping()" class="hidden p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full">
       ⏹️
     </button>
   </div>
@@ -123,43 +133,38 @@ function toggleSidebar() {
 function toggleMenu() {
   document.getElementById('userMenu').classList.toggle('hidden');
 }
+
 function scrollToBottom() {
   const chatArea = document.getElementById('chatArea');
   chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
 }
+
 function isNearBottom() {
   const chatArea = document.getElementById('chatArea');
   return (chatArea.scrollHeight - chatArea.scrollTop - chatArea.clientHeight) < 150;
 }
 
-function animateLastMessage() {
+function animateLastAssistantReply() {
   const chatArea = document.getElementById('chatArea');
-  const messages = chatArea.querySelectorAll('[data-role]');
-  const lastMessage = messages[messages.length-1];
-  if (!lastMessage) return;
-  const fullText = lastMessage.getAttribute('data-full-text');
-  const role = lastMessage.getAttribute('data-role');
+  const allBubbles = chatArea.querySelectorAll('.chat-bubble-assistant');
+  const lastBubble = allBubbles[allBubbles.length-1];
+  const fullText = lastBubble.textContent.trim();
+  lastBubble.textContent = '';
+  let i = 0;
 
-  lastMessage.textContent = '';
-
-  if (role === 'assistant') {
-    isTyping = true;
-    let i = 0;
-    function typeChar() {
-      if (!isTyping) return;
-      if (i < fullText.length) {
-        lastMessage.textContent += fullText.charAt(i);
-        i++;
-        if (isNearBottom()) scrollToBottom();
-        typingInterval = setTimeout(typeChar, 20);
-      } else {
-        finishTyping();
-      }
+  isTyping = true;
+  function typeChar() {
+    if (!isTyping) return;
+    if (i < fullText.length) {
+      lastBubble.textContent += fullText.charAt(i);
+      i++;
+      if (isNearBottom()) scrollToBottom();
+      typingInterval = setTimeout(typeChar, 15);
+    } else {
+      finishTyping();
     }
-    typeChar();
-  } else {
-    lastMessage.textContent = fullText;
   }
+  typeChar();
 }
 
 function finishTyping() {
@@ -185,6 +190,10 @@ textarea.addEventListener('input', () => {
   sendButton.disabled = textarea.value.trim().length === 0;
 });
 
+textarea.addEventListener('focus', () => {
+  setTimeout(scrollToBottom, 100);
+});
+
 chatForm.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
@@ -197,8 +206,8 @@ chatForm.addEventListener('keydown', (e) => {
 });
 
 window.onload = function() {
-  animateLastMessage();
   scrollToBottom();
+  animateLastAssistantReply();
 }
 </script>
 
