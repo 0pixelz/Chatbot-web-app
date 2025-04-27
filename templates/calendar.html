@@ -3,115 +3,174 @@
 <head>
   <meta charset="UTF-8">
   <title>Calendar - Personal AI Bot</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
   <style>
-    body {
-      background-color: #111827;
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+    }
+    .calendar-cell {
+      min-height: 100px;
+      border-radius: 8px;
+      background-color: #374151;
       color: white;
+      padding: 6px;
+      position: relative;
+      cursor: pointer;
+      overflow-y: auto;
     }
-    #calendar {
-      max-width: 1000px;
-      margin: 40px auto;
-      background-color: #1f2937;
-      padding: 20px;
-      border-radius: 10px;
+    .calendar-cell.today {
+      background-color: #4b5563;
+      border: 2px solid #60a5fa;
     }
-    .fc-toolbar-title {
-      font-size: 1.5rem;
-    }
-    .fc-daygrid-day-frame {
-      background-color: #1f2937;
-    }
-    .fc-day-today {
-      background-color: #374151 !important;
-    }
-    .fc-button {
-      background-color: #374151 !important;
-      border: none !important;
-      color: white !important;
-    }
-    .fc-button:hover {
-      background-color: #4b5563 !important;
+    .event-badge {
+      background: #60a5fa;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      margin-top: 4px;
+      display: block;
+      text-align: center;
+      cursor: pointer;
     }
   </style>
 </head>
 
-<body class="flex flex-col min-h-screen dark bg-gray-900">
+<body class="bg-gray-900 min-h-screen text-white p-4">
 
 <!-- Header -->
-<header class="flex items-center justify-between bg-gray-800 p-4 shadow fixed w-full top-0 z-50">
-  <a href="/chat" class="text-xl font-bold text-white">← Back to Chat</a>
-  <h1 class="text-xl font-bold text-white">Calendar</h1>
-  <div></div>
-</header>
-
-<!-- Calendar -->
-<main class="flex-1 mt-20 p-4">
-  <div id="calendar"></div>
-</main>
-
-<!-- Add Event Modal -->
-<div id="eventModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-  <div class="bg-gray-800 p-6 rounded-lg w-80">
-    <h2 class="text-xl font-bold mb-4 text-white">Add Event</h2>
-    <form id="eventForm">
-      <input type="text" id="eventTitle" class="w-full p-2 mb-4 rounded bg-gray-700 text-white" placeholder="Event Title" required>
-      <input type="date" id="eventDate" class="w-full p-2 mb-4 rounded bg-gray-700 text-white" required>
-      <div class="flex justify-end space-x-2">
-        <button type="button" onclick="closeModal()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded">Cancel</button>
-        <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded">Save</button>
-      </div>
-    </form>
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-2xl font-bold">My Calendar</h1>
+  <div class="flex space-x-2">
+    <button onclick="prevMonth()" class="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600">&lt;</button>
+    <button onclick="nextMonth()" class="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600">&gt;</button>
   </div>
 </div>
 
-<!-- Floating Button -->
-<button onclick="openModal()" class="fixed bottom-6 right-6 bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-full shadow-lg text-3xl">＋</button>
+<!-- Month title -->
+<h2 id="monthTitle" class="text-xl font-semibold text-center mb-4"></h2>
+
+<!-- Calendar grid -->
+<div id="calendar" class="calendar-grid"></div>
+
+<!-- Modal -->
+<div id="modal" class="fixed top-0 left-0 w-full h-full bg-black bg-opacity-60 hidden items-center justify-center z-50">
+  <div class="bg-gray-800 p-6 rounded-lg w-80">
+    <h3 id="modalTitle" class="text-lg font-bold mb-4">New Event</h3>
+    <input type="hidden" id="modalDate">
+    <input id="eventName" type="text" placeholder="Event Title" class="w-full mb-4 p-2 rounded bg-gray-700 text-white">
+    <div class="flex justify-between">
+      <button onclick="saveModal()" class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded">Save</button>
+      <button onclick="closeModal()" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Cancel</button>
+    </div>
+  </div>
+</div>
 
 <script>
-let calendar;
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
+const events = {{ events|tojson }};
 
-document.addEventListener('DOMContentLoaded', function() {
-  calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
-    initialView: 'dayGridMonth',
-    themeSystem: 'standard',
-    height: 'auto',
-    headerToolbar: {
-      left: 'prev,next today',
-      center: 'title',
-      right: ''
-    },
-    events: "/get_events", // Server route
-    eventColor: '#6366f1',
-    eventTextColor: 'white'
-  });
-  calendar.render();
-});
+function renderCalendar() {
+  const monthTitle = document.getElementById('monthTitle');
+  const calendar = document.getElementById('calendar');
+  const date = new Date(currentYear, currentMonth);
+  const monthName = date.toLocaleString('default', { month: 'long' });
+  monthTitle.textContent = `${monthName} ${currentYear}`;
+  
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
 
-function openModal() {
-  document.getElementById('eventModal').classList.remove('hidden');
+  let html = "";
+
+  for (let i = 0; i < firstDay; i++) {
+    html += `<div></div>`;
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    let today = (new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString());
+    html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')">
+      <div class="text-sm">${day}</div>
+      ${renderEvents(dateStr)}
+    </div>`;
+  }
+
+  calendar.innerHTML = html;
+}
+
+function renderEvents(dateStr) {
+  let out = "";
+  if (events) {
+    for (const [id, evt] of Object.entries(events)) {
+      if (evt.date === dateStr) {
+        out += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}')">${evt.title}</span>`;
+      }
+    }
+  }
+  return out;
+}
+
+function openModal(dateStr, eventId=null, title='') {
+  document.getElementById('modal').style.display = 'flex';
+  document.getElementById('modalDate').value = dateStr;
+  document.getElementById('eventName').value = title;
+  document.getElementById('modalTitle').innerText = eventId ? "Edit Event" : "New Event";
+  if (eventId) {
+    document.getElementById('modal').dataset.eventId = eventId;
+  } else {
+    delete document.getElementById('modal').dataset.eventId;
+  }
 }
 
 function closeModal() {
-  document.getElementById('eventModal').classList.add('hidden');
+  document.getElementById('modal').style.display = 'none';
 }
 
-document.getElementById('eventForm').addEventListener('submit', async function(event) {
-  event.preventDefault();
-  const title = document.getElementById('eventTitle').value;
-  const date = document.getElementById('eventDate').value;
-  if (title && date) {
-    await fetch('/add_event', {
+async function saveModal() {
+  const date = document.getElementById('modalDate').value;
+  const title = document.getElementById('eventName').value.trim();
+  const existingId = document.getElementById('modal').dataset.eventId;
+
+  if (!title) return;
+
+  if (existingId) {
+    await fetch(`/save_event/${existingId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, date })
     });
-    closeModal();
-    calendar.refetchEvents();
+  } else {
+    const newId = self.crypto.randomUUID();
+    await fetch(`/save_event/${newId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, date })
+    });
   }
-});
+  closeModal();
+  location.reload();
+}
+
+function prevMonth() {
+  currentMonth--;
+  if (currentMonth < 0) {
+    currentMonth = 11;
+    currentYear--;
+  }
+  renderCalendar();
+}
+function nextMonth() {
+  currentMonth++;
+  if (currentMonth > 11) {
+    currentMonth = 0;
+    currentYear++;
+  }
+  renderCalendar();
+}
+
+window.onload = renderCalendar;
 </script>
 
 </body>
