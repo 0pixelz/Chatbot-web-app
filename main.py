@@ -20,6 +20,7 @@ LOCAL_TIMEZONE = os.getenv("LOCAL_TIMEZONE", "America/Toronto")
 CLIENT_SECRET_JSON = os.getenv("GOOGLE_CLIENT_SECRET_JSON")
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
 
+# === INIT ===
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
 
@@ -28,71 +29,59 @@ initialize_app(cred, {'databaseURL': DATABASE_URL})
 
 nest_asyncio.apply()
 
-# === UTILITIES ===
+# === UTILS ===
 def clean_uid(uid):
     return uid.replace('.', '_')
 
 def load_user_history(uid, convo_id):
     return db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').get() or []
 
-def save_user_history(uid, convo_id, history):
-    db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').set(history)
+def save_user_history(uid, convo_id, data):
+    db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').set(data)
 
 def get_settings(uid):
-    if uid == "guest":
-        return {"theme": "dark"}
-    else:
-        return db.reference(f'settings/{clean_uid(uid)}').get() or {"theme": "dark"}
+    return db.reference(f'settings/{clean_uid(uid)}').get() or {}
 
 def list_conversations(uid):
-    if uid == "guest":
-        return None
-    else:
-        return db.reference(f'conversations/{clean_uid(uid)}').get() or {}
+    return db.reference(f'conversations/{clean_uid(uid)}').get() or {}
+
+def delete_user(uid):
+    db.reference(f'chat_memory/{clean_uid(uid)}').delete()
+    db.reference(f'settings/{clean_uid(uid)}').delete()
+    db.reference(f'conversations/{clean_uid(uid)}').delete()
 
 async def generate_response(prompt, memory=[]):
     url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    messages = [{"role": "system", "content": "You are a helpful assistant."}] + memory + [{"role": "user", "content": prompt}]
+    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+    messages = [{"role": "system", "content": "You're a helpful assistant."}] + memory + [{"role": "user", "content": prompt}]
     data = {"model": "llama3-70b-8192", "messages": messages}
 
     try:
-        async with aiohttp.ClientSession() as session_http:
-            async with session_http.post(url, headers=headers, json=data) as resp:
-                if resp.status != 200:
-                    return "Error fetching AI response"
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=data) as resp:
                 result = await resp.json()
                 return result['choices'][0]['message']['content']
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"❌ Error: {str(e)}"
 
 async def generate_title_from_message(message):
     url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
     data = {
         "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": "Summarize the following user message into a short 3-5 word title. No quotes, no punctuation."},
+            {"role": "system", "content": "Summarize the following user message into a 3-5 word title. No quotes, no punctuation."},
             {"role": "user", "content": message}
         ],
         "temperature": 0.5,
         "max_tokens": 15
     }
-
     try:
-        async with aiohttp.ClientSession() as session_http:
-            async with session_http.post(url, headers=headers, json=data) as resp:
-                if resp.status != 200:
-                    return None
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=data) as resp:
                 result = await resp.json()
                 return result['choices'][0]['message']['content'].strip()
-    except Exception:
+    except Exception as e:
         return None
 
 # === ROUTES ===
@@ -144,19 +133,21 @@ def oauth_callback():
 def chat_redirect():
     return redirect("/start_new_chat")
 
+@app.route("/start_new_chat")
+def start_new_chat():
+    convo_id = str(uuid.uuid4())
+    uid = session.get("user_email", "guest")
+    if uid != "guest":
+        db.reference(f'conversations/{clean_uid(uid)}/{convo_id}').set({'title': None})
+    return redirect(f"/chat/{convo_id}")
+
 @app.route("/chat/<convo_id>", methods=["GET", "POST"])
 def chat(convo_id):
     uid = session.get("user_email", "guest")
     tz = timezone(LOCAL_TIMEZONE)
-
-    # === if guest and GET: wipe old guest chat on refresh
-    if uid == "guest" and request.method == "GET":
-        guest_path = f'chat_memory/{clean_uid(uid)}/{convo_id}'
-        db.reference(guest_path).delete()
-
-    history = load_user_history(uid, convo_id)
     settings = get_settings(uid)
-    conversations = list_conversations(uid)
+    conversations = list_conversations(uid) if uid != "guest" else {}
+    history = load_user_history(uid, convo_id)
 
     if request.method == "POST":
         message = request.form["message"]
@@ -172,21 +163,20 @@ def chat(convo_id):
         if uid != "guest":
             convo_ref = db.reference(f'conversations/{clean_uid(uid)}/{convo_id}')
             current_title = convo_ref.child('title').get()
+
             if not current_title:
-                title = asyncio.run(generate_title_from_message(message)) or "New Chat"
-                convo_ref.child('title').set(title)
+                title = asyncio.run(generate_title_from_message(message))
+                if title:
+                    convo_ref.child('title').set(title)
+                else:
+                    fallback_title = message.strip()
+                    if len(fallback_title) > 30:
+                        fallback_title = fallback_title[:27] + "..."
+                    convo_ref.child('title').set(fallback_title.capitalize())
 
         return redirect(f"/chat/{convo_id}")
 
-    return render_template("chat.html", uid=uid, history=history, conversations=conversations, convo_id=convo_id, settings=settings)
-
-@app.route("/start_new_chat")
-def start_new_chat():
-    convo_id = str(uuid.uuid4())
-    uid = session.get("user_email", "guest")
-    if uid != "guest":
-        db.reference(f'conversations/{clean_uid(uid)}/{convo_id}').set({'title': None})
-    return redirect(f"/chat/{convo_id}")
+    return render_template("chat.html", uid=uid, history=history, settings=settings, conversations=conversations, convo_id=convo_id)
 
 @app.route("/delete_conversation/<convo_id>", methods=["POST"])
 def delete_conversation(convo_id):
@@ -195,6 +185,21 @@ def delete_conversation(convo_id):
         db.reference(f'chat_memory/{clean_uid(uid)}/{convo_id}').delete()
         db.reference(f'conversations/{clean_uid(uid)}/{convo_id}').delete()
     return redirect("/chat")
+
+@app.route("/settings", methods=["GET", "POST"])
+def settings_page():
+    uid = session.get("user_email", "guest")
+    if request.method == "POST":
+        data = {
+            "theme": request.form.get("theme", "dark"),
+            "font_size": request.form.get("font_size", "base"),
+            "personality": request.form.get("personality", ""),
+            "length": request.form.get("length", "medium")
+        }
+        save_settings(uid, data)
+        return redirect("/chat")
+    settings = get_settings(uid)
+    return render_template("settings.html", settings=settings)
 
 # === RUN ===
 if __name__ == "__main__":
