@@ -13,6 +13,13 @@
       border-radius: 1rem;
       word-wrap: break-word;
       overflow-wrap: break-word;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .chat-bubble.show {
+      opacity: 1;
+      transform: translateY(0);
     }
     .chat-bubble-user {
       background-color: #374151;
@@ -42,7 +49,7 @@
   <button onclick="toggleSidebar()" id="menuButton" class="text-2xl text-gray-200 focus:outline-none">
     ☰
   </button>
-  <h1 class="text-xl font-bold text-gray-200">Chatbot</h1>
+  <h1 class="text-xl font-bold text-gray-200">Personal AI Bot</h1>
   <div class="relative">
     {% if session.get("user_picture") %}
       <button onclick="toggleMenu()" class="focus:outline-none">
@@ -56,7 +63,7 @@
       </div>
     {% else %}
       <a href="/login" class="flex items-center bg-black text-white rounded-full px-3 py-2 hover:bg-gray-800">
-        <img src="https://www.citypng.com/public/uploads/preview/google-logo-icon-gsuite-hd-701751694791470gzbayltphh.png" alt="Google Logo" class="h-5 w-5 mr-2">
+        <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google Logo" class="h-5 w-5 mr-2">
         Sign in with Google
       </a>
     {% endif %}
@@ -122,9 +129,6 @@
 
 <!-- Scripts -->
 <script>
-let typingInterval = null;
-let isTyping = false;
-
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('-translate-x-full');
 }
@@ -140,62 +144,21 @@ function scrollToBottom() {
   });
 }
 
-function isNearBottom() {
+function animateLastMessageFade() {
   const chatArea = document.getElementById('chatArea');
-  return (chatArea.scrollHeight - chatArea.scrollTop - chatArea.clientHeight) < 150;
-}
-
-function animateLastMessage() {
-  const chatArea = document.getElementById('chatArea');
-  const messages = chatArea.querySelectorAll('[data-role]');
-  const textarea = document.getElementById('messageInput');
-  const sendButton = document.getElementById('sendButton');
-  const stopButton = document.getElementById('stopButton');
-
-  messages.forEach((div) => {
-    const fullText = div.getAttribute('data-full-text');
-    const staticMessage = div.getAttribute('data-static');
-    if (staticMessage || div.getAttribute('data-role') === 'user') {
-      div.textContent = fullText;
-    } else {
-      div.textContent = '';
-      textarea.disabled = true;
-      sendButton.disabled = true;
-      stopButton.classList.remove('hidden');
-      isTyping = true;
-      let i = 0;
-      function typeChar() {
-        if (!isTyping) return;
-        if (i < fullText.length) {
-          div.textContent += fullText.charAt(i);
-          i++;
-          if (isNearBottom()) {
-            scrollToBottom();
-          }
-          typingInterval = setTimeout(typeChar, 15);
-        } else {
-          finishTyping();
-        }
-      }
-      typeChar();
-    }
-  });
-
+  const messages = chatArea.querySelectorAll('.chat-bubble');
+  const lastBubble = messages[messages.length - 1];
+  if (lastBubble) {
+    setTimeout(() => {
+      lastBubble.classList.add('show');
+    }, 200);
+  }
   scrollToBottom();
 }
 
-function finishTyping() {
-  document.getElementById('messageInput').disabled = false;
-  document.getElementById('sendButton').disabled = false;
-  document.getElementById('stopButton').classList.add('hidden');
-  isTyping = false;
-  clearTimeout(typingInterval);
-}
-
-function stopTyping() {
-  isTyping = false;
-  finishTyping();
-}
+window.onload = function() {
+  animateLastMessageFade();
+};
 
 const textarea = document.getElementById('messageInput');
 const sendButton = document.getElementById('sendButton');
@@ -217,10 +180,6 @@ chatForm.addEventListener('keydown', (e) => {
     }
   }
 });
-
-window.onload = function() {
-  animateLastMessage();
-}
 </script>
 
 </body>
