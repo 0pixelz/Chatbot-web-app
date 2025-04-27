@@ -2,24 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Calendar - Personal AI Bot</title>
+  <title>My Calendar - Personal AI Bot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .calendar-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 5px;
-      transition: transform 0.3s ease-in-out;
+      gap: 4px;
     }
     .calendar-cell {
-      min-height: 100px;
+      min-height: 70px;
       border-radius: 8px;
       background-color: #374151;
       color: white;
-      padding: 6px;
+      padding: 4px;
       position: relative;
-      cursor: pointer;
       overflow-y: auto;
+      font-size: 14px;
     }
     .calendar-cell.today {
       background-color: #4b5563;
@@ -28,10 +28,10 @@
     .event-badge {
       background: #60a5fa;
       color: white;
-      padding: 2px 6px;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      margin-top: 4px;
+      padding: 1px 5px;
+      font-size: 11px;
+      border-radius: 5px;
+      margin-top: 2px;
       display: block;
       text-align: center;
       cursor: pointer;
@@ -39,51 +39,54 @@
   </style>
 </head>
 
-<body class="bg-gray-900 min-h-screen text-white p-4">
+<body class="bg-gray-900 text-white p-3">
 
 <!-- Header -->
-<div class="flex justify-between items-center mb-6">
+<div class="flex items-center justify-between mb-4">
   <h1 class="text-2xl font-bold">My Calendar</h1>
   <div class="flex space-x-2">
-    <button onclick="prevMonth()" class="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600">&lt;</button>
-    <button onclick="nextMonth()" class="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600">&gt;</button>
+    <button onclick="prevMonth()" class="bg-gray-700 px-3 py-1 rounded hover:bg-gray-600">&lt;</button>
+    <button onclick="nextMonth()" class="bg-gray-700 px-3 py-1 rounded hover:bg-gray-600">&gt;</button>
   </div>
 </div>
 
-<!-- Month title (clickable) -->
-<h2 id="monthTitle" class="text-xl font-semibold text-center mb-4 cursor-pointer" onclick="openDatePicker()"></h2>
+<!-- Month selector -->
+<h2 id="monthTitle" onclick="openMonthPicker()" class="text-xl font-semibold text-center mb-2 cursor-pointer"></h2>
 
-<!-- Weekday headers -->
-<div class="calendar-grid font-bold text-gray-400 text-center">
+<!-- Weekdays header -->
+<div class="calendar-grid mb-2 text-center font-semibold text-gray-400">
   <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
 </div>
 
 <!-- Calendar grid -->
-<div id="calendar" class="calendar-grid mt-2"></div>
+<div id="calendar" class="calendar-grid" ontouchstart="touchStart(event)" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)"></div>
 
-<!-- Event List -->
-<hr class="my-6 border-gray-700">
+<hr class="my-4 border-gray-600">
+
+<!-- Event list -->
 <h3 class="text-lg font-bold mb-2">Your Events:</h3>
-<ul id="eventList" class="space-y-2"></ul>
+<div id="eventList" class="space-y-2"></div>
 
 <!-- Modal -->
-<div id="modal" class="fixed top-0 left-0 w-full h-full bg-black bg-opacity-60 hidden items-center justify-center z-50">
+<div id="modal" class="fixed top-0 left-0 w-full h-full bg-black bg-opacity-70 hidden items-center justify-center z-50">
   <div class="bg-gray-800 p-6 rounded-lg w-80">
-    <h3 id="modalTitle" class="text-lg font-bold mb-4">New Event</h3>
+    <h3 id="modalTitle" class="text-lg font-bold mb-3">New Event</h3>
     <input type="hidden" id="modalDate">
-    <input id="eventName" type="text" placeholder="Event Title" class="w-full mb-3 p-2 rounded bg-gray-700 text-white">
+    <input id="eventName" type="text" placeholder="Event Title" class="w-full p-2 rounded mb-2 bg-gray-700">
     
     <label class="flex items-center mb-2">
-      <input type="checkbox" id="allDayCheckbox" class="mr-2">
-      All Day
+      <input type="checkbox" id="allDay" class="mr-2"> All Day
     </label>
 
-    <input id="eventTime" type="time" class="w-full mb-3 p-2 rounded bg-gray-700 text-white">
+    <div id="timeInputs" class="flex space-x-2 mb-3">
+      <input type="time" id="startTime" class="flex-1 p-2 rounded bg-gray-700">
+      <input type="time" id="endTime" class="flex-1 p-2 rounded bg-gray-700">
+    </div>
 
-    <div class="flex justify-between space-x-2">
-      <button onclick="saveModal()" class="flex-1 bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded">Save</button>
-      <button onclick="deleteModal()" id="deleteButton" class="flex-1 bg-red-500 hover:bg-red-600 px-4 py-2 rounded hidden">Delete</button>
-      <button onclick="closeModal()" class="flex-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Cancel</button>
+    <div class="flex space-x-2">
+      <button onclick="saveModal()" class="flex-1 bg-blue-500 hover:bg-blue-600 py-2 rounded">Save</button>
+      <button onclick="deleteModal()" id="deleteButton" class="flex-1 bg-red-500 hover:bg-red-600 py-2 rounded hidden">Delete</button>
+      <button onclick="closeModal()" class="flex-1 bg-gray-600 hover:bg-gray-700 py-2 rounded">Cancel</button>
     </div>
   </div>
 </div>
@@ -92,33 +95,30 @@
 let currentMonth = new Date().getMonth();
 let currentYear = new Date().getFullYear();
 const events = {{ events|tojson }};
+let xStart = 0, xEnd = 0;
 
 function renderCalendar() {
   const monthTitle = document.getElementById('monthTitle');
   const calendar = document.getElementById('calendar');
-  const eventList = document.getElementById('eventList');
-  const date = new Date(currentYear, currentMonth);
-  const monthName = date.toLocaleString('default', { month: 'long' });
+  const monthName = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' });
   monthTitle.textContent = `${monthName} ${currentYear}`;
 
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-
+  
   let html = "";
-
   for (let i = 0; i < firstDay; i++) {
     html += `<div></div>`;
   }
   for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     let today = (new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString());
     html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')">
-      <div class="text-sm">${day}</div>
+      <div>${day}</div>
       ${renderEvents(dateStr)}
     </div>`;
   }
   calendar.innerHTML = html;
-
   renderEventList();
 }
 
@@ -127,7 +127,7 @@ function renderEvents(dateStr) {
   if (events) {
     for (const [id, evt] of Object.entries(events)) {
       if (evt.date === dateStr) {
-        out += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}', '${evt.time || ''}', ${evt.allDay || false})">${evt.title}</span>`;
+        out += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}', '${evt.start||""}', '${evt.end||""}', ${evt.all_day||false})">${evt.title}</span>`;
       }
     }
   }
@@ -135,45 +135,40 @@ function renderEvents(dateStr) {
 }
 
 function renderEventList() {
-  const eventList = document.getElementById('eventList');
-  eventList.innerHTML = "";
+  const list = document.getElementById('eventList');
+  const monthStr = String(currentMonth + 1).padStart(2, '0');
+  const yearStr = currentYear;
+  let html = "";
+
   if (events) {
-    Object.entries(events).forEach(([id, evt]) => {
-      const eventDate = new Date(evt.date);
-      if (eventDate.getMonth() === currentMonth && eventDate.getFullYear() === currentYear) {
-        const li = document.createElement('li');
-        li.className = "bg-gray-800 p-3 rounded flex justify-between items-center";
-        li.innerHTML = `
-          <div>
-            <div class="font-bold">${evt.title}</div>
-            <div class="text-gray-400 text-sm">${evt.date}${evt.time ? ' at ' + evt.time : ''}</div>
-          </div>
-          <button onclick="openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time || ''}', ${evt.allDay || false})" class="text-blue-400 hover:underline">Edit</button>
-        `;
-        eventList.appendChild(li);
+    for (const [id, evt] of Object.entries(events)) {
+      if (evt.date.startsWith(`${yearStr}-${monthStr}`)) {
+        html += `<div class="p-2 bg-gray-700 rounded">
+          <div class="font-bold">${evt.title}</div>
+          <div class="text-sm">${evt.date} ${evt.all_day ? "(All day)" : (evt.start+"-"+evt.end)}</div>
+        </div>`;
       }
-    });
+    }
   }
+  list.innerHTML = html || "<p class='text-gray-400'>No events</p>";
 }
 
-function openModal(dateStr, eventId = null, title = '', time = '', allDay = false) {
-  const modal = document.getElementById('modal');
+function openModal(dateStr, eventId=null, title="", start="", end="", allDay=false) {
+  document.getElementById('modal').style.display = 'flex';
   document.getElementById('modalDate').value = dateStr;
   document.getElementById('eventName').value = title;
-  document.getElementById('eventTime').value = time;
-  document.getElementById('allDayCheckbox').checked = allDay;
-  document.getElementById('eventTime').style.display = allDay ? 'none' : 'block';
+  document.getElementById('startTime').value = start;
+  document.getElementById('endTime').value = end;
+  document.getElementById('allDay').checked = allDay;
   document.getElementById('modalTitle').innerText = eventId ? "Edit Event" : "New Event";
 
   if (eventId) {
-    modal.dataset.eventId = eventId;
+    document.getElementById('modal').dataset.eventId = eventId;
     document.getElementById('deleteButton').classList.remove('hidden');
   } else {
-    delete modal.dataset.eventId;
+    delete document.getElementById('modal').dataset.eventId;
     document.getElementById('deleteButton').classList.add('hidden');
   }
-
-  modal.style.display = 'flex';
 }
 
 function closeModal() {
@@ -183,24 +178,24 @@ function closeModal() {
 async function saveModal() {
   const date = document.getElementById('modalDate').value;
   const title = document.getElementById('eventName').value.trim();
-  const time = document.getElementById('allDayCheckbox').checked ? null : document.getElementById('eventTime').value.trim();
-  const allDay = document.getElementById('allDayCheckbox').checked;
+  const start = document.getElementById('startTime').value;
+  const end = document.getElementById('endTime').value;
+  const all_day = document.getElementById('allDay').checked;
   const existingId = document.getElementById('modal').dataset.eventId;
-
   if (!title) return;
-
+  
   if (existingId) {
     await fetch(`/save_event/${existingId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, date, time, allDay })
+      body: JSON.stringify({ title, date, start, end, all_day })
     });
   } else {
     const newId = self.crypto.randomUUID();
     await fetch(`/save_event/${newId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, date, time, allDay })
+      body: JSON.stringify({ title, date, start, end, all_day })
     });
   }
   closeModal();
@@ -222,7 +217,6 @@ function prevMonth() {
     currentMonth = 11;
     currentYear--;
   }
-  swipeAnimation('right');
   renderCalendar();
 }
 
@@ -232,37 +226,35 @@ function nextMonth() {
     currentMonth = 0;
     currentYear++;
   }
-  swipeAnimation('left');
   renderCalendar();
 }
 
-function swipeAnimation(direction) {
-  const calendar = document.getElementById('calendar');
-  calendar.style.transform = direction === 'left' ? 'translateX(-100%)' : 'translateX(100%)';
-  setTimeout(() => {
-    calendar.style.transition = 'none';
-    calendar.style.transform = direction === 'left' ? 'translateX(100%)' : 'translateX(-100%)';
-    setTimeout(() => {
-      calendar.style.transition = 'transform 0.3s ease-in-out';
-      calendar.style.transform = 'translateX(0)';
-    }, 10);
-  }, 300);
-}
-
-function openDatePicker() {
-  const year = prompt("Enter Year (e.g., 2025):", currentYear);
-  const month = prompt("Enter Month (1-12):", currentMonth + 1);
-  if (year && month) {
-    currentYear = parseInt(year);
-    currentMonth = parseInt(month) - 1;
-    renderCalendar();
+function openMonthPicker() {
+  const year = prompt("Enter year:", currentYear);
+  if (year) {
+    const month = prompt("Enter month (1-12):", currentMonth+1);
+    if (month) {
+      currentYear = parseInt(year);
+      currentMonth = parseInt(month)-1;
+      renderCalendar();
+    }
   }
 }
 
-// All day checkbox toggle
-document.getElementById('allDayCheckbox').addEventListener('change', (e) => {
-  document.getElementById('eventTime').style.display = e.target.checked ? 'none' : 'block';
-});
+// Swipe left/right to change months
+function touchStart(e) {
+  xStart = e.touches[0].clientX;
+}
+function touchMove(e) {
+  xEnd = e.touches[0].clientX;
+}
+function touchEnd() {
+  if (!xStart || !xEnd) return;
+  const diff = xStart - xEnd;
+  if (diff > 50) nextMonth();
+  if (diff < -50) prevMonth();
+  xStart = xEnd = 0;
+}
 
 window.onload = renderCalendar;
 </script>
