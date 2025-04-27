@@ -130,7 +130,7 @@ function scrollToBottom() {
   });
 }
 
-function animateLastMessage() {
+function animateLastAssistantMessage() {
   const chatArea = document.getElementById('chatArea');
   const messages = chatArea.querySelectorAll('[data-role]');
   const textarea = document.getElementById('messageInput');
@@ -139,6 +139,7 @@ function animateLastMessage() {
   messages.forEach((div, idx) => {
     const fullText = div.getAttribute('data-full-text');
     const role = div.getAttribute('data-role');
+
     if (idx === messages.length - 1 && role === 'assistant') {
       div.textContent = '';
       let i = 0;
@@ -181,7 +182,7 @@ chatForm.addEventListener('keydown', (e) => {
 });
 
 window.onload = function() {
-  animateLastMessage();
+  animateLastAssistantMessage();
 };
 </script>
 
