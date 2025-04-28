@@ -116,18 +116,13 @@ function renderCalendar() {
   }
   calendar.innerHTML = html;
 
-  // Render event list
+  // Render event list (using time properly)
   let eventHtml = "";
   let hasEvents = false;
   for (const [id, evt] of Object.entries(events)) {
     if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
       hasEvents = true;
-      let timeDisplay = "";
-      if (evt.allDay === true || (!evt.time || evt.time.trim() === "")) {
-        timeDisplay = "(All Day)";
-      } else {
-        timeDisplay = `at ${formatTime(evt.time)}`;
-      }
+      let timeDisplay = evt.time && evt.time.trim() !== "" ? evt.time : "(All Day)";
       eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}</div>`;
     }
   }
@@ -289,14 +284,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
-
-// Format time to 12h am/pm
-function formatTime(t) {
-  const [h, m] = t.split(":").map(Number);
-  const suffix = h >= 12 ? "PM" : "AM";
-  const hour = h % 12 || 12;
-  return `${hour}:${m.toString().padStart(2,"0")} ${suffix}`;
-}
 
 window.onload = renderCalendar;
 </script>
