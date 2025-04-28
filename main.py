@@ -235,7 +235,8 @@ def save_event_route(event_id):
         "title": data["title"],
         "date": data["date"],
         "time": data.get("time", ""),
-        "allDay": data.get("allDay", False)
+        "allDay": data.get("allDay", False),
+        "repeat": data.get("repeat", "none")   # <<==== ADDED HERE
     })
     return "", 204
 
