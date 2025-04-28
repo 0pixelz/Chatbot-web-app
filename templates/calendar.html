@@ -35,6 +35,16 @@
       text-align: center;
       cursor: pointer;
     }
+    .event-list-item {
+      background-color: #374151;
+      padding: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .event-list-item:hover {
+      background-color: #4b5563;
+    }
   </style>
 </head>
 
@@ -116,14 +126,23 @@ function renderCalendar() {
   }
   calendar.innerHTML = html;
 
-  // Render event list with correct time or All Day
+  // Render event list with clickable items
   let eventHtml = "";
   let hasEvents = false;
   for (const [id, evt] of Object.entries(events)) {
     if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
       hasEvents = true;
-      let timeDisplay = (evt.time && evt.time !== "") ? `(${evt.time})` : "(All Day)";
-      eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}</div>`;
+      let timeDisplay = "";
+      if (evt.allDay === true) {
+        timeDisplay = "(All Day)";
+      } else if (evt.time && evt.time.trim() !== "") {
+        timeDisplay = `(${evt.time})`;
+      } else {
+        timeDisplay = "(All Day)";
+      }
+      eventHtml += `<div class="event-list-item" onclick="openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false})">
+        <strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}
+      </div>`;
     }
   }
   eventList.innerHTML = hasEvents ? eventHtml : `<p class="text-gray-400">No events this month.</p>`;
@@ -148,7 +167,11 @@ function openModal(dateStr, eventId=null, title='', time='', allDay=false) {
   document.getElementById('eventTime').value = time || "";
   document.getElementById('allDay').checked = allDay;
 
-  document.getElementById('eventTime').disabled = allDay;
+  if (allDay) {
+    document.getElementById('eventTime').disabled = true;
+  } else {
+    document.getElementById('eventTime').disabled = false;
+  }
 
   document.getElementById('modalTitle').innerText = eventId ? "Edit Event" : "New Event";
 
@@ -176,12 +199,7 @@ async function saveModal() {
 
   if (!title) return;
 
-  const payload = {
-    title,
-    date,
-    time: allDay ? "" : time,
-    allDay
-  };
+  const payload = { title, date, time: allDay ? "" : time, allDay };
 
   if (existingId) {
     await fetch(`/save_event/${existingId}`, {
@@ -193,11 +211,10 @@ async function saveModal() {
     const newId = self.crypto.randomUUID();
     await fetch(`/save_event/${newId}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json'},
       body: JSON.stringify(payload)
     });
   }
-  
   closeModal();
   localStorage.setItem('currentMonth', currentMonth);
   localStorage.setItem('currentYear', currentYear);
