@@ -75,11 +75,21 @@
       All Day
     </label>
 
-    <input id="eventTime" type="time" class="w-full mb-4 p-2 rounded bg-gray-700 text-white">
+    <input id="eventTime" type="time" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
 
-    <div class="flex space-x-2">
+    <label class="flex items-center mb-2">
+      <span class="mr-2">Repeat</span>
+      <select id="repeat" class="w-full p-2 rounded bg-gray-700 text-white">
+        <option value="none">Does not repeat</option>
+        <option value="every day">Every day</option>
+        <option value="every week">Every week</option>
+        <option value="every month">Every month</option>
+        <option value="every year">Every year</option>
+      </select>
+    </label>
+
+    <div class="flex space-x-2 mt-4">
       <button onclick="saveModal()" class="flex-1 bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded">Save</button>
-      <button onclick="deleteModal()" id="deleteButton" class="flex-1 bg-red-500 hover:bg-red-600 px-4 py-2 rounded hidden">Delete</button>
       <button onclick="closeModal()" class="flex-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Cancel</button>
     </div>
   </div>
@@ -120,64 +130,49 @@ function renderCalendar() {
   let eventHtml = "";
   let hasEvents = false;
   for (const [id, evt] of Object.entries(events)) {
-    const eventDate = evt.date;
-    const repeat = evt.repeat || 'none';
-
-    if (matchesMonth(eventDate, repeat)) {
+    if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
       hasEvents = true;
-      const timeDisplay = evt.time ? `(${evt.time})` : "(All Day)";
-      eventHtml += `<div onclick="openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false})" 
-                    class="p-2 bg-gray-800 rounded cursor-pointer hover:bg-gray-700">
-                    <strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}</div>`;
+      let timeDisplay = evt.time ? `(${evt.time})` : evt.allDay ? "(All Day)" : "";
+      eventHtml += `<div class="p-2 bg-gray-800 rounded">
+        <strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}
+      </div>`;
     }
   }
   eventList.innerHTML = hasEvents ? eventHtml : `<p class="text-gray-400">No events this month.</p>`;
 }
 
-function matchesMonth(dateStr, repeat) {
-  const [year, month] = dateStr.split('-').map(Number);
-  if (year === currentYear && (month-1) === currentMonth) return true;
-
-  if (repeat === 'every week') {
-    const eventDate = new Date(dateStr);
-    const firstOfMonth = new Date(currentYear, currentMonth, 1);
-    const lastOfMonth = new Date(currentYear, currentMonth + 1, 0);
-    let d = new Date(firstOfMonth);
-    while (d <= lastOfMonth) {
-      if (d.getDay() === eventDate.getDay()) return true;
-      d.setDate(d.getDate() + 1);
-    }
-  }
-  return false;
-}
-
 function renderEvents(dateStr) {
   let out = "";
-  for (const [id, evt] of Object.entries(events)) {
-    if (evt.date === dateStr || (evt.repeat === 'every week' && new Date(evt.date).getDay() === new Date(dateStr).getDay())) {
-      out += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false})">${evt.title}</span>`;
+  if (events) {
+    for (const [id, evt] of Object.entries(events)) {
+      if (evt.date === dateStr) {
+        out += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}')">${evt.title}</span>`;
+      }
     }
   }
   return out;
 }
 
-function openModal(dateStr, eventId=null, title='', time='', allDay=false) {
+function openModal(dateStr, eventId=null, title='', time='', allDay=false, repeat='none') {
   const modal = document.getElementById('modal');
   document.getElementById('modalDate').value = dateStr;
   document.getElementById('eventName').value = title;
   document.getElementById('eventTime').value = time || "";
   document.getElementById('allDay').checked = allDay;
+  document.getElementById('repeat').value = repeat || 'none';
 
-  document.getElementById('eventTime').disabled = allDay;
+  if (allDay) {
+    document.getElementById('eventTime').disabled = true;
+  } else {
+    document.getElementById('eventTime').disabled = false;
+  }
 
   document.getElementById('modalTitle').innerText = eventId ? "Edit Event" : "New Event";
 
   if (eventId) {
     modal.dataset.eventId = eventId;
-    document.getElementById('deleteButton').classList.remove('hidden');
   } else {
     delete modal.dataset.eventId;
-    document.getElementById('deleteButton').classList.add('hidden');
   }
   
   modal.style.display = 'flex';
@@ -192,11 +187,12 @@ async function saveModal() {
   const title = document.getElementById('eventName').value.trim();
   const time = document.getElementById('eventTime').value.trim();
   const allDay = document.getElementById('allDay').checked;
+  const repeat = document.getElementById('repeat').value;
   const existingId = document.getElementById('modal').dataset.eventId;
 
   if (!title) return;
 
-  const payload = { title, date, time: allDay ? "" : time, allDay };
+  const payload = { title, date, time: allDay ? "" : time, allDay, repeat };
 
   if (existingId) {
     await fetch(`/save_event/${existingId}`, {
@@ -218,17 +214,6 @@ async function saveModal() {
   location.reload();
 }
 
-async function deleteModal() {
-  const existingId = document.getElementById('modal').dataset.eventId;
-  if (existingId) {
-    await fetch(`/delete_event/${existingId}`, { method: 'POST' });
-  }
-  closeModal();
-  localStorage.setItem('currentMonth', currentMonth);
-  localStorage.setItem('currentYear', currentYear);
-  location.reload();
-}
-
 function prevMonth() {
   currentMonth--;
   if (currentMonth < 0) {
@@ -239,6 +224,7 @@ function prevMonth() {
   localStorage.setItem('currentYear', currentYear);
   renderCalendar();
 }
+
 function nextMonth() {
   currentMonth++;
   if (currentMonth > 11) {
