@@ -93,7 +93,6 @@ const events = {{ events|tojson }};
 function renderCalendar() {
   const monthTitle = document.getElementById('monthTitle');
   const calendar = document.getElementById('calendar');
-  const eventList = document.getElementById('eventList');
   
   const date = new Date(currentYear, currentMonth);
   const monthName = date.toLocaleString('default', { month: 'long' });
@@ -115,23 +114,7 @@ function renderCalendar() {
     </div>`;
   }
   calendar.innerHTML = html;
-
-  // Render event list
-  let eventHtml = "";
-  let hasEvents = false;
-  for (const [id, evt] of Object.entries(events)) {
-    if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
-      hasEvents = true;
-      let timeDisplay = "";
-      if (evt.time && evt.time.trim() !== "") {
-        timeDisplay = `(${evt.time})`;
-      } else {
-        timeDisplay = "(All Day)";
-      }
-      eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}</div>`;
-    }
-  }
-  eventList.innerHTML = hasEvents ? eventHtml : `<p class="text-gray-400">No events this month.</p>`;
+  renderEventList();
 }
 
 function renderEvents(dateStr) {
@@ -144,6 +127,25 @@ function renderEvents(dateStr) {
     }
   }
   return out;
+}
+
+function renderEventList() {
+  const eventList = document.getElementById('eventList');
+  let eventHtml = "";
+  let hasEvents = false;
+  for (const [id, evt] of Object.entries(events)) {
+    if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
+      hasEvents = true;
+      let timeDisplay = "";
+      if (evt.allDay === true || (!evt.time || evt.time.trim() === "")) {
+        timeDisplay = "(All Day)";
+      } else {
+        timeDisplay = `(${evt.time})`;
+      }
+      eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}</div>`;
+    }
+  }
+  eventList.innerHTML = hasEvents ? eventHtml : `<p class="text-gray-400">No events this month.</p>`;
 }
 
 function openModal(dateStr, eventId=null, title='', time='', allDay=false) {
@@ -185,15 +187,7 @@ async function saveModal() {
 
   if (!title) return;
 
-  const payload = { title, date };
-
-  if (time) {
-    payload.time = time;
-    payload.allDay = false;
-  } else {
-    payload.time = "";
-    payload.allDay = true;
-  }
+  const payload = { title, date, time: allDay ? "" : time, allDay };
 
   if (existingId) {
     await fetch(`/save_event/${existingId}`, {
@@ -209,7 +203,6 @@ async function saveModal() {
       body: JSON.stringify(payload)
     });
   }
-
   closeModal();
   localStorage.setItem('currentMonth', currentMonth);
   localStorage.setItem('currentYear', currentYear);
