@@ -116,15 +116,15 @@ function renderCalendar() {
   }
   calendar.innerHTML = html;
 
-  // Corrected event list:
+  // Render event list
   let eventHtml = "";
   let hasEvents = false;
   for (const [id, evt] of Object.entries(events)) {
     if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
       hasEvents = true;
       let timeDisplay = "";
-      if (evt.time !== undefined && evt.time.trim() !== "") {
-        timeDisplay = `(${evt.time})`; 
+      if (evt.time && evt.time.trim() !== "") {
+        timeDisplay = `(${evt.time})`;
       } else {
         timeDisplay = "(All Day)";
       }
@@ -185,7 +185,15 @@ async function saveModal() {
 
   if (!title) return;
 
-  const payload = { title, date, time: allDay ? "" : time, allDay };
+  const payload = { title, date };
+
+  if (time) {
+    payload.time = time;
+    payload.allDay = false;
+  } else {
+    payload.time = "";
+    payload.allDay = true;
+  }
 
   if (existingId) {
     await fetch(`/save_event/${existingId}`, {
@@ -197,10 +205,11 @@ async function saveModal() {
     const newId = self.crypto.randomUUID();
     await fetch(`/save_event/${newId}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json',},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
   }
+
   closeModal();
   localStorage.setItem('currentMonth', currentMonth);
   localStorage.setItem('currentYear', currentYear);
