@@ -35,16 +35,6 @@
       text-align: center;
       cursor: pointer;
     }
-    .event-list-item {
-      background-color: #374151;
-      padding: 10px;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background-color 0.3s;
-    }
-    .event-list-item:hover {
-      background-color: #4b5563;
-    }
   </style>
 </head>
 
@@ -87,6 +77,40 @@
 
     <input id="eventTime" type="time" class="w-full mb-4 p-2 rounded bg-gray-700 text-white">
 
+    <!-- Repeat Section -->
+    <div class="mb-4">
+      <label class="block mb-2">Repeat</label>
+      <select id="repeatFrequency" class="w-full p-2 rounded bg-gray-700 text-white mb-2">
+        <option value="">No repeat</option>
+        <option value="day">Every day</option>
+        <option value="week">Every week</option>
+        <option value="month">Every month</option>
+        <option value="year">Every year</option>
+        <option value="custom">Custom...</option>
+      </select>
+
+      <div id="customRepeat" class="hidden">
+        <div class="flex space-x-2 mb-2">
+          <input id="customInterval" type="number" min="1" value="1" class="w-1/2 p-2 rounded bg-gray-700 text-white" placeholder="Every X">
+          <select id="customUnit" class="w-1/2 p-2 rounded bg-gray-700 text-white">
+            <option value="day">Days</option>
+            <option value="week">Weeks</option>
+            <option value="month">Months</option>
+            <option value="year">Years</option>
+          </select>
+        </div>
+
+        <div class="flex flex-col space-y-2">
+          <label><input type="radio" name="ends" value="never" checked> Never ends</label>
+          <label><input type="radio" name="ends" value="on"> Ends on date</label>
+          <label><input type="radio" name="ends" value="after"> Ends after X occurrences</label>
+        </div>
+
+        <input id="endsDate" type="date" class="w-full p-2 mt-2 rounded bg-gray-700 text-white hidden">
+        <input id="endsAfter" type="number" min="1" class="w-full p-2 mt-2 rounded bg-gray-700 text-white hidden" placeholder="Occurrences">
+      </div>
+    </div>
+
     <div class="flex space-x-2">
       <button onclick="saveModal()" class="flex-1 bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded">Save</button>
       <button onclick="deleteModal()" id="deleteButton" class="flex-1 bg-red-500 hover:bg-red-600 px-4 py-2 rounded hidden">Delete</button>
@@ -126,23 +150,18 @@ function renderCalendar() {
   }
   calendar.innerHTML = html;
 
-  // Render event list with clickable items
+  // Render event list
   let eventHtml = "";
   let hasEvents = false;
   for (const [id, evt] of Object.entries(events)) {
     if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
       hasEvents = true;
-      let timeDisplay = "";
-      if (evt.allDay === true) {
-        timeDisplay = "(All Day)";
-      } else if (evt.time && evt.time.trim() !== "") {
-        timeDisplay = `(${evt.time})`;
-      } else {
-        timeDisplay = "(All Day)";
+      let timeDisplay = evt.allDay ? "(All Day)" : (evt.time ? `(${evt.time})` : "(All Day)");
+      let repeatText = "";
+      if (evt.repeat) {
+        repeatText = ` - Repeats every ${evt.repeat.interval} ${evt.repeat.frequency}${evt.repeat.interval > 1 ? "s" : ""}`;
       }
-      eventHtml += `<div class="event-list-item" onclick="openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false})">
-        <strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}
-      </div>`;
+      eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}${repeatText}</div>`;
     }
   }
   eventList.innerHTML = hasEvents ? eventHtml : `<p class="text-gray-400">No events this month.</p>`;
@@ -199,7 +218,25 @@ async function saveModal() {
 
   if (!title) return;
 
-  const payload = { title, date, time: allDay ? "" : time, allDay };
+  let repeat = null;
+  if (repeatSelect.value) {
+    if (repeatSelect.value !== "custom") {
+      repeat = { frequency: repeatSelect.value, interval: 1, ends: "never" };
+    } else {
+      const interval = parseInt(document.getElementById('customInterval').value) || 1;
+      const unit = document.getElementById('customUnit').value;
+      const endsOption = document.querySelector('input[name="ends"]:checked').value;
+      let endsValue = "never";
+      if (endsOption === "on") {
+        endsValue = endsDate.value;
+      } else if (endsOption === "after") {
+        endsValue = `after ${endsAfter.value} times`;
+      }
+      repeat = { frequency: unit, interval: interval, ends: endsValue };
+    }
+  }
+
+  const payload = { title, date, time: allDay ? "" : time, allDay, repeat };
 
   if (existingId) {
     await fetch(`/save_event/${existingId}`, {
@@ -211,7 +248,7 @@ async function saveModal() {
     const newId = self.crypto.randomUUID();
     await fetch(`/save_event/${newId}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
   }
@@ -290,18 +327,33 @@ document.addEventListener('touchend', (e) => {
   touchStartX = null;
 });
 
-// Disable time input when All Day checked
-document.addEventListener('DOMContentLoaded', () => {
-  const allDayCheckbox = document.getElementById('allDay');
-  const timeInput = document.getElementById('eventTime');
-  if (allDayCheckbox && timeInput) {
-    allDayCheckbox.addEventListener('change', () => {
-      timeInput.disabled = allDayCheckbox.checked;
-      if (allDayCheckbox.checked) {
-        timeInput.value = "";
-      }
-    });
+// Repeat Section Handling
+const repeatSelect = document.getElementById('repeatFrequency');
+const customRepeat = document.getElementById('customRepeat');
+const endsDate = document.getElementById('endsDate');
+const endsAfter = document.getElementById('endsAfter');
+
+repeatSelect.addEventListener('change', () => {
+  if (repeatSelect.value === "custom") {
+    customRepeat.classList.remove('hidden');
+  } else {
+    customRepeat.classList.add('hidden');
   }
+});
+
+document.querySelectorAll('input[name="ends"]').forEach(radio => {
+  radio.addEventListener('change', (e) => {
+    if (e.target.value === "on") {
+      endsDate.classList.remove('hidden');
+      endsAfter.classList.add('hidden');
+    } else if (e.target.value === "after") {
+      endsAfter.classList.remove('hidden');
+      endsDate.classList.add('hidden');
+    } else {
+      endsDate.classList.add('hidden');
+      endsAfter.classList.add('hidden');
+    }
+  });
 });
 
 window.onload = renderCalendar;
