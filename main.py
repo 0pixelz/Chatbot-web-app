@@ -231,12 +231,11 @@ def save_event_route(event_id):
     if not uid:
         return redirect("/chat")
     data = request.get_json()
-    # SAVE start_time and end_time if present
     save_event(uid, event_id, {
         "title": data["title"],
         "date": data["date"],
-        "start_time": data.get("start_time"),
-        "end_time": data.get("end_time")
+        "time": data.get("time", ""),
+        "allDay": data.get("allDay", False)
     })
     return "", 204
 
