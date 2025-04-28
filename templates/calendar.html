@@ -86,8 +86,8 @@
 </div>
 
 <script>
-let currentMonth = new Date().getMonth();
-let currentYear = new Date().getFullYear();
+let currentMonth = localStorage.getItem('currentMonth') ? parseInt(localStorage.getItem('currentMonth')) : new Date().getMonth();
+let currentYear = localStorage.getItem('currentYear') ? parseInt(localStorage.getItem('currentYear')) : new Date().getFullYear();
 const events = {{ events|tojson }};
 
 function renderCalendar() {
@@ -116,13 +116,13 @@ function renderCalendar() {
   }
   calendar.innerHTML = html;
 
-  // Render event list
+  // Render event list with time or All Day
   let eventHtml = "";
   let hasEvents = false;
   for (const [id, evt] of Object.entries(events)) {
     if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
       hasEvents = true;
-      const timeDisplay = evt.allDay ? "<span class='text-sm text-gray-400'>(All Day)</span>" : (evt.time ? `<span class='text-sm text-gray-400'>(${evt.time})</span>` : '');
+      let timeDisplay = evt.allDay ? "(All Day)" : evt.time ? `(${evt.time})` : "(All Day)";
       eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.date}</strong> - ${evt.title} ${timeDisplay}</div>`;
     }
   }
@@ -197,6 +197,8 @@ async function saveModal() {
     });
   }
   closeModal();
+  localStorage.setItem('currentMonth', currentMonth);
+  localStorage.setItem('currentYear', currentYear);
   location.reload();
 }
 
@@ -206,6 +208,8 @@ async function deleteModal() {
     await fetch(`/delete_event/${existingId}`, { method: 'POST' });
   }
   closeModal();
+  localStorage.setItem('currentMonth', currentMonth);
+  localStorage.setItem('currentYear', currentYear);
   location.reload();
 }
 
@@ -215,6 +219,8 @@ function prevMonth() {
     currentMonth = 11;
     currentYear--;
   }
+  localStorage.setItem('currentMonth', currentMonth);
+  localStorage.setItem('currentYear', currentYear);
   renderCalendar();
 }
 function nextMonth() {
@@ -223,6 +229,8 @@ function nextMonth() {
     currentMonth = 0;
     currentYear++;
   }
+  localStorage.setItem('currentMonth', currentMonth);
+  localStorage.setItem('currentYear', currentYear);
   renderCalendar();
 }
 
@@ -239,10 +247,42 @@ function openDatePicker() {
     const [year, month] = e.target.value.split('-');
     currentYear = parseInt(year);
     currentMonth = parseInt(month) - 1;
+    localStorage.setItem('currentMonth', currentMonth);
+    localStorage.setItem('currentYear', currentYear);
     renderCalendar();
     document.body.removeChild(picker);
   });
 }
+
+// Swipe Support
+let touchStartX = null;
+document.addEventListener('touchstart', (e) => {
+  touchStartX = e.changedTouches[0].screenX;
+});
+document.addEventListener('touchend', (e) => {
+  if (!touchStartX) return;
+  const touchEndX = e.changedTouches[0].screenX;
+  if (touchEndX - touchStartX > 50) {
+    prevMonth();
+  } else if (touchStartX - touchEndX > 50) {
+    nextMonth();
+  }
+  touchStartX = null;
+});
+
+// Disable time input when All Day checked
+document.addEventListener('DOMContentLoaded', () => {
+  const allDayCheckbox = document.getElementById('allDay');
+  const timeInput = document.getElementById('eventTime');
+  if (allDayCheckbox && timeInput) {
+    allDayCheckbox.addEventListener('change', () => {
+      timeInput.disabled = allDayCheckbox.checked;
+      if (allDayCheckbox.checked) {
+        timeInput.value = "";
+      }
+    });
+  }
+});
 
 window.onload = renderCalendar;
 </script>
