@@ -63,13 +63,13 @@
   <div id="eventList" class="space-y-2"></div>
 </div>
 
-<!-- Hidden Modal -->
+<!-- Modal -->
 <div id="modal" class="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 hidden items-center justify-center z-50">
   <div class="bg-gray-800 p-6 rounded-lg w-80">
     <h3 id="modalTitle" class="text-lg font-bold mb-4">New Event</h3>
     <input type="hidden" id="modalDate">
     <input id="eventName" type="text" placeholder="Event Title" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
-    
+
     <label class="flex items-center mb-2">
       <input type="checkbox" id="allDay" class="mr-2">
       All Day
@@ -86,19 +86,19 @@
 </div>
 
 <script>
-let currentMonth = localStorage.getItem('currentMonth') ? parseInt(localStorage.getItem('currentMonth')) : new Date().getMonth();
-let currentYear = localStorage.getItem('currentYear') ? parseInt(localStorage.getItem('currentYear')) : new Date().getFullYear();
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
 const events = {{ events|tojson }};
 
 function renderCalendar() {
   const monthTitle = document.getElementById('monthTitle');
   const calendar = document.getElementById('calendar');
   const eventList = document.getElementById('eventList');
-  
+
   const date = new Date(currentYear, currentMonth);
   const monthName = date.toLocaleString('default', { month: 'long' });
   monthTitle.textContent = `${monthName} ${currentYear}`;
-  
+
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
 
@@ -116,14 +116,25 @@ function renderCalendar() {
   }
   calendar.innerHTML = html;
 
-  // Render event list with time or All Day
+  // Render event list
   let eventHtml = "";
   let hasEvents = false;
   for (const [id, evt] of Object.entries(events)) {
     if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
       hasEvents = true;
-      let timeDisplay = evt.allDay ? "(All Day)" : evt.time ? `(${evt.time})` : "(All Day)";
-      eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.date}</strong> - ${evt.title} ${timeDisplay}</div>`;
+      let timeDisplay = "";
+      if (evt.allDay) {
+        timeDisplay = "(All Day)";
+      } else if (evt.time && evt.time !== "") {
+        timeDisplay = `(${evt.time})`;
+      } else {
+        timeDisplay = "(All Day)";
+      }
+      eventHtml += `
+      <div class="p-2 bg-gray-800 rounded flex flex-col">
+        <div class="font-semibold">${evt.title}</div>
+        <div class="text-sm text-gray-400">${evt.date} ${timeDisplay}</div>
+      </div>`;
     }
   }
   eventList.innerHTML = hasEvents ? eventHtml : `<p class="text-gray-400">No events this month.</p>`;
@@ -197,8 +208,6 @@ async function saveModal() {
     });
   }
   closeModal();
-  localStorage.setItem('currentMonth', currentMonth);
-  localStorage.setItem('currentYear', currentYear);
   location.reload();
 }
 
@@ -208,8 +217,6 @@ async function deleteModal() {
     await fetch(`/delete_event/${existingId}`, { method: 'POST' });
   }
   closeModal();
-  localStorage.setItem('currentMonth', currentMonth);
-  localStorage.setItem('currentYear', currentYear);
   location.reload();
 }
 
@@ -219,8 +226,6 @@ function prevMonth() {
     currentMonth = 11;
     currentYear--;
   }
-  localStorage.setItem('currentMonth', currentMonth);
-  localStorage.setItem('currentYear', currentYear);
   renderCalendar();
 }
 function nextMonth() {
@@ -229,8 +234,6 @@ function nextMonth() {
     currentMonth = 0;
     currentYear++;
   }
-  localStorage.setItem('currentMonth', currentMonth);
-  localStorage.setItem('currentYear', currentYear);
   renderCalendar();
 }
 
@@ -247,8 +250,6 @@ function openDatePicker() {
     const [year, month] = e.target.value.split('-');
     currentYear = parseInt(year);
     currentMonth = parseInt(month) - 1;
-    localStorage.setItem('currentMonth', currentMonth);
-    localStorage.setItem('currentYear', currentYear);
     renderCalendar();
     document.body.removeChild(picker);
   });
@@ -270,7 +271,7 @@ document.addEventListener('touchend', (e) => {
   touchStartX = null;
 });
 
-// Disable time input when All Day checked
+// Disable time input when allDay checked
 document.addEventListener('DOMContentLoaded', () => {
   const allDayCheckbox = document.getElementById('allDay');
   const timeInput = document.getElementById('eventTime');
