@@ -2,25 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Calendar - Personal AI Bot</title>
+  <title>My Calendar</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     .calendar-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 4px;
+      gap: 5px;
     }
     .calendar-cell {
       min-height: 80px;
       border-radius: 8px;
       background-color: #374151;
       color: white;
-      padding: 4px;
+      padding: 6px;
       position: relative;
       overflow-y: auto;
-      text-align: center;
-      cursor: pointer;
     }
     .calendar-cell.today {
       background-color: #4b5563;
@@ -29,51 +27,57 @@
     .event-badge {
       background: #60a5fa;
       color: white;
-      padding: 2px 5px;
+      padding: 2px 6px;
       border-radius: 6px;
-      font-size: 0.7rem;
+      font-size: 0.75rem;
       margin-top: 4px;
       display: block;
+      text-align: center;
+      cursor: pointer;
     }
   </style>
 </head>
 
-<body class="bg-gray-900 text-white min-h-screen p-4">
+<body class="bg-gray-900 min-h-screen text-white p-4">
 
 <!-- Header -->
 <div class="flex justify-between items-center mb-4">
   <h1 class="text-2xl font-bold">My Calendar</h1>
-  <div class="flex space-x-2">
-    <button onclick="prevMonth()" class="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600">&lt;</button>
-    <h2 id="monthTitle" class="text-xl font-semibold cursor-pointer" onclick="openDatePicker()"></h2>
-    <button onclick="nextMonth()" class="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600">&gt;</button>
-  </div>
 </div>
 
-<!-- Calendar grid -->
-<div class="grid grid-cols-7 text-center mb-2">
-  <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+<!-- Month Navigation -->
+<div class="flex justify-center items-center space-x-4 mb-2">
+  <button onclick="prevMonth()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&lt;</button>
+  <h2 id="monthTitle" onclick="openDatePicker()" class="text-lg font-semibold cursor-pointer select-none"></h2>
+  <button onclick="nextMonth()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&gt;</button>
 </div>
 
-<div id="calendar" class="calendar-grid"></div>
+<!-- Calendar Grid -->
+<div class="calendar-grid text-center mb-4" id="calendar"></div>
 
-<!-- Event list -->
-<hr class="my-6 border-gray-700">
-<h2 class="text-xl font-bold mb-2">Your Events:</h2>
-<div id="eventList" class="space-y-2"></div>
+<hr class="border-gray-700 my-4">
 
-<!-- Modal -->
-<div id="modal" class="fixed top-0 left-0 w-full h-full bg-black bg-opacity-60 hidden items-center justify-center z-50">
+<!-- Events Section -->
+<div id="eventsSection" class="space-y-2">
+  <h2 class="text-xl font-semibold mb-2">Your Events:</h2>
+  <div id="eventList" class="space-y-2"></div>
+</div>
+
+<!-- Hidden Modal -->
+<div id="modal" class="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 hidden items-center justify-center z-50">
   <div class="bg-gray-800 p-6 rounded-lg w-80">
     <h3 id="modalTitle" class="text-lg font-bold mb-4">New Event</h3>
     <input type="hidden" id="modalDate">
-    <input id="eventName" type="text" placeholder="Event Title" class="w-full mb-3 p-2 rounded bg-gray-700 text-white">
-    <label class="flex items-center space-x-2 mb-3">
-      <input type="checkbox" id="allDayCheckbox" onchange="toggleAllDay()" class="form-checkbox text-blue-500">
-      <span>All Day</span>
+    <input id="eventName" type="text" placeholder="Event Title" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
+    
+    <label class="flex items-center mb-2">
+      <input type="checkbox" id="allDay" class="mr-2">
+      All Day
     </label>
+
     <input id="eventTime" type="time" class="w-full mb-4 p-2 rounded bg-gray-700 text-white">
-    <div class="flex justify-between space-x-2">
+
+    <div class="flex space-x-2">
       <button onclick="saveModal()" class="flex-1 bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded">Save</button>
       <button onclick="deleteModal()" id="deleteButton" class="flex-1 bg-red-500 hover:bg-red-600 px-4 py-2 rounded hidden">Delete</button>
       <button onclick="closeModal()" class="flex-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Cancel</button>
@@ -82,35 +86,47 @@
 </div>
 
 <script>
-let currentDate = new Date();
-let selectedMonth = currentDate.getMonth();
-let selectedYear = currentDate.getFullYear();
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
 const events = {{ events|tojson }};
 
 function renderCalendar() {
   const monthTitle = document.getElementById('monthTitle');
   const calendar = document.getElementById('calendar');
-  const date = new Date(selectedYear, selectedMonth);
+  const eventList = document.getElementById('eventList');
+  
+  const date = new Date(currentYear, currentMonth);
   const monthName = date.toLocaleString('default', { month: 'long' });
-  monthTitle.textContent = `${monthName} ${selectedYear}`;
-
-  const firstDay = new Date(selectedYear, selectedMonth, 1).getDay();
-  const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+  monthTitle.textContent = `${monthName} ${currentYear}`;
+  
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
 
   let html = "";
   for (let i = 0; i < firstDay; i++) {
     html += `<div></div>`;
   }
   for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${selectedYear}-${String(selectedMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const today = (new Date().toDateString() === new Date(selectedYear, selectedMonth, day).toDateString());
+    const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    let today = (new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString());
     html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')">
       <div class="text-sm">${day}</div>
       ${renderEvents(dateStr)}
     </div>`;
   }
   calendar.innerHTML = html;
-  renderEventsList();
+
+  // Render event list
+  let eventHtml = "";
+  let hasEvents = false;
+  for (const [id, evt] of Object.entries(events)) {
+    if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
+      hasEvents = true;
+      const timeDisplay = evt.allDay ? "<span class='text-sm text-gray-400'>(All Day)</span>" : (evt.time ? `<span class='text-sm text-gray-400'>(${evt.time})</span>` : '');
+      eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.date}</strong> - ${evt.title} ${timeDisplay}</div>`;
+    }
+  }
+  eventList.innerHTML = hasEvents ? eventHtml : `<p class="text-gray-400">No events this month.</p>`;
 }
 
 function renderEvents(dateStr) {
@@ -118,37 +134,26 @@ function renderEvents(dateStr) {
   if (events) {
     for (const [id, evt] of Object.entries(events)) {
       if (evt.date === dateStr) {
-        out += `<span class="event-badge">${evt.title}</span>`;
+        out += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false})">${evt.title}</span>`;
       }
     }
   }
   return out;
 }
 
-function renderEventsList() {
-  const eventList = document.getElementById('eventList');
-  let eventHtml = "";
-  let hasEvents = false;
-  for (const [id, evt] of Object.entries(events)) {
-    if (evt.date.startsWith(`${selectedYear}-${String(selectedMonth+1).padStart(2,'0')}`)) {
-      hasEvents = true;
-      let timeDisplay = evt.allDay ? '<span class="font-semibold">All Day</span>' 
-                                   : (evt.time ? `<span class="font-semibold">${evt.time}</span>` : '');
-      eventHtml += `<div class="p-2 bg-gray-800 rounded">
-        <strong>${evt.date}</strong> - ${evt.title} ${timeDisplay ? `(${timeDisplay})` : ""}
-      </div>`;
-    }
-  }
-  eventList.innerHTML = hasEvents ? eventHtml : `<p class="text-gray-400">No events this month.</p>`;
-}
-
 function openModal(dateStr, eventId=null, title='', time='', allDay=false) {
   const modal = document.getElementById('modal');
   document.getElementById('modalDate').value = dateStr;
   document.getElementById('eventName').value = title;
-  document.getElementById('eventTime').value = allDay ? '' : (time || '');
-  document.getElementById('allDayCheckbox').checked = allDay;
-  document.getElementById('eventTime').disabled = allDay;
+  document.getElementById('eventTime').value = time || "";
+  document.getElementById('allDay').checked = allDay;
+
+  if (allDay) {
+    document.getElementById('eventTime').disabled = true;
+  } else {
+    document.getElementById('eventTime').disabled = false;
+  }
+
   document.getElementById('modalTitle').innerText = eventId ? "Edit Event" : "New Event";
 
   if (eventId) {
@@ -158,6 +163,7 @@ function openModal(dateStr, eventId=null, title='', time='', allDay=false) {
     delete modal.dataset.eventId;
     document.getElementById('deleteButton').classList.add('hidden');
   }
+  
   modal.style.display = 'flex';
 }
 
@@ -165,21 +171,16 @@ function closeModal() {
   document.getElementById('modal').style.display = 'none';
 }
 
-function toggleAllDay() {
-  const allDay = document.getElementById('allDayCheckbox').checked;
-  document.getElementById('eventTime').disabled = allDay;
-}
-
 async function saveModal() {
   const date = document.getElementById('modalDate').value;
   const title = document.getElementById('eventName').value.trim();
-  const time = document.getElementById('eventTime').value;
-  const allDay = document.getElementById('allDayCheckbox').checked;
+  const time = document.getElementById('eventTime').value.trim();
+  const allDay = document.getElementById('allDay').checked;
   const existingId = document.getElementById('modal').dataset.eventId;
 
   if (!title) return;
 
-  const payload = { title, date, time: allDay ? null : time, allDay: allDay };
+  const payload = { title, date, time: allDay ? "" : time, allDay };
 
   if (existingId) {
     await fetch(`/save_event/${existingId}`, {
@@ -209,31 +210,38 @@ async function deleteModal() {
 }
 
 function prevMonth() {
-  selectedMonth--;
-  if (selectedMonth < 0) {
-    selectedMonth = 11;
-    selectedYear--;
+  currentMonth--;
+  if (currentMonth < 0) {
+    currentMonth = 11;
+    currentYear--;
   }
   renderCalendar();
 }
-
 function nextMonth() {
-  selectedMonth++;
-  if (selectedMonth > 11) {
-    selectedMonth = 0;
-    selectedYear++;
+  currentMonth++;
+  if (currentMonth > 11) {
+    currentMonth = 0;
+    currentYear++;
   }
   renderCalendar();
 }
 
 function openDatePicker() {
-  const year = prompt("Enter year:", selectedYear);
-  const month = prompt("Enter month (1-12):", selectedMonth + 1);
-  if (year && month) {
-    selectedYear = parseInt(year);
-    selectedMonth = parseInt(month) - 1;
+  const picker = document.createElement('input');
+  picker.type = 'month';
+  picker.value = `${currentYear}-${String(currentMonth+1).padStart(2, '0')}`;
+  picker.style.position = 'absolute';
+  picker.style.opacity = 0;
+  document.body.appendChild(picker);
+  picker.focus();
+  picker.click();
+  picker.addEventListener('change', (e) => {
+    const [year, month] = e.target.value.split('-');
+    currentYear = parseInt(year);
+    currentMonth = parseInt(month) - 1;
     renderCalendar();
-  }
+    document.body.removeChild(picker);
+  });
 }
 
 window.onload = renderCalendar;
