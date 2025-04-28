@@ -116,13 +116,18 @@ function renderCalendar() {
   }
   calendar.innerHTML = html;
 
-  // Render event list (using time properly)
+  // Corrected event list:
   let eventHtml = "";
   let hasEvents = false;
   for (const [id, evt] of Object.entries(events)) {
     if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
       hasEvents = true;
-      let timeDisplay = evt.time && evt.time.trim() !== "" ? evt.time : "(All Day)";
+      let timeDisplay = "";
+      if (evt.time !== undefined && evt.time.trim() !== "") {
+        timeDisplay = `(${evt.time})`; 
+      } else {
+        timeDisplay = "(All Day)";
+      }
       eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}</div>`;
     }
   }
