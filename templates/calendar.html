@@ -123,14 +123,14 @@ function renderCalendar() {
   }
   calendar.innerHTML = html;
 
-  // Render event list
+  // Event list rendering
   let eventHtml = "";
   let hasEvents = false;
   for (const [id, evt] of Object.entries(events)) {
     if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
       hasEvents = true;
       let timeDisplay = evt.allDay ? "(All Day)" : evt.time ? `(${evt.time})` : "(All Day)";
-      eventHtml += `<div class="p-2 bg-gray-800 rounded" onclick="openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}')">
+      eventHtml += `<div class="p-2 bg-gray-800 rounded" onclick="openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}', '${evt.parentId || ""}')">
         <strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}
       </div>`;
     }
@@ -143,14 +143,14 @@ function renderEvents(dateStr) {
   if (events) {
     for (const [id, evt] of Object.entries(events)) {
       if (evt.date === dateStr) {
-        out += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}')">${evt.title}</span>`;
+        out += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}', '${evt.parentId || ""}')">${evt.title}</span>`;
       }
     }
   }
   return out;
 }
 
-function openModal(dateStr, eventId=null, title='', time='', allDay=false, repeat='none') {
+function openModal(dateStr, eventId=null, title='', time='', allDay=false, repeat='none', parentId='') {
   const modal = document.getElementById('modal');
   document.getElementById('modalDate').value = dateStr;
   document.getElementById('eventName').value = title;
@@ -158,18 +158,14 @@ function openModal(dateStr, eventId=null, title='', time='', allDay=false, repea
   document.getElementById('allDay').checked = allDay;
   document.getElementById('repeat').value = repeat;
 
-  document.getElementById('eventTime').disabled = allDay;
+  modal.dataset.eventId = eventId || '';
+  modal.dataset.parentId = parentId || '';
 
   document.getElementById('modalTitle').innerText = eventId ? "Edit Event" : "New Event";
+  document.getElementById('deleteButton').classList.toggle('hidden', !eventId);
 
-  if (eventId) {
-    modal.dataset.eventId = eventId;
-    document.getElementById('deleteButton').classList.remove('hidden');
-  } else {
-    delete modal.dataset.eventId;
-    document.getElementById('deleteButton').classList.add('hidden');
-  }
-  
+  document.getElementById('eventTime').disabled = allDay;
+
   modal.style.display = 'flex';
 }
 
@@ -184,10 +180,11 @@ async function saveModal() {
   const allDay = document.getElementById('allDay').checked;
   const repeat = document.getElementById('repeat').value;
   const existingId = document.getElementById('modal').dataset.eventId;
+  const parentId = document.getElementById('modal').dataset.parentId || self.crypto.randomUUID();
 
   if (!title) return;
 
-  const payload = { title, date, time: allDay ? "" : time, allDay, repeat };
+  const payload = { title, date, time: allDay ? "" : time, allDay, repeat, parentId };
 
   if (existingId) {
     await fetch(`/save_event/${existingId}`, {
@@ -196,12 +193,7 @@ async function saveModal() {
       body: JSON.stringify(payload)
     });
   } else {
-    const newId = self.crypto.randomUUID();
-    await fetch(`/save_event/${newId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    await createRepeats(date, payload);
   }
   closeModal();
   localStorage.setItem('currentMonth', currentMonth);
@@ -209,19 +201,49 @@ async function saveModal() {
   location.reload();
 }
 
+async function createRepeats(startDate, payload) {
+  const baseDate = new Date(startDate);
+  const repeat = payload.repeat;
+  const repeatCount = 12;
+
+  for (let i = 0; i < (repeat === 'none' ? 1 : repeatCount); i++) {
+    let nextDate = new Date(baseDate);
+    if (repeat === 'daily') nextDate.setDate(baseDate.getDate() + i);
+    else if (repeat === 'weekly') nextDate.setDate(baseDate.getDate() + i * 7);
+    else if (repeat === 'monthly') nextDate.setMonth(baseDate.getMonth() + i);
+
+    const nextDateStr = nextDate.toISOString().slice(0, 10);
+    const id = self.crypto.randomUUID();
+    await fetch(`/save_event/${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, date: nextDateStr })
+    });
+  }
+}
+
 async function deleteModal() {
   const existingId = document.getElementById('modal').dataset.eventId;
+  const parentId = document.getElementById('modal').dataset.parentId;
+
   if (!existingId) return;
 
-  const confirmDelete = confirm("Do you want to delete this event?\n\nIf this is a repeating event, ALL related events will be deleted.");
+  const confirmDelete = confirm("Do you want to delete this event?\n\nIf this is a repeated event, ALL copies will be deleted.");
+  if (!confirmDelete) return;
 
-  if (confirmDelete) {
+  if (parentId) {
+    const toDelete = Object.entries(events).filter(([id, evt]) => evt.parentId === parentId);
+    for (const [id, evt] of toDelete) {
+      await fetch(`/delete_event/${id}`, { method: 'POST' });
+    }
+  } else {
     await fetch(`/delete_event/${existingId}`, { method: 'POST' });
-    closeModal();
-    localStorage.setItem('currentMonth', currentMonth);
-    localStorage.setItem('currentYear', currentYear);
-    location.reload();
   }
+
+  closeModal();
+  localStorage.setItem('currentMonth', currentMonth);
+  localStorage.setItem('currentYear', currentYear);
+  location.reload();
 }
 
 function prevMonth() {
