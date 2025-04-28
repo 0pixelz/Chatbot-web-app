@@ -116,18 +116,13 @@ function renderCalendar() {
   }
   calendar.innerHTML = html;
 
-  // Render event list with correct time or All Day
+  // Render event list properly
   let eventHtml = "";
   let hasEvents = false;
   for (const [id, evt] of Object.entries(events)) {
     if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
       hasEvents = true;
-      let timeDisplay = "";
-      if (evt.allDay === true || (!evt.time || evt.time.trim() === "")) {
-        timeDisplay = "(All Day)";
-      } else {
-        timeDisplay = `(${evt.time})`;
-      }
+      let timeDisplay = evt.time && evt.time.trim() !== "" ? `(${evt.time})` : "";
       eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}</div>`;
     }
   }
@@ -228,7 +223,6 @@ function prevMonth() {
   localStorage.setItem('currentYear', currentYear);
   renderCalendar();
 }
-
 function nextMonth() {
   currentMonth++;
   if (currentMonth > 11) {
@@ -276,7 +270,7 @@ document.addEventListener('touchend', (e) => {
   touchStartX = null;
 });
 
-// Disable time input when All Day checked
+// Disable time input when All Day is checked
 document.addEventListener('DOMContentLoaded', () => {
   const allDayCheckbox = document.getElementById('allDay');
   const timeInput = document.getElementById('eventTime');
