@@ -116,19 +116,19 @@ function renderCalendar() {
   }
   calendar.innerHTML = html;
 
-  // Render event list with time or All Day
+  // Render event list with correct time or All Day
   let eventHtml = "";
   let hasEvents = false;
   for (const [id, evt] of Object.entries(events)) {
     if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
       hasEvents = true;
       let timeDisplay = "";
-      if (evt.allDay || (!evt.time)) {
+      if (evt.allDay === true || (evt.time === undefined || evt.time.trim() === "")) {
         timeDisplay = "(All Day)";
       } else {
         timeDisplay = `(${evt.time})`;
       }
-      eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.title}</strong><div class="text-sm text-gray-400">${evt.date} ${timeDisplay}</div></div>`;
+      eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}</div>`;
     }
   }
   eventList.innerHTML = hasEvents ? eventHtml : `<p class="text-gray-400">No events this month.</p>`;
