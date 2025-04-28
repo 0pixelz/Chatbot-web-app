@@ -232,38 +232,36 @@ def save_event_route(event_id):
         return redirect("/chat")
     data = request.get_json()
 
+    parent_id = data.get("parentId", str(uuid.uuid4()))
+
     base_event = {
         "title": data["title"],
         "date": data["date"],
         "time": data.get("time", ""),
         "allDay": data.get("allDay", False),
-        "repeat": data.get("repeat", "none")
+        "repeat": data.get("repeat", "none"),
+        "parentId": parent_id
     }
 
     save_event(uid, event_id, base_event)
 
-    # Handle repeat events
     repeat = data.get("repeat", "none")
     base_date = datetime.strptime(data["date"], "%Y-%m-%d")
 
     if repeat == "daily":
-        for i in range(1, 90):  # 90 days
+        for i in range(1, 90):
             new_date = base_date + timedelta(days=i)
             save_event(uid, str(uuid.uuid4()), {**base_event, "date": new_date.strftime("%Y-%m-%d")})
     elif repeat == "weekly":
-        for i in range(1, 26):  # 26 weeks
+        for i in range(1, 26):
             new_date = base_date + timedelta(weeks=i)
             save_event(uid, str(uuid.uuid4()), {**base_event, "date": new_date.strftime("%Y-%m-%d")})
     elif repeat == "monthly":
-        for i in range(1, 12):  # 12 months
+        for i in range(1, 12):
             month = (base_date.month - 1 + i) % 12 + 1
             year = base_date.year + (base_date.month - 1 + i) // 12
-            day = min(base_date.day, 28)  # Avoid invalid days like Feb 30
+            day = min(base_date.day, 28)
             new_date = datetime(year, month, day)
-            save_event(uid, str(uuid.uuid4()), {**base_event, "date": new_date.strftime("%Y-%m-%d")})
-    elif repeat == "yearly":
-        for i in range(1, 5):  # 5 years
-            new_date = datetime(base_date.year + i, base_date.month, base_date.day)
             save_event(uid, str(uuid.uuid4()), {**base_event, "date": new_date.strftime("%Y-%m-%d")})
 
     return "", 204
@@ -273,7 +271,18 @@ def delete_event_route(event_id):
     uid = session.get("user_email")
     if not uid:
         return redirect("/chat")
-    delete_event(uid, event_id)
+
+    event = db.reference(f"events/{clean_uid(uid)}/{event_id}").get()
+
+    if event and "parentId" in event:
+        parent_id = event["parentId"]
+        all_events = db.reference(f"events/{clean_uid(uid)}").get() or {}
+        for eid, evt in all_events.items():
+            if evt.get("parentId") == parent_id:
+                delete_event(uid, eid)
+    else:
+        delete_event(uid, event_id)
+
     return "", 204
 
 # === Run ===
