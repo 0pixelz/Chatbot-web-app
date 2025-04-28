@@ -88,7 +88,7 @@
 <script>
 let currentMonth = localStorage.getItem('currentMonth') ? parseInt(localStorage.getItem('currentMonth')) : new Date().getMonth();
 let currentYear = localStorage.getItem('currentYear') ? parseInt(localStorage.getItem('currentYear')) : new Date().getFullYear();
-let events = {{ events|tojson }};
+const events = {{ events|tojson }};
 
 function renderCalendar() {
   const monthTitle = document.getElementById('monthTitle');
@@ -116,17 +116,19 @@ function renderCalendar() {
   }
   calendar.innerHTML = html;
 
-  // Render event list with correct time
+  // Render event list with correct time or All Day
   let eventHtml = "";
   let hasEvents = false;
   for (const [id, evt] of Object.entries(events)) {
     if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
       hasEvents = true;
-      let timeDisplay = evt.allDay ? "(All Day)" : evt.time ? `(${evt.time})` : "(All Day)";
-      eventHtml += `<div class="p-2 bg-gray-800 rounded">
-                      <strong>${evt.title}</strong><br>
-                      ${evt.date} ${timeDisplay}
-                    </div>`;
+      let timeDisplay = "";
+      if (evt.allDay === true || (!evt.time || evt.time.trim() === "")) {
+        timeDisplay = "(All Day)";
+      } else {
+        timeDisplay = `(${evt.time})`;
+      }
+      eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}</div>`;
     }
   }
   eventList.innerHTML = hasEvents ? eventHtml : `<p class="text-gray-400">No events this month.</p>`;
@@ -150,7 +152,12 @@ function openModal(dateStr, eventId=null, title='', time='', allDay=false) {
   document.getElementById('eventName').value = title;
   document.getElementById('eventTime').value = time || "";
   document.getElementById('allDay').checked = allDay;
-  document.getElementById('eventTime').disabled = allDay;
+
+  if (allDay) {
+    document.getElementById('eventTime').disabled = true;
+  } else {
+    document.getElementById('eventTime').disabled = false;
+  }
 
   document.getElementById('modalTitle').innerText = eventId ? "Edit Event" : "New Event";
 
@@ -197,7 +204,7 @@ async function saveModal() {
   closeModal();
   localStorage.setItem('currentMonth', currentMonth);
   localStorage.setItem('currentYear', currentYear);
-  await refreshEvents();
+  location.reload();
 }
 
 async function deleteModal() {
@@ -208,13 +215,7 @@ async function deleteModal() {
   closeModal();
   localStorage.setItem('currentMonth', currentMonth);
   localStorage.setItem('currentYear', currentYear);
-  await refreshEvents();
-}
-
-async function refreshEvents() {
-  const res = await fetch('/events_data');
-  events = await res.json();
-  renderCalendar();
+  location.reload();
 }
 
 function prevMonth() {
@@ -275,7 +276,7 @@ document.addEventListener('touchend', (e) => {
   touchStartX = null;
 });
 
-// Disable time input if all day
+// Disable time input when All Day checked
 document.addEventListener('DOMContentLoaded', () => {
   const allDayCheckbox = document.getElementById('allDay');
   const timeInput = document.getElementById('eventTime');
