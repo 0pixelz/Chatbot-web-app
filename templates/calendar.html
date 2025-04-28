@@ -116,17 +116,19 @@ function renderCalendar() {
   }
   calendar.innerHTML = html;
 
-  // Render event list with correct time
+  // Render event list
   let eventHtml = "";
   let hasEvents = false;
   for (const [id, evt] of Object.entries(events)) {
     if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
       hasEvents = true;
       let timeDisplay = "";
-      if (evt.time && evt.time.trim() !== "") {
-        timeDisplay = ` at ${formatTime(evt.time)}`;
+      if (evt.allDay === true || (!evt.time || evt.time.trim() === "")) {
+        timeDisplay = "(All Day)";
+      } else {
+        timeDisplay = `at ${formatTime(evt.time)}`;
       }
-      eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.title}</strong><br>${evt.date}${timeDisplay}</div>`;
+      eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}</div>`;
     }
   }
   eventList.innerHTML = hasEvents ? eventHtml : `<p class="text-gray-400">No events this month.</p>`;
@@ -195,7 +197,7 @@ async function saveModal() {
     const newId = self.crypto.randomUUID();
     await fetch(`/save_event/${newId}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json',},
       body: JSON.stringify(payload)
     });
   }
@@ -288,14 +290,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Format 24h -> 12h
-function formatTime(time24) {
-  if (!time24) return "";
-  const [hourStr, minute] = time24.split(":");
-  let hour = parseInt(hourStr);
-  const ampm = hour >= 12 ? 'PM' : 'AM';
-  hour = hour % 12 || 12;
-  return `${hour}:${minute} ${ampm}`;
+// Format time to 12h am/pm
+function formatTime(t) {
+  const [h, m] = t.split(":").map(Number);
+  const suffix = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 || 12;
+  return `${hour}:${m.toString().padStart(2,"0")} ${suffix}`;
 }
 
 window.onload = renderCalendar;
