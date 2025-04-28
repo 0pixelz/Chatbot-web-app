@@ -123,10 +123,12 @@ function renderCalendar() {
     if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
       hasEvents = true;
       let timeDisplay = "";
-      if (evt.allDay === true || (evt.time === undefined || evt.time.trim() === "")) {
+      if (evt.allDay === true) {
         timeDisplay = "(All Day)";
-      } else {
+      } else if (evt.time && evt.time.trim() !== "") {
         timeDisplay = `(${evt.time})`;
+      } else {
+        timeDisplay = "(All Day)";
       }
       eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}</div>`;
     }
@@ -197,7 +199,7 @@ async function saveModal() {
     const newId = self.crypto.randomUUID();
     await fetch(`/save_event/${newId}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json',},
       body: JSON.stringify(payload)
     });
   }
@@ -228,6 +230,7 @@ function prevMonth() {
   localStorage.setItem('currentYear', currentYear);
   renderCalendar();
 }
+
 function nextMonth() {
   currentMonth++;
   if (currentMonth > 11) {
