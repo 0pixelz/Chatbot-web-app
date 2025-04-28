@@ -77,19 +77,16 @@
 
     <input id="eventTime" type="time" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
 
-    <label class="flex items-center mb-2">
-      <span class="mr-2">Repeat</span>
-      <select id="repeat" class="w-full p-2 rounded bg-gray-700 text-white">
-        <option value="none">Does not repeat</option>
-        <option value="every day">Every day</option>
-        <option value="every week">Every week</option>
-        <option value="every month">Every month</option>
-        <option value="every year">Every year</option>
-      </select>
-    </label>
+    <select id="repeat" class="w-full mb-4 p-2 rounded bg-gray-700 text-white">
+      <option value="none">Does not repeat</option>
+      <option value="daily">Daily</option>
+      <option value="weekly">Weekly</option>
+      <option value="monthly">Monthly</option>
+    </select>
 
-    <div class="flex space-x-2 mt-4">
+    <div class="flex space-x-2">
       <button onclick="saveModal()" class="flex-1 bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded">Save</button>
+      <button onclick="deleteModal()" id="deleteButton" class="flex-1 bg-red-500 hover:bg-red-600 px-4 py-2 rounded hidden">Delete</button>
       <button onclick="closeModal()" class="flex-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Cancel</button>
     </div>
   </div>
@@ -132,8 +129,8 @@ function renderCalendar() {
   for (const [id, evt] of Object.entries(events)) {
     if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
       hasEvents = true;
-      let timeDisplay = evt.time ? `(${evt.time})` : evt.allDay ? "(All Day)" : "";
-      eventHtml += `<div class="p-2 bg-gray-800 rounded">
+      let timeDisplay = evt.allDay ? "(All Day)" : evt.time ? `(${evt.time})` : "(All Day)";
+      eventHtml += `<div class="p-2 bg-gray-800 rounded" onclick="openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}')">
         <strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}
       </div>`;
     }
@@ -159,20 +156,18 @@ function openModal(dateStr, eventId=null, title='', time='', allDay=false, repea
   document.getElementById('eventName').value = title;
   document.getElementById('eventTime').value = time || "";
   document.getElementById('allDay').checked = allDay;
-  document.getElementById('repeat').value = repeat || 'none';
+  document.getElementById('repeat').value = repeat;
 
-  if (allDay) {
-    document.getElementById('eventTime').disabled = true;
-  } else {
-    document.getElementById('eventTime').disabled = false;
-  }
+  document.getElementById('eventTime').disabled = allDay;
 
   document.getElementById('modalTitle').innerText = eventId ? "Edit Event" : "New Event";
 
   if (eventId) {
     modal.dataset.eventId = eventId;
+    document.getElementById('deleteButton').classList.remove('hidden');
   } else {
     delete modal.dataset.eventId;
+    document.getElementById('deleteButton').classList.add('hidden');
   }
   
   modal.style.display = 'flex';
@@ -214,6 +209,21 @@ async function saveModal() {
   location.reload();
 }
 
+async function deleteModal() {
+  const existingId = document.getElementById('modal').dataset.eventId;
+  if (!existingId) return;
+
+  const confirmDelete = confirm("Do you want to delete this event?\n\nIf this is a repeating event, ALL related events will be deleted.");
+
+  if (confirmDelete) {
+    await fetch(`/delete_event/${existingId}`, { method: 'POST' });
+    closeModal();
+    localStorage.setItem('currentMonth', currentMonth);
+    localStorage.setItem('currentYear', currentYear);
+    location.reload();
+  }
+}
+
 function prevMonth() {
   currentMonth--;
   if (currentMonth < 0) {
@@ -224,7 +234,6 @@ function prevMonth() {
   localStorage.setItem('currentYear', currentYear);
   renderCalendar();
 }
-
 function nextMonth() {
   currentMonth++;
   if (currentMonth > 11) {
