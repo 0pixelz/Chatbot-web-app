@@ -174,7 +174,6 @@ def chat(convo_id):
         history.append({"role": "assistant", "content": reply, "time": now})
         save_user_history(uid, convo_id, history)
 
-        # Title generation
         if uid != "guest":
             current_title = db.reference(f"conversations/{clean_uid(uid)}/{convo_id}/title").get()
             if not current_title:
@@ -233,36 +232,34 @@ def save_event_route(event_id):
     data = request.get_json()
 
     parent_id = data.get("parentId", str(uuid.uuid4()))
+    base_date = datetime.strptime(data["date"], "%Y-%m-%d")
+    repeat = data.get("repeat", "none")
 
     base_event = {
         "title": data["title"],
-        "date": data["date"],
         "time": data.get("time", ""),
         "allDay": data.get("allDay", False),
-        "repeat": data.get("repeat", "none"),
+        "repeat": repeat,
         "parentId": parent_id
     }
 
-    save_event(uid, event_id, base_event)
-
-    repeat = data.get("repeat", "none")
-    base_date = datetime.strptime(data["date"], "%Y-%m-%d")
+    occurrences = [{"id": event_id, "date": base_date}]
 
     if repeat == "daily":
         for i in range(1, 90):
-            new_date = base_date + timedelta(days=i)
-            save_event(uid, str(uuid.uuid4()), {**base_event, "date": new_date.strftime("%Y-%m-%d")})
+            occurrences.append({"id": str(uuid.uuid4()), "date": base_date + timedelta(days=i)})
     elif repeat == "weekly":
         for i in range(1, 26):
-            new_date = base_date + timedelta(weeks=i)
-            save_event(uid, str(uuid.uuid4()), {**base_event, "date": new_date.strftime("%Y-%m-%d")})
+            occurrences.append({"id": str(uuid.uuid4()), "date": base_date + timedelta(weeks=i)})
     elif repeat == "monthly":
         for i in range(1, 12):
             month = (base_date.month - 1 + i) % 12 + 1
             year = base_date.year + (base_date.month - 1 + i) // 12
             day = min(base_date.day, 28)
-            new_date = datetime(year, month, day)
-            save_event(uid, str(uuid.uuid4()), {**base_event, "date": new_date.strftime("%Y-%m-%d")})
+            occurrences.append({"id": str(uuid.uuid4()), "date": datetime(year, month, day)})
+
+    for occ in occurrences:
+        save_event(uid, occ["id"], {**base_event, "date": occ["date"].strftime("%Y-%m-%d")})
 
     return "", 204
 
