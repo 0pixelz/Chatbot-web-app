@@ -63,13 +63,13 @@
   <div id="eventList" class="space-y-2"></div>
 </div>
 
-<!-- Hidden Modal -->
+<!-- Modal -->
 <div id="modal" class="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 hidden items-center justify-center z-50">
   <div class="bg-gray-800 p-6 rounded-lg w-80">
     <h3 id="modalTitle" class="text-lg font-bold mb-4">New Event</h3>
     <input type="hidden" id="modalDate">
     <input id="eventName" type="text" placeholder="Event Title" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
-    
+
     <label class="flex items-center mb-2">
       <input type="checkbox" id="allDay" class="mr-2">
       All Day
@@ -101,21 +101,19 @@ function renderCalendar() {
   const monthTitle = document.getElementById('monthTitle');
   const calendar = document.getElementById('calendar');
   const eventList = document.getElementById('eventList');
-  
+
   const date = new Date(currentYear, currentMonth);
   const monthName = date.toLocaleString('default', { month: 'long' });
   monthTitle.textContent = `${monthName} ${currentYear}`;
-  
+
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
 
   let html = "";
-  for (let i = 0; i < firstDay; i++) {
-    html += `<div></div>`;
-  }
+  for (let i = 0; i < firstDay; i++) html += `<div></div>`;
   for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    let today = (new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString());
+    const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const today = new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString();
     html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')">
       <div class="text-sm">${day}</div>
       ${renderEvents(dateStr)}
@@ -123,15 +121,13 @@ function renderCalendar() {
   }
   calendar.innerHTML = html;
 
-  // Event list rendering
   let eventHtml = "";
   let hasEvents = false;
   for (const [id, evt] of Object.entries(events)) {
-    if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
+    if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2, '0')}`)) {
       hasEvents = true;
-      let timeDisplay = evt.allDay ? "(All Day)" : evt.time ? `(${evt.time})` : "(All Day)";
       eventHtml += `<div class="p-2 bg-gray-800 rounded" onclick="openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}', '${evt.parentId || ""}')">
-        <strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}
+        <strong>${evt.title}</strong><br>${evt.date} ${evt.allDay ? "(All Day)" : evt.time ? `(${evt.time})` : "(All Day)"}
       </div>`;
     }
   }
@@ -140,11 +136,9 @@ function renderCalendar() {
 
 function renderEvents(dateStr) {
   let out = "";
-  if (events) {
-    for (const [id, evt] of Object.entries(events)) {
-      if (evt.date === dateStr) {
-        out += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}', '${evt.parentId || ""}')">${evt.title}</span>`;
-      }
+  for (const [id, evt] of Object.entries(events)) {
+    if (evt.date === dateStr) {
+      out += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}', '${evt.parentId || ""}')">${evt.title}</span>`;
     }
   }
   return out;
@@ -154,10 +148,9 @@ function openModal(dateStr, eventId=null, title='', time='', allDay=false, repea
   const modal = document.getElementById('modal');
   document.getElementById('modalDate').value = dateStr;
   document.getElementById('eventName').value = title;
-  document.getElementById('eventTime').value = time || "";
+  document.getElementById('eventTime').value = time;
   document.getElementById('allDay').checked = allDay;
   document.getElementById('repeat').value = repeat;
-
   modal.dataset.eventId = eventId || '';
   modal.dataset.parentId = parentId || '';
 
@@ -165,7 +158,6 @@ function openModal(dateStr, eventId=null, title='', time='', allDay=false, repea
   document.getElementById('deleteButton').classList.toggle('hidden', !eventId);
 
   document.getElementById('eventTime').disabled = allDay;
-
   modal.style.display = 'flex';
 }
 
@@ -228,12 +220,12 @@ async function deleteModal() {
 
   if (!existingId) return;
 
-  const confirmDelete = confirm("Do you want to delete this event?\n\nIf this is a repeated event, ALL copies will be deleted.");
+  const confirmDelete = confirm("Delete this event?\n\nIf repeated, ALL copies will be deleted.");
   if (!confirmDelete) return;
 
   if (parentId) {
     const toDelete = Object.entries(events).filter(([id, evt]) => evt.parentId === parentId);
-    for (const [id, evt] of toDelete) {
+    for (const [id, _] of toDelete) {
       await fetch(`/delete_event/${id}`, { method: 'POST' });
     }
   } else {
@@ -270,7 +262,7 @@ function nextMonth() {
 function openDatePicker() {
   const picker = document.createElement('input');
   picker.type = 'month';
-  picker.value = `${currentYear}-${String(currentMonth+1).padStart(2, '0')}`;
+  picker.value = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}`;
   picker.style.position = 'absolute';
   picker.style.opacity = 0;
   document.body.appendChild(picker);
@@ -287,7 +279,6 @@ function openDatePicker() {
   });
 }
 
-// Swipe Support
 let touchStartX = null;
 document.addEventListener('touchstart', (e) => {
   touchStartX = e.changedTouches[0].screenX;
@@ -303,18 +294,14 @@ document.addEventListener('touchend', (e) => {
   touchStartX = null;
 });
 
-// Disable time input when All Day checked
+// Disable time input when "All Day" checked
 document.addEventListener('DOMContentLoaded', () => {
   const allDayCheckbox = document.getElementById('allDay');
   const timeInput = document.getElementById('eventTime');
-  if (allDayCheckbox && timeInput) {
-    allDayCheckbox.addEventListener('change', () => {
-      timeInput.disabled = allDayCheckbox.checked;
-      if (allDayCheckbox.checked) {
-        timeInput.value = "";
-      }
-    });
-  }
+  allDayCheckbox.addEventListener('change', () => {
+    timeInput.disabled = allDayCheckbox.checked;
+    if (allDayCheckbox.checked) timeInput.value = "";
+  });
 });
 
 window.onload = renderCalendar;
