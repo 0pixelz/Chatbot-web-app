@@ -232,34 +232,19 @@ def save_event_route(event_id):
     data = request.get_json()
 
     parent_id = data.get("parentId", str(uuid.uuid4()))
-    base_date = datetime.strptime(data["date"], "%Y-%m-%d")
     repeat = data.get("repeat", "none")
+    base_date = datetime.strptime(data["date"], "%Y-%m-%d")
 
-    base_event = {
+    event_data = {
         "title": data["title"],
         "time": data.get("time", ""),
         "allDay": data.get("allDay", False),
         "repeat": repeat,
-        "parentId": parent_id
+        "parentId": parent_id,
+        "date": data["date"]
     }
 
-    occurrences = [{"id": event_id, "date": base_date}]
-
-    if repeat == "daily":
-        for i in range(1, 90):
-            occurrences.append({"id": str(uuid.uuid4()), "date": base_date + timedelta(days=i)})
-    elif repeat == "weekly":
-        for i in range(1, 26):
-            occurrences.append({"id": str(uuid.uuid4()), "date": base_date + timedelta(weeks=i)})
-    elif repeat == "monthly":
-        for i in range(1, 12):
-            month = (base_date.month - 1 + i) % 12 + 1
-            year = base_date.year + (base_date.month - 1 + i) // 12
-            day = min(base_date.day, 28)
-            occurrences.append({"id": str(uuid.uuid4()), "date": datetime(year, month, day)})
-
-    for occ in occurrences:
-        save_event(uid, occ["id"], {**base_event, "date": occ["date"].strftime("%Y-%m-%d")})
+    save_event(uid, event_id, event_data)
 
     return "", 204
 
