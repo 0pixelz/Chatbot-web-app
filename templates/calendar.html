@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>My Calendar</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     .calendar-grid {
       display: grid;
@@ -37,7 +37,6 @@
     }
   </style>
 </head>
-
 <body class="bg-gray-900 min-h-screen text-white p-4">
 
 <div class="flex justify-between items-center mb-4">
@@ -50,9 +49,15 @@
   <button onclick="nextMonth()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&gt;</button>
 </div>
 
+<!-- Day Headers -->
+<div class="calendar-grid text-center text-sm font-semibold text-gray-400 mb-1">
+  <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
+</div>
+
+<!-- Calendar Grid -->
 <div class="calendar-grid text-center mb-4" id="calendar"></div>
 
-<hr class="border-gray-700 my-4">
+<hr class="border-gray-700 my-4" />
 
 <div id="eventsSection" class="space-y-2">
   <h2 class="text-xl font-semibold mb-2">Your Events:</h2>
@@ -60,17 +65,17 @@
 </div>
 
 <!-- Create/Edit Modal -->
-<div id="modal" class="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 hidden items-center justify-center z-50">
-  <div class="bg-gray-800 p-6 rounded-lg w-80">
+<div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+  <div class="bg-gray-800 p-6 rounded-lg w-80 shadow-lg">
     <h3 id="modalTitle" class="text-lg font-bold mb-4">New Event</h3>
-    <input type="hidden" id="modalDate">
-    <input id="eventName" type="text" placeholder="Event Title" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
-    
+    <input type="hidden" id="modalDate" />
+    <input id="eventName" type="text" placeholder="Event Title" class="w-full mb-2 p-2 rounded bg-gray-700 text-white" />
+
     <label class="flex items-center mb-2">
-      <input type="checkbox" id="allDay" class="mr-2"> All Day
+      <input type="checkbox" id="allDay" class="mr-2" /> All Day
     </label>
 
-    <input id="eventTime" type="time" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
+    <input id="eventTime" type="time" class="w-full mb-2 p-2 rounded bg-gray-700 text-white" />
 
     <select id="repeat" class="w-full mb-4 p-2 rounded bg-gray-700 text-white">
       <option value="none">Does not repeat</option>
@@ -104,37 +109,38 @@
 let currentMonth = localStorage.getItem('currentMonth') ? parseInt(localStorage.getItem('currentMonth')) : new Date().getMonth();
 let currentYear = localStorage.getItem('currentYear') ? parseInt(localStorage.getItem('currentYear')) : new Date().getFullYear();
 const events = {{ events|tojson }};
+let deleteTargetId = null;
+let deleteTargetParent = null;
 
 function renderCalendar() {
-  const monthTitle = document.getElementById('monthTitle');
-  const calendar = document.getElementById('calendar');
-  const eventList = document.getElementById('eventList');
+  const calendar = document.getElementById("calendar");
+  const monthTitle = document.getElementById("monthTitle");
+  const eventList = document.getElementById("eventList");
   const date = new Date(currentYear, currentMonth);
-  const monthName = date.toLocaleString('default', { month: 'long' });
+  const monthName = date.toLocaleString("default", { month: "long" });
   monthTitle.textContent = `${monthName} ${currentYear}`;
 
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-
   let html = "";
-  for (let i = 0; i < firstDay; i++) html += `<div></div>`;
+
+  for (let i = 0; i < firstDay; i++) html += "<div></div>";
   for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const today = new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString();
-    html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')">
-      <div class="text-sm">${day}</div>
-      ${renderEvents(dateStr)}
+    html += `<div class="calendar-cell ${today ? "today" : ""}" onclick="openModal('${dateStr}')">
+      <div class="text-sm">${day}</div>${renderEvents(dateStr)}
     </div>`;
   }
   calendar.innerHTML = html;
 
   let eventHtml = "";
-  let seen = new Set();
+  const seen = new Set();
   for (const [id, evt] of Object.entries(events)) {
     const key = evt.title + evt.date + evt.time;
-    if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`) && !seen.has(key)) {
+    if (evt.date.startsWith(`${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`) && !seen.has(key)) {
       seen.add(key);
-      let timeDisplay = evt.allDay ? "(All Day)" : evt.time ? `(${evt.time})` : "(All Day)";
+      const timeDisplay = evt.allDay ? "(All Day)" : evt.time ? `(${evt.time})` : "";
       eventHtml += `<div class="p-2 bg-gray-800 rounded" onclick="openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}', '${evt.parentId || ""}')">
         <strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}
       </div>`;
@@ -155,49 +161,50 @@ function renderEvents(dateStr) {
   return out;
 }
 
-function openModal(dateStr, eventId = null, title = '', time = '', allDay = false, repeat = 'none', parentId = '') {
-  const modal = document.getElementById('modal');
-  document.getElementById('modalDate').value = dateStr;
-  document.getElementById('eventName').value = title;
-  document.getElementById('eventTime').value = time || "";
-  document.getElementById('allDay').checked = allDay;
-  document.getElementById('repeat').value = repeat;
-  modal.dataset.eventId = eventId || '';
-  modal.dataset.parentId = parentId || '';
-  document.getElementById('deleteButton').classList.toggle('hidden', !eventId);
-  document.getElementById('modalTitle').innerText = eventId ? "Edit Event" : "New Event";
-  document.getElementById('eventTime').disabled = allDay;
-  modal.style.display = 'flex';
+function openModal(dateStr, eventId = null, title = "", time = "", allDay = false, repeat = "none", parentId = "") {
+  const modal = document.getElementById("modal");
+  document.getElementById("modalDate").value = dateStr;
+  document.getElementById("eventName").value = title;
+  document.getElementById("eventTime").value = time || "";
+  document.getElementById("allDay").checked = allDay;
+  document.getElementById("repeat").value = repeat;
+  modal.dataset.eventId = eventId || "";
+  modal.dataset.parentId = parentId || "";
+  document.getElementById("deleteButton").classList.toggle("hidden", !eventId);
+  document.getElementById("modalTitle").innerText = eventId ? "Edit Event" : "New Event";
+  document.getElementById("eventTime").disabled = allDay;
+  modal.classList.remove("hidden");
 }
 
 function closeModal() {
-  document.getElementById('modal').style.display = 'none';
+  document.getElementById("modal").classList.add("hidden");
 }
 
 async function saveModal() {
-  const date = document.getElementById('modalDate').value;
-  const title = document.getElementById('eventName').value.trim();
-  const time = document.getElementById('eventTime').value.trim();
-  const allDay = document.getElementById('allDay').checked;
-  const repeat = document.getElementById('repeat').value;
-  const existingId = document.getElementById('modal').dataset.eventId;
-  const parentId = document.getElementById('modal').dataset.parentId || self.crypto.randomUUID();
+  const date = document.getElementById("modalDate").value;
+  const title = document.getElementById("eventName").value.trim();
+  const time = document.getElementById("eventTime").value.trim();
+  const allDay = document.getElementById("allDay").checked;
+  const repeat = document.getElementById("repeat").value;
+  const existingId = document.getElementById("modal").dataset.eventId;
+  const parentId = document.getElementById("modal").dataset.parentId || crypto.randomUUID();
+
   if (!title) return;
 
   const payload = { title, date, time: allDay ? "" : time, allDay, repeat, parentId };
 
   if (existingId) {
     await fetch(`/save_event/${existingId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
   } else {
     await createRepeats(date, payload);
   }
   closeModal();
-  localStorage.setItem('currentMonth', currentMonth);
-  localStorage.setItem('currentYear', currentYear);
+  localStorage.setItem("currentMonth", currentMonth);
+  localStorage.setItem("currentYear", currentYear);
   location.reload();
 }
 
@@ -206,104 +213,97 @@ async function createRepeats(startDate, payload) {
   const repeat = payload.repeat;
   const repeatCount = 12;
 
-  for (let i = 0; i < (repeat === 'none' ? 1 : repeatCount); i++) {
+  for (let i = 0; i < (repeat === "none" ? 1 : repeatCount); i++) {
     let nextDate = new Date(baseDate);
-    if (repeat === 'daily') nextDate.setDate(baseDate.getDate() + i);
-    else if (repeat === 'weekly') nextDate.setDate(baseDate.getDate() + i * 7);
-    else if (repeat === 'monthly') nextDate.setMonth(baseDate.getMonth() + i);
+    if (repeat === "daily") nextDate.setDate(baseDate.getDate() + i);
+    else if (repeat === "weekly") nextDate.setDate(baseDate.getDate() + i * 7);
+    else if (repeat === "monthly") nextDate.setMonth(baseDate.getMonth() + i);
 
     const nextDateStr = nextDate.toISOString().slice(0, 10);
-    const id = self.crypto.randomUUID();
+    const id = crypto.randomUUID();
     await fetch(`/save_event/${id}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...payload, date: nextDateStr })
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...payload, date: nextDateStr }),
     });
   }
 }
 
-let deleteTargetId = null;
-let deleteTargetParent = null;
-
 function deleteModal() {
-  deleteTargetId = document.getElementById('modal').dataset.eventId;
-  deleteTargetParent = document.getElementById('modal').dataset.parentId || null;
-  document.getElementById('deleteModal').classList.remove('hidden');
+  deleteTargetId = document.getElementById("modal").dataset.eventId;
+  deleteTargetParent = document.getElementById("modal").dataset.parentId || null;
+  document.getElementById("deleteModal").classList.remove("hidden");
 }
 
 function closeDeleteModal() {
   deleteTargetId = null;
   deleteTargetParent = null;
-  document.getElementById('deleteModal').classList.add('hidden');
+  document.getElementById("deleteModal").classList.add("hidden");
 }
 
 async function confirmDelete(mode) {
   if (!deleteTargetId) return;
-  if (mode === 'all' && deleteTargetParent) {
+  if (mode === "all" && deleteTargetParent) {
     const toDelete = Object.entries(events).filter(([id, evt]) => evt.parentId === deleteTargetParent);
     for (const [id] of toDelete) {
-      await fetch(`/delete_event/${id}`, { method: 'POST' });
+      await fetch(`/delete_event/${id}`, { method: "POST" });
     }
   } else {
-    await fetch(`/delete_event/${deleteTargetId}`, { method: 'POST' });
+    await fetch(`/delete_event/${deleteTargetId}`, { method: "POST" });
   }
-
   closeDeleteModal();
   closeModal();
-  localStorage.setItem('currentMonth', currentMonth);
-  localStorage.setItem('currentYear', currentYear);
+  localStorage.setItem("currentMonth", currentMonth);
+  localStorage.setItem("currentYear", currentYear);
   location.reload();
 }
 
 function prevMonth() {
   currentMonth--;
-  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-  localStorage.setItem('currentMonth', currentMonth);
-  localStorage.setItem('currentYear', currentYear);
+  if (currentMonth < 0) {
+    currentMonth = 11;
+    currentYear--;
+  }
+  localStorage.setItem("currentMonth", currentMonth);
+  localStorage.setItem("currentYear", currentYear);
   renderCalendar();
 }
+
 function nextMonth() {
   currentMonth++;
-  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-  localStorage.setItem('currentMonth', currentMonth);
-  localStorage.setItem('currentYear', currentYear);
+  if (currentMonth > 11) {
+    currentMonth = 0;
+    currentYear++;
+  }
+  localStorage.setItem("currentMonth", currentMonth);
+  localStorage.setItem("currentYear", currentYear);
   renderCalendar();
 }
 
 function openDatePicker() {
-  const picker = document.createElement('input');
-  picker.type = 'month';
-  picker.value = `${currentYear}-${String(currentMonth+1).padStart(2, '0')}`;
-  picker.style.position = 'absolute';
+  const picker = document.createElement("input");
+  picker.type = "month";
+  picker.value = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
+  picker.style.position = "absolute";
   picker.style.opacity = 0;
   document.body.appendChild(picker);
   picker.focus();
   picker.click();
-  picker.addEventListener('change', (e) => {
-    const [year, month] = e.target.value.split('-');
+  picker.addEventListener("change", (e) => {
+    const [year, month] = e.target.value.split("-");
     currentYear = parseInt(year);
     currentMonth = parseInt(month) - 1;
-    localStorage.setItem('currentMonth', currentMonth);
-    localStorage.setItem('currentYear', currentYear);
+    localStorage.setItem("currentMonth", currentMonth);
+    localStorage.setItem("currentYear", currentYear);
     renderCalendar();
     document.body.removeChild(picker);
   });
 }
 
-let touchStartX = null;
-document.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; });
-document.addEventListener('touchend', (e) => {
-  if (!touchStartX) return;
-  const touchEndX = e.changedTouches[0].screenX;
-  if (touchEndX - touchStartX > 50) prevMonth();
-  else if (touchStartX - touchEndX > 50) nextMonth();
-  touchStartX = null;
-});
-
-document.addEventListener('DOMContentLoaded', () => {
-  const allDayCheckbox = document.getElementById('allDay');
-  const timeInput = document.getElementById('eventTime');
-  allDayCheckbox.addEventListener('change', () => {
+document.addEventListener("DOMContentLoaded", () => {
+  const allDayCheckbox = document.getElementById("allDay");
+  const timeInput = document.getElementById("eventTime");
+  allDayCheckbox.addEventListener("change", () => {
     timeInput.disabled = allDayCheckbox.checked;
     if (allDayCheckbox.checked) timeInput.value = "";
   });
