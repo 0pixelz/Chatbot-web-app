@@ -5,7 +5,7 @@ import aiohttp
 import nest_asyncio
 from flask import Flask, render_template, redirect, request, session, url_for
 from firebase_admin import credentials, db, initialize_app
-from datetime import datetime, timedelta
+from datetime import datetime
 from pytz import timezone
 from google_auth_oauthlib.flow import Flow
 from google.oauth2 import id_token
@@ -26,7 +26,6 @@ app.secret_key = FLASK_SECRET_KEY
 
 cred = credentials.Certificate(json.loads(FIREBASE_CREDENTIALS_JSON))
 initialize_app(cred, {"databaseURL": DATABASE_URL})
-
 nest_asyncio.apply()
 
 # === Utilities ===
@@ -237,6 +236,7 @@ def save_event_route(event_id):
 
     event_data = {
         "title": data["title"],
+        "description": data.get("description", ""),  # New description support
         "time": data.get("time", ""),
         "allDay": data.get("allDay", False),
         "repeat": repeat,
@@ -245,7 +245,6 @@ def save_event_route(event_id):
     }
 
     save_event(uid, event_id, event_data)
-
     return "", 204
 
 @app.route("/delete_event/<event_id>", methods=["POST"])
@@ -255,7 +254,6 @@ def delete_event_route(event_id):
         return redirect("/chat")
 
     event = db.reference(f"events/{clean_uid(uid)}/{event_id}").get()
-
     if event and "parentId" in event:
         parent_id = event["parentId"]
         all_events = db.reference(f"events/{clean_uid(uid)}").get() or {}
