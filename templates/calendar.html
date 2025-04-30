@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>My Calendar</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -35,6 +35,20 @@
       text-align: center;
       cursor: pointer;
     }
+    .calendar-container {
+      position: relative;
+      overflow: hidden;
+    }
+    .calendar-slide {
+      transition: transform 0.3s ease-in-out;
+      will-change: transform;
+    }
+    .slide-left {
+      transform: translateX(-100%);
+    }
+    .slide-right {
+      transform: translateX(100%);
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-white min-h-screen p-4">
@@ -54,7 +68,9 @@
   <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
 </div>
 
-<div class="calendar-grid text-center mb-4" id="calendar"></div>
+<div class="calendar-container mb-4">
+  <div class="calendar-grid text-center calendar-slide" id="calendar"></div>
+</div>
 
 <hr class="border-gray-700 my-4">
 
@@ -63,7 +79,7 @@
   <div id="eventList" class="space-y-2"></div>
 </div>
 
-<!-- Create/Edit Modal -->
+<!-- Modals -->
 <div id="modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
   <div class="bg-gray-800 p-6 rounded-lg w-80">
     <h3 id="modalTitle" class="text-lg font-bold mb-4">New Event</h3>
@@ -88,7 +104,6 @@
   </div>
 </div>
 
-<!-- Delete Modal -->
 <div id="deleteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 hidden z-50">
   <div class="bg-gray-800 rounded-lg p-6 w-80 text-white text-center">
     <h2 class="text-lg font-bold mb-4">Delete Event</h2>
@@ -156,6 +171,71 @@ function renderEvents(dateStr) {
     }
   }
   return out;
+}
+
+function animateCalendar(direction, callback) {
+  const calendar = document.getElementById('calendar');
+  calendar.classList.add(`slide-${direction}`);
+  setTimeout(() => {
+    calendar.classList.remove(`slide-${direction}`);
+    callback();
+  }, 300);
+}
+
+function prevMonth() {
+  animateCalendar('right', () => {
+    currentMonth--;
+    if (currentMonth < 0) {
+      currentMonth = 11;
+      currentYear--;
+    }
+    renderCalendar();
+  });
+}
+
+function nextMonth() {
+  animateCalendar('left', () => {
+    currentMonth++;
+    if (currentMonth > 11) {
+      currentMonth = 0;
+      currentYear++;
+    }
+    renderCalendar();
+  });
+}
+
+// Touch swipe logic
+let touchStartX = null;
+document.addEventListener('touchstart', (e) => {
+  touchStartX = e.touches[0].clientX;
+});
+document.addEventListener('touchend', (e) => {
+  if (touchStartX === null) return;
+  const touchEndX = e.changedTouches[0].clientX;
+  const diff = touchEndX - touchStartX;
+  if (Math.abs(diff) > 50) {
+    if (diff > 0) prevMonth();
+    else nextMonth();
+  }
+  touchStartX = null;
+});
+
+function openDatePicker() {
+  const picker = document.createElement('input');
+  picker.type = 'month';
+  picker.value = `${currentYear}-${String(currentMonth+1).padStart(2, '0')}`;
+  picker.style.position = 'absolute';
+  picker.style.opacity = 0;
+  document.body.appendChild(picker);
+  picker.focus(); picker.click();
+  picker.addEventListener('change', (e) => {
+    const [year, month] = e.target.value.split('-');
+    currentYear = parseInt(year); currentMonth = parseInt(month) - 1;
+    localStorage.setItem('currentMonth', currentMonth);
+    localStorage.setItem('currentYear', currentYear);
+    renderCalendar();
+    document.body.removeChild(picker);
+  });
 }
 
 function openModal(dateStr, eventId = null, title = '', time = '', allDay = false, repeat = 'none', parentId = '', description = '') {
@@ -256,39 +336,8 @@ async function confirmDelete(mode) {
   location.reload();
 }
 
-function prevMonth() {
-  currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-  localStorage.setItem('currentMonth', currentMonth);
-  localStorage.setItem('currentYear', currentYear);
-  renderCalendar();
-}
-
-function nextMonth() {
-  currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-  localStorage.setItem('currentMonth', currentMonth);
-  localStorage.setItem('currentYear', currentYear);
-  renderCalendar();
-}
-
-function openDatePicker() {
-  const picker = document.createElement('input');
-  picker.type = 'month';
-  picker.value = `${currentYear}-${String(currentMonth+1).padStart(2, '0')}`;
-  picker.style.position = 'absolute';
-  picker.style.opacity = 0;
-  document.body.appendChild(picker);
-  picker.focus(); picker.click();
-  picker.addEventListener('change', (e) => {
-    const [year, month] = e.target.value.split('-');
-    currentYear = parseInt(year); currentMonth = parseInt(month) - 1;
-    localStorage.setItem('currentMonth', currentMonth);
-    localStorage.setItem('currentYear', currentYear);
-    renderCalendar();
-    document.body.removeChild(picker);
-  });
-}
-
 window.onload = renderCalendar;
 </script>
+
 </body>
 </html>
