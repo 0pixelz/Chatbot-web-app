@@ -196,6 +196,16 @@ window.onload = function() {
   scrollToBottom();
   animateMessages();
 }
+
+// --- Auto Hide Sidebar on Input Focus and Scroll to Bottom ---
+textarea.addEventListener('focus', () => {
+  document.getElementById('sidebar').classList.add('-translate-x-full');
+  scrollToBottom();
+});
+
+textarea.addEventListener('blur', () => {
+  document.getElementById('sidebar').classList.remove('-translate-x-full');
+});
 </script>
 
 </body>
