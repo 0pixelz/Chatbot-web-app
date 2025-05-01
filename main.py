@@ -3,7 +3,6 @@ import json
 import asyncio
 import aiohttp
 import nest_asyncio
-import re
 from flask import Flask, render_template, redirect, request, session, url_for
 from firebase_admin import credentials, db, initialize_app
 from datetime import datetime, timedelta
@@ -12,6 +11,7 @@ from google_auth_oauthlib.flow import Flow
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 import uuid
+import re
 from dateutil import parser as dateparser
 
 # === CONFIG ===
@@ -68,7 +68,7 @@ async def generate_ai(prompt):
     data = {
         "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": "You are a calendar assistant. When user says 'add to calendar', 'remind me', or 'can you add', extract the event title and description naturally and confirm added. If normal talk, reply normally."},
+            {"role": "system", "content": "You are a calendar assistant. When users ask to add events, extract clean title and description."},
             {"role": "user", "content": prompt}
         ]
     }
@@ -77,20 +77,40 @@ async def generate_ai(prompt):
             result = await resp.json()
             return result['choices'][0]['message']['content'].strip()
 
-async def generate_title_from_message(message):
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-    data = {
-        "model": "llama3-70b-8192",
-        "messages": [
-            {"role": "system", "content": "Extract only a short 2-5 word event title from this user message."},
-            {"role": "user", "content": message}
-        ]
-    }
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, headers=headers, json=data) as resp:
-            result = await resp.json()
-            return result['choices'][0]['message']['content'].strip()
+async def generate_title(message):
+    return await generate_ai(f"Extract ONLY the event title from this sentence: {message}. Only return the title, no extra words.")
+
+async def generate_description(message):
+    return await generate_ai(f"Extract ONLY the event description from this sentence if available: {message}. Do not return the date or title. Start with 'For...' if it's about a person. Return empty if nothing is needed.")
+
+def extract_date(text):
+    patterns = [
+        r"(?:on\s)?(january|february|march|april|may|june|july|august|september|october|november|december)\s(\d{1,2})",
+        r"(?:on\s)?(\d{1,2})\s(january|february|march|april|may|june|july|august|september|october|november|december)",
+        r"(?:in\s)?(\d{1,2})\s?(days|day)"
+    ]
+    text = text.lower()
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if match:
+            try:
+                if "day" in match.groups()[-1]:
+                    return (datetime.now(timezone(LOCAL_TIMEZONE)) + timedelta(days=int(match.group(1)))).date().isoformat()
+                else:
+                    date_str = " ".join(match.groups())
+                    parsed = dateparser.parse(date_str, default=datetime.now(timezone(LOCAL_TIMEZONE)))
+                    return parsed.date().isoformat()
+            except:
+                continue
+    if "today" in text:
+        return datetime.now(timezone(LOCAL_TIMEZONE)).date().isoformat()
+    if "tomorrow" in text:
+        return (datetime.now(timezone(LOCAL_TIMEZONE)) + timedelta(days=1)).date().isoformat()
+    return None
+
+def detect_calendar_request(message):
+    keywords = ["add to calendar", "remind me", "can you add", "schedule", "reminder"]
+    return any(kw in message.lower() for kw in keywords)
 
 # === Routes ===
 
@@ -120,6 +140,8 @@ def oauth_callback():
     creds = flow.credentials
     idinfo = id_token.verify_oauth2_token(creds._id_token, grequests.Request())
     session["user_email"] = idinfo["email"]
+    session["user_picture"] = idinfo.get("picture")
+    session["user_name"] = idinfo.get("name", idinfo["email"])
     return redirect("/chat")
 
 @app.route("/logout", methods=["POST"])
@@ -154,46 +176,34 @@ def chat(convo_id):
 
         trimmed = [{"role": m["role"], "content": m["content"]} for m in history[-10:]]
 
-        ai_reply = asyncio.run(generate_ai(message))
-        history.append({"role": "assistant", "content": ai_reply, "time": now})
+        if uid != "guest" and detect_calendar_request(message):
+            date = extract_date(message) or datetime.now(tz).date().isoformat()
+            title = asyncio.run(generate_title(message))
+            description = asyncio.run(generate_description(message))
+
+            event_id = str(uuid.uuid4())
+            save_event(uid, event_id, {
+                "title": title,
+                "description": description,
+                "date": date,
+                "time": "",
+                "allDay": True,
+                "repeat": "none",
+                "parentId": event_id
+            })
+
+            reply = f"✅ Event '{title}' added to your calendar for {date}."
+        else:
+            reply = asyncio.run(generate_ai(message))
+
+        history.append({"role": "assistant", "content": reply, "time": now})
         save_user_history(uid, convo_id, history)
 
         if uid != "guest":
             current_title = db.reference(f"conversations/{clean_uid(uid)}/{convo_id}/title").get()
             if not current_title:
-                title = asyncio.run(generate_title_from_message(message))
-                if title:
-                    save_conversation_title(uid, convo_id, title)
-
-        # Calendar detection logic
-        if uid != "guest" and any(kw in message.lower() for kw in ["add to calendar", "remind me", "can you add"]):
-            extracted_date = None
-            try:
-                extracted_date = dateparser.parse(message, fuzzy=True)
-            except:
-                pass
-
-            if extracted_date:
-                title = asyncio.run(generate_title_from_message(message))
-                description = message
-
-                # Remove date and time from description
-                description = re.sub(r'\b\d{4}-\d{2}-\d{2}\b', '', description)
-                description = re.sub(r'\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}\b', '', description, flags=re.IGNORECASE)
-                description = re.sub(r'\b\d{1,2}(?:st|nd|rd|th)?\b', '', description)
-                description = re.sub(r'\b(?:at|on)\b\s+\d{1,2}(:\d{2})?\s*(am|pm)?', '', description, flags=re.IGNORECASE)
-                description = description.strip().capitalize()
-
-                event_id = str(uuid.uuid4())
-                save_event(uid, event_id, {
-                    "title": title,
-                    "description": description,
-                    "date": extracted_date.strftime("%Y-%m-%d"),
-                    "time": "",
-                    "allDay": True,
-                    "repeat": "none",
-                    "parentId": event_id
-                })
+                title = asyncio.run(generate_title(message))
+                save_conversation_title(uid, convo_id, title)
 
         return redirect(f"/chat/{convo_id}")
 
@@ -244,6 +254,6 @@ def delete_event_route(event_id):
     delete_event(uid, event_id)
     return "", 204
 
-# === RUN ===
+# === Run ===
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
