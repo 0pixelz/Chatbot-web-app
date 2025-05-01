@@ -5,13 +5,14 @@ import aiohttp
 import nest_asyncio
 from flask import Flask, render_template, redirect, request, session, url_for
 from firebase_admin import credentials, db, initialize_app
-from datetime import datetime, timedelta
+from datetime import datetime
 from pytz import timezone
 from google_auth_oauthlib.flow import Flow
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 import uuid
 import re
+from dateutil import parser as dateparser
 
 # === CONFIG ===
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -64,51 +65,53 @@ def delete_event(uid, event_id):
 async def generate_response(prompt, memory=[]):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-    messages = [{"role": "system", "content": "You are a helpful assistant."}] + memory + [{"role": "user", "content": prompt}]
+    messages = [{"role": "system", "content": "You're a helpful assistant."}] + memory + [{"role": "user", "content": prompt}]
     data = {"model": "llama3-70b-8192", "messages": messages}
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, headers=headers, json=data) as resp:
-            result = await resp.json()
-            return result['choices'][0]['message']['content']
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=data) as resp:
+                if resp.status != 200:
+                    return "❌ Groq API error."
+                result = await resp.json()
+                return result['choices'][0]['message']['content']
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
 
 async def generate_title_from_message(message):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
     data = {
         "model": "llama3-70b-8192",
-        "messages": [{"role": "system", "content": "Summarize this into 3-5 word title, no punctuation."}, {"role": "user", "content": message}],
-        "temperature": 0.5,
-        "max_tokens": 15
+        "messages": [
+            {"role": "system", "content": "Extract only the event title from this user request without date or description."},
+            {"role": "user", "content": message}
+        ],
+        "temperature": 0.2,
+        "max_tokens": 20
     }
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, headers=headers, json=data) as resp:
-            result = await resp.json()
-            return result['choices'][0]['message']['content'].strip()
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=data) as resp:
+                if resp.status != 200:
+                    return "Event"
+                result = await resp.json()
+                return result['choices'][0]['message']['content'].strip()
+    except:
+        return "Event"
 
-# === Extract datetime logic ===
-def extract_datetime_and_title(text):
-    tz = timezone(LOCAL_TIMEZONE)
-    now = datetime.now(tz)
-    text = text.lower()
+# === Calendar Detection ===
+def detect_calendar_intent(message):
+    keywords = ["remind me", "add to calendar", "can you add to my calendar", "schedule", "put in calendar"]
+    return any(kw in message.lower() for kw in keywords)
 
-    # Detect relative date
-    match = re.search(r"in (\d+) days?", text)
-    if match:
-        days = int(match.group(1))
-        date = now + timedelta(days=days)
-        return {"date": date.strftime("%Y-%m-%d"), "time": "", "allDay": True}
-
-    # Detect specific date (month name and day)
-    match = re.search(r"(january|february|march|april|may|june|july|august|september|october|november|december) (\d+)", text)
-    if match:
-        month = match.group(1).capitalize()
-        day = int(match.group(2))
-        year = now.year
-        date_obj = datetime.strptime(f"{month} {day} {year}", "%B %d %Y")
-        return {"date": date_obj.strftime("%Y-%m-%d"), "time": "", "allDay": True}
-
-    # Fallback (no date detected)
-    return {"date": None, "time": "", "allDay": True}
+def extract_date_from_text(text):
+    try:
+        dt = dateparser.parse(text, fuzzy=True, default=datetime.now())
+        if not dt.year:
+            dt = dt.replace(year=datetime.now().year)
+        return dt.date()
+    except:
+        return None
 
 # === Routes ===
 
@@ -118,14 +121,30 @@ def home():
 
 @app.route("/login")
 def login():
-    flow = Flow.from_client_config(json.loads(CLIENT_SECRET_JSON), scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"], redirect_uri=url_for("oauth_callback", _external=True, _scheme="https"))
+    flow = Flow.from_client_config(
+        json.loads(CLIENT_SECRET_JSON),
+        scopes=[
+            "openid",
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile"
+        ],
+        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
+    )
     auth_url, state = flow.authorization_url()
     session["state"] = state
     return redirect(auth_url)
 
 @app.route("/oauth_callback")
 def oauth_callback():
-    flow = Flow.from_client_config(json.loads(CLIENT_SECRET_JSON), scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"], redirect_uri=url_for("oauth_callback", _external=True, _scheme="https"))
+    flow = Flow.from_client_config(
+        json.loads(CLIENT_SECRET_JSON),
+        scopes=[
+            "openid",
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile"
+        ],
+        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
+    )
     flow.fetch_token(code=request.args["code"])
     creds = flow.credentials
     idinfo = id_token.verify_oauth2_token(creds._id_token, grequests.Request())
@@ -166,28 +185,26 @@ def chat(convo_id):
 
         trimmed = [{"role": m["role"], "content": m["content"]} for m in history[-10:]]
 
-        # AUTO CALENDAR DETECTION
-        event_added = False
-        event_message = ""
-        if uid != "guest" and ("remind me" in message.lower() or "add to calendar" in message.lower()):
-            details = extract_datetime_and_title(message)
-            if details["date"]:
-                title = asyncio.run(generate_title_from_message(message)) or "Untitled Event"
-                save_event(uid, str(uuid.uuid4()), {
+        # --- Calendar Detection ---
+        added_to_calendar = False
+        if uid != "guest" and detect_calendar_intent(message):
+            date = extract_date_from_text(message)
+            if date:
+                title = asyncio.run(generate_title_from_message(message))
+                event_data = {
                     "title": title,
                     "description": message,
-                    "date": details["date"],
-                    "time": details["time"],
-                    "allDay": details["allDay"],
+                    "time": "",
+                    "allDay": True,
                     "repeat": "none",
-                    "parentId": str(uuid.uuid4())
-                })
-                event_added = True
-                event_message = f"✅ I added **{title}** to your calendar on {details['date']}."
+                    "parentId": str(uuid.uuid4()),
+                    "date": str(date)
+                }
+                save_event(uid, str(uuid.uuid4()), event_data)
+                reply = f"✅ I added \"{title}\" to your calendar on {date}!"
+                added_to_calendar = True
 
-        if event_added:
-            reply = event_message
-        else:
+        if not added_to_calendar:
             reply = asyncio.run(generate_response(message, trimmed))
 
         history.append({"role": "assistant", "content": reply, "time": now})
@@ -215,7 +232,12 @@ def delete_conversation(convo_id):
 def settings_page():
     uid = session.get("user_email", "guest")
     if request.method == "POST":
-        data = {"theme": request.form.get("theme", "dark"), "font_size": request.form.get("font_size", "base"), "personality": request.form.get("personality", ""), "length": request.form.get("length", "medium")}
+        data = {
+            "theme": request.form.get("theme", "dark"),
+            "font_size": request.form.get("font_size", "base"),
+            "personality": request.form.get("personality", ""),
+            "length": request.form.get("length", "medium")
+        }
         save_settings(uid, data)
         return redirect("/chat")
     settings = get_settings(uid)
