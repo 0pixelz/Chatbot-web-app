@@ -74,7 +74,7 @@ async def generate_ai(prompt):
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
     data = {
         "model": "llama3-70b-8192",
-        "messages": [{"role": "system", "content": "You are a calendar assistant. When user says 'add to calendar' or 'remind me', extract event info like Title (max 3 words), Date and Description (clear short description only). Format: Title: ..., Date: ..., Description: ..."},
+        "messages": [{"role": "system", "content": "You are a calendar assistant. When user says 'add to calendar' or 'remind me', extract event info like Title (max 3 words), Date and Description (short and clear). Format: Title: ..., Date: ..., Description: ..."},
                      {"role": "user", "content": prompt}]
     }
     async with aiohttp.ClientSession() as session:
@@ -87,7 +87,7 @@ async def correct_description(prompt):
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
     data = {
         "model": "llama3-70b-8192",
-        "messages": [{"role": "system", "content": "Rewrite the following description clearly and correctly, short without extra info."},
+        "messages": [{"role": "system", "content": "Rewrite the description clearly and correctly, short without extra info."},
                      {"role": "user", "content": prompt}]
     }
     async with aiohttp.ClientSession() as session:
@@ -98,10 +98,10 @@ async def correct_description(prompt):
 async def generate_added_message(title, date, description):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-    prompt = f"Create a friendly short sentence saying you added the event to the calendar. Title: {title}, Date: {date}, Description: {description}"
+    prompt = f"Create a friendly sentence saying you added the event to the calendar. Title: {title}, Date: {date}, Description: {description}"
     data = {
         "model": "llama3-70b-8192",
-        "messages": [{"role": "system", "content": "You are a friendly assistant that replies naturally when adding calendar events."},
+        "messages": [{"role": "system", "content": "You are a friendly assistant who replies naturally when adding calendar events."},
                      {"role": "user", "content": prompt}]
     }
     async with aiohttp.ClientSession() as session:
@@ -139,6 +139,32 @@ def parse_date(date_text):
 def home():
     return redirect("/chat")
 
+@app.route("/login")
+def login():
+    flow = Flow.from_client_config(
+        json.loads(CLIENT_SECRET_JSON),
+        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
+        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
+    )
+    auth_url, state = flow.authorization_url()
+    session["state"] = state
+    return redirect(auth_url)
+
+@app.route("/oauth_callback")
+def oauth_callback():
+    flow = Flow.from_client_config(
+        json.loads(CLIENT_SECRET_JSON),
+        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
+        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
+    )
+    flow.fetch_token(code=request.args["code"])
+    creds = flow.credentials
+    idinfo = id_token.verify_oauth2_token(creds._id_token, grequests.Request())
+    session["user_email"] = idinfo["email"]
+    session["user_picture"] = idinfo.get("picture")
+    session["user_name"] = idinfo.get("name", idinfo["email"])
+    return redirect("/chat")
+
 @app.route("/chat")
 def chat_redirect():
     return redirect("/start_new_chat")
@@ -167,7 +193,6 @@ def chat(convo_id):
         reply = asyncio.run(generate_ai(message))
         added_event_message = None
 
-        # Check if calendar event
         if uid != "guest" and ("add to calendar" in message.lower() or "remind me" in message.lower() or "can you add" in message.lower()):
             title, date_text, description = extract_event(reply)
 
@@ -190,10 +215,8 @@ def chat(convo_id):
                         "date": event_date
                     })
 
-                    # Generate nice chat reply
                     added_event_message = asyncio.run(generate_added_message(title, date_text, description))
 
-        # Final reply for chat
         history.append({"role": "assistant", "content": added_event_message or reply, "time": now})
         save_user_history(uid, convo_id, history)
 
