@@ -11,6 +11,7 @@ from google_auth_oauthlib.flow import Flow
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 import uuid
+import re
 from dateutil import parser as dateparser
 
 # === CONFIG ===
@@ -61,14 +62,13 @@ def delete_event(uid, event_id):
     db.reference(f"events/{clean_uid(uid)}/{event_id}").delete()
 
 # === AI Functions ===
-
 async def generate_ai(prompt):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
     data = {
         "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": "You are a calendar assistant. You CAN add events to the user's calendar. When user says 'add to calendar' or 'remind me' or 'can you add', extract the event title and description if available and generate very short title. If not calendar related, just help normally."},
+            {"role": "system", "content": "You are a calendar assistant. You CAN add events to the user's calendar. When user says 'add to calendar' or 'remind me' or 'can you add...', extract the event and reply saying it was added. ONLY output Event Title and Event Description clearly if needed, no other text."},
             {"role": "user", "content": prompt}
         ]
     }
@@ -78,35 +78,50 @@ async def generate_ai(prompt):
             return result['choices'][0]['message']['content'].strip()
 
 async def generate_title_from_message(message):
-    return await generate_ai(f"Extract a very short title from this event description ONLY title no date or description: {message}")
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+    data = {
+        "model": "llama3-70b-8192",
+        "messages": [
+            {"role": "system", "content": "Summarize this into a short 3-5 word calendar event title."},
+            {"role": "user", "content": message}
+        ],
+        "temperature": 0.5,
+        "max_tokens": 15
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, headers=headers, json=data) as resp:
+            result = await resp.json()
+            return result['choices'][0]['message']['content'].strip()
 
-async def generate_description_from_message(message):
-    return await generate_ai(f"Extract a short description from this user request (remove dates, keep details): {message}")
+def extract_date(message):
+    try:
+        parsed = dateparser.parse(message, fuzzy=True, default=datetime.now())
+        if parsed.year == 1900:
+            parsed = parsed.replace(year=datetime.now().year)
+        return parsed.strftime("%Y-%m-%d")
+    except:
+        return None
 
-# === Routes ===
-
+# === Flask Routes ===
 @app.route("/")
 def home():
     return redirect("/chat")
 
 @app.route("/login")
 def login():
-    flow = Flow.from_client_config(
-        json.loads(CLIENT_SECRET_JSON),
-        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
-    )
+    flow = Flow.from_client_config(json.loads(CLIENT_SECRET_JSON), scopes=[
+        "openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"
+    ], redirect_uri=url_for("oauth_callback", _external=True, _scheme="https"))
     auth_url, state = flow.authorization_url()
     session["state"] = state
     return redirect(auth_url)
 
 @app.route("/oauth_callback")
 def oauth_callback():
-    flow = Flow.from_client_config(
-        json.loads(CLIENT_SECRET_JSON),
-        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
-    )
+    flow = Flow.from_client_config(json.loads(CLIENT_SECRET_JSON), scopes=[
+        "openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"
+    ], redirect_uri=url_for("oauth_callback", _external=True, _scheme="https"))
     flow.fetch_token(code=request.args["code"])
     creds = flow.credentials
     idinfo = id_token.verify_oauth2_token(creds._id_token, grequests.Request())
@@ -146,21 +161,19 @@ def chat(convo_id):
         history.append({"role": "user", "content": message, "time": now})
 
         trimmed = [{"role": m["role"], "content": m["content"]} for m in history[-10:]]
-        ai_reply = asyncio.run(generate_ai(message))
 
         # Calendar detection
-        if uid != "guest" and any(x in message.lower() for x in ["add to calendar", "remind me", "can you add"]):
-            # Try detect date
-            try:
-                detected_date = dateparser.parse(message, fuzzy=True)
-                if detected_date.year == 1900:
-                    detected_date = detected_date.replace(year=datetime.now().year)
-                date_str = detected_date.strftime("%Y-%m-%d")
-            except:
-                date_str = datetime.now().strftime("%Y-%m-%d")
+        is_calendar = any(x in message.lower() for x in ["add to calendar", "remind me", "can you add"])
+        if is_calendar and uid != "guest":
+            ai_reply = asyncio.run(generate_ai(message))
 
-            title = asyncio.run(generate_title_from_message(message))
-            description = asyncio.run(generate_description_from_message(message))
+            title_match = re.search(r"Event Title:\s*(.*)", ai_reply)
+            desc_match = re.search(r"Event Description:\s*(.*)", ai_reply)
+
+            title = title_match.group(1).strip() if title_match else message
+            description = desc_match.group(1).strip() if desc_match else ""
+
+            date_str = extract_date(message) or datetime.now().strftime("%Y-%m-%d")
 
             event_data = {
                 "title": title,
@@ -171,11 +184,12 @@ def chat(convo_id):
                 "parentId": str(uuid.uuid4()),
                 "date": date_str
             }
-
             save_event(uid, str(uuid.uuid4()), event_data)
-            ai_reply += f"\n\n✅ Added '{title}' on {date_str} to your calendar."
+            reply = f"✅ Added to your calendar: {title} on {date_str}"
+        else:
+            reply = asyncio.run(generate_response(message, trimmed))
 
-        history.append({"role": "assistant", "content": ai_reply, "time": now})
+        history.append({"role": "assistant", "content": reply, "time": now})
         save_user_history(uid, convo_id, history)
 
         if uid != "guest":
@@ -184,15 +198,13 @@ def chat(convo_id):
                 title = asyncio.run(generate_title_from_message(message))
                 if title:
                     save_conversation_title(uid, convo_id, title)
+                else:
+                    fallback = message[:30] + "..." if len(message) > 30 else message
+                    save_conversation_title(uid, convo_id, fallback)
 
         return redirect(f"/chat/{convo_id}")
 
-    return render_template("chat.html",
-                           uid=uid,
-                           history=history,
-                           conversations=conversations,
-                           convo_id=convo_id,
-                           settings=settings)
+    return render_template("chat.html", uid=uid, history=history, conversations=conversations, convo_id=convo_id, settings=settings)
 
 @app.route("/delete_conversation/<convo_id>", methods=["POST"])
 def delete_conversation(convo_id):
@@ -206,32 +218,28 @@ def delete_conversation(convo_id):
 def settings_page():
     uid = session.get("user_email", "guest")
     if request.method == "POST":
-        data = {
+        save_settings(uid, {
             "theme": request.form.get("theme", "dark"),
             "font_size": request.form.get("font_size", "base"),
             "personality": request.form.get("personality", ""),
             "length": request.form.get("length", "medium")
-        }
-        save_settings(uid, data)
+        })
         return redirect("/chat")
-    settings = get_settings(uid)
-    return render_template("settings.html", settings=settings)
+    return render_template("settings.html", settings=get_settings(uid))
 
 @app.route("/calendar")
 def calendar_page():
     uid = session.get("user_email")
     if not uid:
         return redirect("/chat")
-    events = load_events(uid)
-    return render_template("calendar.html", events=events)
+    return render_template("calendar.html", events=load_events(uid))
 
 @app.route("/save_event/<event_id>", methods=["POST"])
 def save_event_route(event_id):
     uid = session.get("user_email")
     if not uid:
         return redirect("/chat")
-    data = request.get_json()
-    save_event(uid, event_id, data)
+    save_event(uid, event_id, request.get_json())
     return "", 204
 
 @app.route("/delete_event/<event_id>", methods=["POST"])
@@ -239,7 +247,13 @@ def delete_event_route(event_id):
     uid = session.get("user_email")
     if not uid:
         return redirect("/chat")
-    delete_event(uid, event_id)
+    event = db.reference(f"events/{clean_uid(uid)}/{event_id}").get()
+    if event and "parentId" in event:
+        for eid, evt in db.reference(f"events/{clean_uid(uid)}").get().items():
+            if evt.get("parentId") == event["parentId"]:
+                delete_event(uid, eid)
+    else:
+        delete_event(uid, event_id)
     return "", 204
 
 # === Run ===
