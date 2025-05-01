@@ -162,12 +162,13 @@ chatForm.addEventListener('keydown', (e) => {
   }
 });
 
-// --- Focus events ---
+// --- Focus events with fix ---
 textarea.addEventListener('focus', () => {
   document.getElementById('sidebar').classList.add('-translate-x-full');
-  scrollToBottom();
+
+  // Fix: Wait for keyboard to open then scroll chat properly
   setTimeout(() => {
-    textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    scrollToBottom();
   }, 300);
 });
 
