@@ -96,7 +96,6 @@ async def correct_description(prompt):
 
 def extract_event(ai_response):
     title, date, description = "", "", ""
-
     title_match = re.search(r"Title:\s*(.*)", ai_response, re.IGNORECASE)
     date_match = re.search(r"Date:\s*(.*)", ai_response, re.IGNORECASE)
     desc_match = re.search(r"Description:\s*(.*)", ai_response, re.IGNORECASE)
@@ -197,13 +196,14 @@ def chat(convo_id):
                         description = asyncio.run(correct_description(description))
 
                     event_id = str(uuid.uuid4())
+                    parent_id = event_id  # Always make sure parentId is never empty
                     save_event(uid, event_id, {
                         "title": title,
                         "description": description,
                         "time": "",
                         "allDay": True,
                         "repeat": "none",
-                        "parentId": event_id,
+                        "parentId": parent_id,
                         "date": event_date
                     })
 
@@ -249,14 +249,17 @@ def save_event_route(event_id):
     uid = session.get("user_email")
     if not uid:
         return redirect("/chat")
+
     data = request.get_json()
+    parent_id = data.get("parentId") or event_id  # <-- Fix here, always ensure parentId is defined
+
     save_event(uid, event_id, {
         "title": data["title"],
         "description": data.get("description", ""),
         "time": data.get("time", ""),
         "allDay": data.get("allDay", False),
         "repeat": data.get("repeat", "none"),
-        "parentId": data.get("parentId", str(uuid.uuid4())),
+        "parentId": parent_id,
         "date": data["date"]
     })
     return "", 204
