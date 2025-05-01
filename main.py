@@ -74,8 +74,10 @@ async def generate_ai(prompt):
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
     data = {
         "model": "llama3-70b-8192",
-        "messages": [{"role": "system", "content": "You are a calendar assistant. When user says 'add to calendar' or 'remind me', extract event info like Title (max 3 words), Date and Description (short and clear). Format: Title: ..., Date: ..., Description: ..."},
-                     {"role": "user", "content": prompt}]
+        "messages": [
+            {"role": "system", "content": "You are a calendar assistant. When user says 'add to calendar' or 'remind me', extract event info like Title (max 3 words), Date and Description (clear short description only). Format: Title: ..., Date: ..., Description: ..."},
+            {"role": "user", "content": prompt}
+        ]
     }
     async with aiohttp.ClientSession() as session:
         async with session.post(url, headers=headers, json=data) as resp:
@@ -87,8 +89,10 @@ async def correct_description(prompt):
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
     data = {
         "model": "llama3-70b-8192",
-        "messages": [{"role": "system", "content": "Rewrite the description clearly and correctly, short without extra info."},
-                     {"role": "user", "content": prompt}]
+        "messages": [
+            {"role": "system", "content": "You are an assistant. ONLY return the corrected and clear description without any introduction or extra words. Do NOT say 'Here is the description:' or anything like that."},
+            {"role": "user", "content": prompt}
+        ]
     }
     async with aiohttp.ClientSession() as session:
         async with session.post(url, headers=headers, json=data) as resp:
@@ -98,11 +102,13 @@ async def correct_description(prompt):
 async def generate_added_message(title, date, description):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-    prompt = f"Create a friendly sentence saying you added the event to the calendar. Title: {title}, Date: {date}, Description: {description}"
+    prompt = f"Create a friendly short sentence saying you added the event to the calendar. Title: {title}, Date: {date}, Description: {description}"
     data = {
         "model": "llama3-70b-8192",
-        "messages": [{"role": "system", "content": "You are a friendly assistant who replies naturally when adding calendar events."},
-                     {"role": "user", "content": prompt}]
+        "messages": [
+            {"role": "system", "content": "You are a friendly assistant that replies naturally when adding calendar events."},
+            {"role": "user", "content": prompt}
+        ]
     }
     async with aiohttp.ClientSession() as session:
         async with session.post(url, headers=headers, json=data) as resp:
@@ -137,32 +143,6 @@ def parse_date(date_text):
 
 @app.route("/")
 def home():
-    return redirect("/chat")
-
-@app.route("/login")
-def login():
-    flow = Flow.from_client_config(
-        json.loads(CLIENT_SECRET_JSON),
-        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
-    )
-    auth_url, state = flow.authorization_url()
-    session["state"] = state
-    return redirect(auth_url)
-
-@app.route("/oauth_callback")
-def oauth_callback():
-    flow = Flow.from_client_config(
-        json.loads(CLIENT_SECRET_JSON),
-        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
-    )
-    flow.fetch_token(code=request.args["code"])
-    creds = flow.credentials
-    idinfo = id_token.verify_oauth2_token(creds._id_token, grequests.Request())
-    session["user_email"] = idinfo["email"]
-    session["user_picture"] = idinfo.get("picture")
-    session["user_name"] = idinfo.get("name", idinfo["email"])
     return redirect("/chat")
 
 @app.route("/chat")
@@ -241,7 +221,6 @@ def save_event_route(event_id):
     uid = session.get("user_email")
     if not uid:
         return redirect("/chat")
-
     data = request.get_json()
     parent_id = data.get("parentId") or event_id
     save_event(uid, event_id, {
@@ -268,7 +247,6 @@ def delete_event_route(event_id):
                 delete_event(uid, eid)
     else:
         delete_event(uid, event_id)
-
     return "", 204
 
 if __name__ == "__main__":
