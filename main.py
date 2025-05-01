@@ -35,6 +35,11 @@ nest_asyncio.apply()
 def clean_uid(uid):
     return uid.replace(".", "_")
 
+def sanitize(text):
+    if not text:
+        return ""
+    return text.strip().strip('"').strip("'")
+
 def load_user_history(uid, convo_id):
     return db.reference(f"chat_memory/{clean_uid(uid)}/{convo_id}").get() or []
 
@@ -193,12 +198,12 @@ def chat(convo_id):
                 event_date = parse_date(date_text)
                 if event_date:
                     if description:
-                        description = asyncio.run(correct_description(description))
+                        description = sanitize(asyncio.run(correct_description(description)))
 
                     event_id = str(uuid.uuid4())
-                    parent_id = event_id  # Always make sure parentId is never empty
+                    parent_id = event_id
                     save_event(uid, event_id, {
-                        "title": title,
+                        "title": sanitize(title),
                         "description": description,
                         "time": "",
                         "allDay": True,
@@ -251,11 +256,11 @@ def save_event_route(event_id):
         return redirect("/chat")
 
     data = request.get_json()
-    parent_id = data.get("parentId") or event_id  # <-- Fix here, always ensure parentId is defined
+    parent_id = data.get("parentId") or event_id
 
     save_event(uid, event_id, {
-        "title": data["title"],
-        "description": data.get("description", ""),
+        "title": sanitize(data["title"]),
+        "description": sanitize(data.get("description", "")),
         "time": data.get("time", ""),
         "allDay": data.get("allDay", False),
         "repeat": data.get("repeat", "none"),
