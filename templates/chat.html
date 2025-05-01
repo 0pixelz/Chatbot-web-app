@@ -14,16 +14,8 @@
       word-break: break-word;
       overflow-wrap: break-word;
     }
-    .chat-bubble-user {
-      background-color: #3b82f6;
-      color: white;
-      align-self: flex-end;
-    }
-    .chat-bubble-assistant {
-      background-color: #e5e7eb;
-      color: black;
-      align-self: flex-start;
-    }
+    .chat-bubble-user { background-color: #3b82f6; color: white; align-self: flex-end; }
+    .chat-bubble-assistant { background-color: #e5e7eb; color: black; align-self: flex-start; }
     .dark .chat-bubble-user { background-color: #2563eb; }
     .dark .chat-bubble-assistant { background-color: #4b5563; color: white; }
   </style>
@@ -77,7 +69,7 @@
   </nav>
 </aside>
 
-<!-- Main Chat Area -->
+<!-- Chat Area -->
 <main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 mb-28 flex flex-col gap-4">
   {% for msg in history %}
     <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant{% endif %}">
@@ -112,7 +104,6 @@ function scrollToBottom() {
   chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
 }
 
-// Typing Animation (AI)
 function animateMessages() {
   const chatArea = document.getElementById('chatArea');
   const bubbles = chatArea.querySelectorAll('.chat-bubble-assistant');
@@ -171,7 +162,7 @@ chatForm.addEventListener('keydown', (e) => {
   }
 });
 
-// Hide sidebar + scroll when input focused
+// --- Focus events ---
 textarea.addEventListener('focus', () => {
   document.getElementById('sidebar').classList.add('-translate-x-full');
   scrollToBottom();
