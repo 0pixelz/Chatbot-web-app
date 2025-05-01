@@ -166,6 +166,9 @@ chatForm.addEventListener('keydown', (e) => {
 textarea.addEventListener('focus', () => {
   document.getElementById('sidebar').classList.add('-translate-x-full');
   scrollToBottom();
+  setTimeout(() => {
+    textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 300);
 });
 
 window.onload = function() {
