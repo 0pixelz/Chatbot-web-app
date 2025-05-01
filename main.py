@@ -70,7 +70,22 @@ async def generate_ai(prompt):
     data = {
         "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": "You are a calendar assistant. When user says add to calendar or remind me or can you add..., extract title (max 3 words), date and short description (not the full sentence but something clear). Format like this: Title: ..., Date: ..., Description: ..."},
+            {"role": "system", "content": "You are a calendar assistant. When user says 'add to calendar' or 'remind me', extract event info like Title (max 3 words), Date and Description (clear short description only). Format: Title: ..., Date: ..., Description: ..."},
+            {"role": "user", "content": prompt}
+        ]
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, headers=headers, json=data) as resp:
+            result = await resp.json()
+            return result['choices'][0]['message']['content'].strip()
+
+async def correct_description(prompt):
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+    data = {
+        "model": "llama3-70b-8192",
+        "messages": [
+            {"role": "system", "content": "You will rewrite the following description into a very clear, short and correct phrase, without adding extra info."},
             {"role": "user", "content": prompt}
         ]
     }
@@ -168,16 +183,19 @@ def chat(convo_id):
 
         trimmed = [{"role": m["role"], "content": m["content"]} for m in history[-10:]]
         reply = asyncio.run(generate_ai(message))
+
         history.append({"role": "assistant", "content": reply, "time": now})
         save_user_history(uid, convo_id, history)
 
-        # Check if calendar add detected
         if uid != "guest" and ("add to calendar" in message.lower() or "remind me" in message.lower() or "can you add" in message.lower()):
             title, date_text, description = extract_event(reply)
 
             if title and date_text:
                 event_date = parse_date(date_text)
                 if event_date:
+                    if description:
+                        description = asyncio.run(correct_description(description))
+
                     event_id = str(uuid.uuid4())
                     save_event(uid, event_id, {
                         "title": title,
@@ -231,7 +249,6 @@ def save_event_route(event_id):
     uid = session.get("user_email")
     if not uid:
         return redirect("/chat")
-
     data = request.get_json()
     save_event(uid, event_id, {
         "title": data["title"],
