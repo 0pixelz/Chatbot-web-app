@@ -63,7 +63,6 @@
   <button onclick="nextMonth()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&gt;</button>
 </div>
 
-<!-- Week headers -->
 <div class="calendar-grid text-center font-semibold text-sm text-gray-400 mb-1">
   <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
 </div>
@@ -79,7 +78,6 @@
   <div id="eventList" class="space-y-2"></div>
 </div>
 
-<!-- Modals -->
 <div id="modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
   <div class="bg-gray-800 p-6 rounded-lg w-80">
     <h3 id="modalTitle" class="text-lg font-bold mb-4">New Event</h3>
@@ -153,7 +151,7 @@ function renderCalendar() {
       seen.add(key);
       const timeDisplay = evt.allDay ? "(All Day)" : evt.time ? `(${evt.time})` : "(All Day)";
       const description = evt.description || "";
-      eventHtml += `<div class="p-2 bg-gray-800 rounded" onclick="openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}', '${evt.parentId || ""}', \`${description.replace(/`/g, '\\`')}\`)">
+      eventHtml += `<div class="p-2 bg-gray-800 rounded cursor-pointer" onclick="event.stopPropagation(); openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}', '${evt.parentId || ""}', \`${description.replace(/`/g, '\\`')}\`)">
         <strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}<br><span class="text-xs text-gray-300">${description}</span>
       </div>`;
     }
@@ -204,19 +202,13 @@ function nextMonth() {
   });
 }
 
-// Touch swipe logic
 let touchStartX = null;
-document.addEventListener('touchstart', (e) => {
-  touchStartX = e.touches[0].clientX;
-});
+document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
 document.addEventListener('touchend', (e) => {
   if (touchStartX === null) return;
   const touchEndX = e.changedTouches[0].clientX;
   const diff = touchEndX - touchStartX;
-  if (Math.abs(diff) > 50) {
-    if (diff > 0) prevMonth();
-    else nextMonth();
-  }
+  if (Math.abs(diff) > 50) diff > 0 ? prevMonth() : nextMonth();
   touchStartX = null;
 });
 
