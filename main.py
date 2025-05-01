@@ -5,13 +5,12 @@ import aiohttp
 import nest_asyncio
 from flask import Flask, render_template, redirect, request, session, url_for
 from firebase_admin import credentials, db, initialize_app
-from datetime import datetime
+from datetime import datetime, timedelta
 from pytz import timezone
 from google_auth_oauthlib.flow import Flow
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 import uuid
-import re
 from dateutil import parser as dateparser
 
 # === CONFIG ===
@@ -62,95 +61,61 @@ def delete_event(uid, event_id):
     db.reference(f"events/{clean_uid(uid)}/{event_id}").delete()
 
 # === AI Functions ===
-async def generate_response(prompt, memory=[]):
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-    messages = [{"role": "system", "content": "You're a helpful assistant."}] + memory + [{"role": "user", "content": prompt}]
-    data = {"model": "llama3-70b-8192", "messages": messages}
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=data) as resp:
-                if resp.status != 200:
-                    return "❌ Groq API error."
-                result = await resp.json()
-                return result['choices'][0]['message']['content']
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
-
-async def generate_title_from_message(message):
+async def generate_ai(prompt):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
     data = {
         "model": "llama3-70b-8192",
-        "messages": [
-            {"role": "system", "content": "Extract only the event title from this user request without date or description."},
-            {"role": "user", "content": message}
-        ],
-        "temperature": 0.2,
-        "max_tokens": 20
+        "messages": [{"role": "user", "content": prompt}]
     }
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=data) as resp:
-                if resp.status != 200:
-                    return "Event"
-                result = await resp.json()
-                return result['choices'][0]['message']['content'].strip()
-    except:
-        return "Event"
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, headers=headers, json=data) as resp:
+            result = await resp.json()
+            return result['choices'][0]['message']['content'].strip()
 
-# === Calendar Detection ===
-def detect_calendar_intent(message):
-    keywords = ["remind me", "add to calendar", "can you add to my calendar", "schedule", "put in calendar"]
-    return any(kw in message.lower() for kw in keywords)
+async def generate_title(message):
+    return await generate_ai(f"Extract only the event title from this sentence, short and clean, no quotes or extra words:\n{message}")
 
-def extract_date_from_text(text):
+async def generate_description(message):
+    return await generate_ai(f"Extract a description for this event, short and natural, no calendar or date words:\n{message}")
+
+# === Calendar detection ===
+def detect_calendar_intent(text):
+    keywords = ["add to my calendar", "add to calendar", "remind me", "calendar"]
+    return any(kw in text.lower() for kw in keywords)
+
+def extract_date(text):
     try:
-        dt = dateparser.parse(text, fuzzy=True, default=datetime.now())
-        if not dt.year:
-            dt = dt.replace(year=datetime.now().year)
-        return dt.date()
+        parsed_date = dateparser.parse(text, fuzzy=True, default=datetime.now())
+        if parsed_date.year == 1900:
+            parsed_date = parsed_date.replace(year=datetime.now().year)
+        return parsed_date.date()
     except:
         return None
 
-# === Routes ===
-
+# === Flask Routes ===
 @app.route("/")
 def home():
     return redirect("/chat")
 
 @app.route("/login")
 def login():
-    flow = Flow.from_client_config(
-        json.loads(CLIENT_SECRET_JSON),
-        scopes=[
-            "openid",
-            "https://www.googleapis.com/auth/userinfo.email",
-            "https://www.googleapis.com/auth/userinfo.profile"
-        ],
-        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
-    )
+    flow = Flow.from_client_config(json.loads(CLIENT_SECRET_JSON), scopes=[
+        "openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"
+    ], redirect_uri=url_for("oauth_callback", _external=True, _scheme="https"))
     auth_url, state = flow.authorization_url()
     session["state"] = state
     return redirect(auth_url)
 
 @app.route("/oauth_callback")
 def oauth_callback():
-    flow = Flow.from_client_config(
-        json.loads(CLIENT_SECRET_JSON),
-        scopes=[
-            "openid",
-            "https://www.googleapis.com/auth/userinfo.email",
-            "https://www.googleapis.com/auth/userinfo.profile"
-        ],
-        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
-    )
+    flow = Flow.from_client_config(json.loads(CLIENT_SECRET_JSON), scopes=[
+        "openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"
+    ], redirect_uri=url_for("oauth_callback", _external=True, _scheme="https"))
     flow.fetch_token(code=request.args["code"])
     creds = flow.credentials
     idinfo = id_token.verify_oauth2_token(creds._id_token, grequests.Request())
     session["user_email"] = idinfo["email"]
-    session["user_picture"] = idinfo.get("picture")
-    session["user_name"] = idinfo.get("name", idinfo["email"])
     return redirect("/chat")
 
 @app.route("/logout", methods=["POST"])
@@ -184,37 +149,34 @@ def chat(convo_id):
         history.append({"role": "user", "content": message, "time": now})
 
         trimmed = [{"role": m["role"], "content": m["content"]} for m in history[-10:]]
+        ai_reply = asyncio.run(generate_ai(message))
 
-        # --- Calendar Detection ---
-        added_to_calendar = False
+        # Calendar processing
         if uid != "guest" and detect_calendar_intent(message):
-            date = extract_date_from_text(message)
+            date = extract_date(message)
             if date:
-                title = asyncio.run(generate_title_from_message(message))
+                title = asyncio.run(generate_title(message))
+                description = asyncio.run(generate_description(message))
                 event_data = {
                     "title": title,
-                    "description": message,
+                    "description": description,
                     "time": "",
                     "allDay": True,
                     "repeat": "none",
                     "parentId": str(uuid.uuid4()),
-                    "date": str(date)
+                    "date": date.strftime("%Y-%m-%d")
                 }
                 save_event(uid, str(uuid.uuid4()), event_data)
-                reply = f"✅ I added \"{title}\" to your calendar on {date}!"
-                added_to_calendar = True
+                ai_reply += f"\n\n✅ Added event to your calendar: {title} on {date.strftime('%Y-%m-%d')}."
 
-        if not added_to_calendar:
-            reply = asyncio.run(generate_response(message, trimmed))
-
-        history.append({"role": "assistant", "content": reply, "time": now})
+        history.append({"role": "assistant", "content": ai_reply, "time": now})
         save_user_history(uid, convo_id, history)
 
         if uid != "guest":
             current_title = db.reference(f"conversations/{clean_uid(uid)}/{convo_id}/title").get()
             if not current_title:
-                title = asyncio.run(generate_title_from_message(message))
-                save_conversation_title(uid, convo_id, title)
+                title = asyncio.run(generate_title(message))
+                save_conversation_title(uid, convo_id, title or message[:30] + "...")
 
         return redirect(f"/chat/{convo_id}")
 
@@ -232,42 +194,28 @@ def delete_conversation(convo_id):
 def settings_page():
     uid = session.get("user_email", "guest")
     if request.method == "POST":
-        data = {
+        save_settings(uid, {
             "theme": request.form.get("theme", "dark"),
             "font_size": request.form.get("font_size", "base"),
             "personality": request.form.get("personality", ""),
             "length": request.form.get("length", "medium")
-        }
-        save_settings(uid, data)
+        })
         return redirect("/chat")
-    settings = get_settings(uid)
-    return render_template("settings.html", settings=settings)
+    return render_template("settings.html", settings=get_settings(uid))
 
 @app.route("/calendar")
 def calendar_page():
     uid = session.get("user_email")
     if not uid:
         return redirect("/chat")
-    events = load_events(uid)
-    return render_template("calendar.html", events=events)
+    return render_template("calendar.html", events=load_events(uid))
 
 @app.route("/save_event/<event_id>", methods=["POST"])
 def save_event_route(event_id):
     uid = session.get("user_email")
     if not uid:
         return redirect("/chat")
-    data = request.get_json()
-    parent_id = data.get("parentId", str(uuid.uuid4()))
-    event_data = {
-        "title": data["title"],
-        "description": data.get("description", ""),
-        "time": data.get("time", ""),
-        "allDay": data.get("allDay", False),
-        "repeat": data.get("repeat", "none"),
-        "parentId": parent_id,
-        "date": data["date"]
-    }
-    save_event(uid, event_id, event_data)
+    save_event(uid, event_id, request.get_json())
     return "", 204
 
 @app.route("/delete_event/<event_id>", methods=["POST"])
@@ -278,14 +226,12 @@ def delete_event_route(event_id):
     event = db.reference(f"events/{clean_uid(uid)}/{event_id}").get()
     if event and "parentId" in event:
         parent_id = event["parentId"]
-        all_events = db.reference(f"events/{clean_uid(uid)}").get() or {}
-        for eid, evt in all_events.items():
+        for eid, evt in (db.reference(f"events/{clean_uid(uid)}").get() or {}).items():
             if evt.get("parentId") == parent_id:
                 delete_event(uid, eid)
     else:
         delete_event(uid, event_id)
     return "", 204
 
-# === Run ===
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
