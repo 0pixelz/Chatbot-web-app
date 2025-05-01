@@ -30,22 +30,41 @@ initialize_app(cred, {"databaseURL": DATABASE_URL})
 nest_asyncio.apply()
 
 # === Utilities ===
-def clean_uid(uid): return uid.replace(".", "_")
-def load_user_history(uid, convo_id): return db.reference(f"chat_memory/{clean_uid(uid)}/{convo_id}").get() or []
-def save_user_history(uid, convo_id, data): db.reference(f"chat_memory/{clean_uid(uid)}/{convo_id}").set(data)
-def list_conversations(uid): return db.reference(f"conversations/{clean_uid(uid)}").get() or {}
-def save_conversation_title(uid, convo_id, title): db.reference(f"conversations/{clean_uid(uid)}/{convo_id}").update({"title": title})
-def get_settings(uid): return db.reference(f"settings/{clean_uid(uid)}").get() or {}
-def save_settings(uid, data): db.reference(f"settings/{clean_uid(uid)}").set(data)
-def load_events(uid): return db.reference(f"events/{clean_uid(uid)}").get() or {}
-def save_event(uid, event_id, event_data): db.reference(f"events/{clean_uid(uid)}/{event_id}").set(event_data)
-def delete_event(uid, event_id): db.reference(f"events/{clean_uid(uid)}/{event_id}").delete()
+def clean_uid(uid):
+    return uid.replace(".", "_")
+
+def load_user_history(uid, convo_id):
+    return db.reference(f"chat_memory/{clean_uid(uid)}/{convo_id}").get() or []
+
+def save_user_history(uid, convo_id, data):
+    db.reference(f"chat_memory/{clean_uid(uid)}/{convo_id}").set(data)
+
+def list_conversations(uid):
+    return db.reference(f"conversations/{clean_uid(uid)}").get() or {}
+
+def save_conversation_title(uid, convo_id, title):
+    db.reference(f"conversations/{clean_uid(uid)}/{convo_id}").update({"title": title})
+
+def get_settings(uid):
+    return db.reference(f"settings/{clean_uid(uid)}").get() or {}
+
+def save_settings(uid, data):
+    db.reference(f"settings/{clean_uid(uid)}").set(data)
+
+def load_events(uid):
+    return db.reference(f"events/{clean_uid(uid)}").get() or {}
+
+def save_event(uid, event_id, event_data):
+    db.reference(f"events/{clean_uid(uid)}/{event_id}").set(event_data)
+
+def delete_event(uid, event_id):
+    db.reference(f"events/{clean_uid(uid)}/{event_id}").delete()
 
 # === AI Functions ===
 async def generate_response(prompt, memory=[]):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-    messages = [{"role": "system", "content": "You're a helpful assistant."}] + memory + [{"role": "user", "content": prompt}]
+    messages = [{"role": "system", "content": "You are a helpful assistant."}] + memory + [{"role": "user", "content": prompt}]
     data = {"model": "llama3-70b-8192", "messages": messages}
     async with aiohttp.ClientSession() as session:
         async with session.post(url, headers=headers, json=data) as resp:
@@ -53,54 +72,60 @@ async def generate_response(prompt, memory=[]):
             return result['choices'][0]['message']['content']
 
 async def generate_title_from_message(message):
-    return await generate_response(f"Summarize this into a 3-word event title: {message}")
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+    data = {
+        "model": "llama3-70b-8192",
+        "messages": [{"role": "system", "content": "Summarize this into 3-5 word title, no punctuation."}, {"role": "user", "content": message}],
+        "temperature": 0.5,
+        "max_tokens": 15
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, headers=headers, json=data) as resp:
+            result = await resp.json()
+            return result['choices'][0]['message']['content'].strip()
 
-# === Natural Language Parsing ===
-def extract_datetime_and_title(message):
-    now = datetime.now(timezone(LOCAL_TIMEZONE))
-    future_date = None
-    time_match = re.search(r'at\s+(\d{1,2}(:\d{2})?\s*(am|pm)?)', message, re.IGNORECASE)
-    date_match = re.search(r'\b(?:on\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}', message, re.IGNORECASE)
-    in_days_match = re.search(r'in\s+(\d+)\s+(day|days)', message, re.IGNORECASE)
+# === Extract datetime logic ===
+def extract_datetime_and_title(text):
+    tz = timezone(LOCAL_TIMEZONE)
+    now = datetime.now(tz)
+    text = text.lower()
 
-    if in_days_match:
-        days = int(in_days_match.group(1))
-        future_date = now + timedelta(days=days)
-    elif date_match:
-        try:
-            parsed = datetime.strptime(f"{date_match.group(0)} {now.year}", "%b %d %Y")
-            future_date = parsed
-        except: pass
+    # Detect relative date
+    match = re.search(r"in (\d+) days?", text)
+    if match:
+        days = int(match.group(1))
+        date = now + timedelta(days=days)
+        return {"date": date.strftime("%Y-%m-%d"), "time": "", "allDay": True}
 
-    event_time = ""
-    if time_match:
-        try:
-            parsed = datetime.strptime(time_match.group(1), "%I:%M %p") if ":" in time_match.group(1) else datetime.strptime(time_match.group(1), "%I %p")
-            event_time = parsed.strftime("%H:%M")
-        except: pass
+    # Detect specific date (month name and day)
+    match = re.search(r"(january|february|march|april|may|june|july|august|september|october|november|december) (\d+)", text)
+    if match:
+        month = match.group(1).capitalize()
+        day = int(match.group(2))
+        year = now.year
+        date_obj = datetime.strptime(f"{month} {day} {year}", "%B %d %Y")
+        return {"date": date_obj.strftime("%Y-%m-%d"), "time": "", "allDay": True}
 
-    all_day = not bool(event_time)
-    date_str = future_date.strftime("%Y-%m-%d") if future_date else None
-    return {"date": date_str, "time": event_time, "allDay": all_day}
+    # Fallback (no date detected)
+    return {"date": None, "time": "", "allDay": True}
 
 # === Routes ===
+
 @app.route("/")
-def home(): return redirect("/chat")
+def home():
+    return redirect("/chat")
 
 @app.route("/login")
 def login():
-    flow = Flow.from_client_config(json.loads(CLIENT_SECRET_JSON),
-        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https"))
+    flow = Flow.from_client_config(json.loads(CLIENT_SECRET_JSON), scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"], redirect_uri=url_for("oauth_callback", _external=True, _scheme="https"))
     auth_url, state = flow.authorization_url()
     session["state"] = state
     return redirect(auth_url)
 
 @app.route("/oauth_callback")
 def oauth_callback():
-    flow = Flow.from_client_config(json.loads(CLIENT_SECRET_JSON),
-        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https"))
+    flow = Flow.from_client_config(json.loads(CLIENT_SECRET_JSON), scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"], redirect_uri=url_for("oauth_callback", _external=True, _scheme="https"))
     flow.fetch_token(code=request.args["code"])
     creds = flow.credentials
     idinfo = id_token.verify_oauth2_token(creds._id_token, grequests.Request())
@@ -110,10 +135,13 @@ def oauth_callback():
     return redirect("/chat")
 
 @app.route("/logout", methods=["POST"])
-def logout(): session.clear(); return redirect("/")
+def logout():
+    session.clear()
+    return redirect("/")
 
 @app.route("/chat")
-def chat_redirect(): return redirect("/start_new_chat")
+def chat_redirect():
+    return redirect("/start_new_chat")
 
 @app.route("/start_new_chat")
 def start_new_chat():
@@ -137,9 +165,10 @@ def chat(convo_id):
         history.append({"role": "user", "content": message, "time": now})
 
         trimmed = [{"role": m["role"], "content": m["content"]} for m in history[-10:]]
-        reply = asyncio.run(generate_response(message, trimmed))
 
-        # Auto-calendar logic
+        # AUTO CALENDAR DETECTION
+        event_added = False
+        event_message = ""
         if uid != "guest" and ("remind me" in message.lower() or "add to calendar" in message.lower()):
             details = extract_datetime_and_title(message)
             if details["date"]:
@@ -153,6 +182,13 @@ def chat(convo_id):
                     "repeat": "none",
                     "parentId": str(uuid.uuid4())
                 })
+                event_added = True
+                event_message = f"✅ I added **{title}** to your calendar on {details['date']}."
+
+        if event_added:
+            reply = event_message
+        else:
+            reply = asyncio.run(generate_response(message, trimmed))
 
         history.append({"role": "assistant", "content": reply, "time": now})
         save_user_history(uid, convo_id, history)
@@ -161,7 +197,7 @@ def chat(convo_id):
             current_title = db.reference(f"conversations/{clean_uid(uid)}/{convo_id}/title").get()
             if not current_title:
                 title = asyncio.run(generate_title_from_message(message))
-                save_conversation_title(uid, convo_id, title or message[:30] + "..." if len(message) > 30 else message)
+                save_conversation_title(uid, convo_id, title)
 
         return redirect(f"/chat/{convo_id}")
 
@@ -179,32 +215,34 @@ def delete_conversation(convo_id):
 def settings_page():
     uid = session.get("user_email", "guest")
     if request.method == "POST":
-        save_settings(uid, {
-            "theme": request.form.get("theme", "dark"),
-            "font_size": request.form.get("font_size", "base"),
-            "personality": request.form.get("personality", ""),
-            "length": request.form.get("length", "medium")
-        })
+        data = {"theme": request.form.get("theme", "dark"), "font_size": request.form.get("font_size", "base"), "personality": request.form.get("personality", ""), "length": request.form.get("length", "medium")}
+        save_settings(uid, data)
         return redirect("/chat")
-    return render_template("settings.html", settings=get_settings(uid))
+    settings = get_settings(uid)
+    return render_template("settings.html", settings=settings)
 
 @app.route("/calendar")
 def calendar_page():
     uid = session.get("user_email")
-    return render_template("calendar.html", events=load_events(uid) if uid else {})
+    if not uid:
+        return redirect("/chat")
+    events = load_events(uid)
+    return render_template("calendar.html", events=events)
 
 @app.route("/save_event/<event_id>", methods=["POST"])
 def save_event_route(event_id):
     uid = session.get("user_email")
-    if not uid: return redirect("/chat")
+    if not uid:
+        return redirect("/chat")
     data = request.get_json()
+    parent_id = data.get("parentId", str(uuid.uuid4()))
     event_data = {
         "title": data["title"],
         "description": data.get("description", ""),
         "time": data.get("time", ""),
         "allDay": data.get("allDay", False),
         "repeat": data.get("repeat", "none"),
-        "parentId": data.get("parentId", str(uuid.uuid4())),
+        "parentId": parent_id,
         "date": data["date"]
     }
     save_event(uid, event_id, event_data)
@@ -213,15 +251,19 @@ def save_event_route(event_id):
 @app.route("/delete_event/<event_id>", methods=["POST"])
 def delete_event_route(event_id):
     uid = session.get("user_email")
-    if not uid: return redirect("/chat")
+    if not uid:
+        return redirect("/chat")
     event = db.reference(f"events/{clean_uid(uid)}/{event_id}").get()
     if event and "parentId" in event:
-        for eid, evt in (db.reference(f"events/{clean_uid(uid)}").get() or {}).items():
-            if evt.get("parentId") == event["parentId"]:
+        parent_id = event["parentId"]
+        all_events = db.reference(f"events/{clean_uid(uid)}").get() or {}
+        for eid, evt in all_events.items():
+            if evt.get("parentId") == parent_id:
                 delete_event(uid, eid)
     else:
         delete_event(uid, event_id)
     return "", 204
 
+# === Run ===
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
