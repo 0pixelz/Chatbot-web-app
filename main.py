@@ -90,7 +90,7 @@ async def correct_description(prompt):
     data = {
         "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": "You are an assistant. ONLY return the corrected and clear description without any introduction or extra words. Do NOT say 'Here is the description:' or anything like that."},
+            {"role": "system", "content": "You are an assistant. ONLY return the corrected description. Do NOT add any intro."},
             {"role": "user", "content": prompt}
         ]
     }
@@ -106,7 +106,7 @@ async def generate_added_message(title, date, description):
     data = {
         "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": "You are a friendly assistant that replies naturally when adding calendar events."},
+            {"role": "system", "content": "You are a friendly assistant that replies naturally."},
             {"role": "user", "content": prompt}
         ]
     }
@@ -120,14 +120,12 @@ def extract_event(ai_response):
     title_match = re.search(r"Title:\s*(.*)", ai_response, re.IGNORECASE)
     date_match = re.search(r"Date:\s*(.*)", ai_response, re.IGNORECASE)
     desc_match = re.search(r"Description:\s*(.*)", ai_response, re.IGNORECASE)
-
     if title_match:
         title = title_match.group(1).strip()
     if date_match:
         date = date_match.group(1).strip()
     if desc_match:
         description = desc_match.group(1).strip()
-
     return title, date, description
 
 def parse_date(date_text):
@@ -143,6 +141,32 @@ def parse_date(date_text):
 
 @app.route("/")
 def home():
+    return redirect("/chat")
+
+@app.route("/login")
+def login():
+    flow = Flow.from_client_config(
+        json.loads(CLIENT_SECRET_JSON),
+        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
+        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
+    )
+    auth_url, state = flow.authorization_url()
+    session["state"] = state
+    return redirect(auth_url)
+
+@app.route("/oauth_callback")
+def oauth_callback():
+    flow = Flow.from_client_config(
+        json.loads(CLIENT_SECRET_JSON),
+        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
+        redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
+    )
+    flow.fetch_token(code=request.args["code"])
+    creds = flow.credentials
+    idinfo = id_token.verify_oauth2_token(creds._id_token, grequests.Request())
+    session["user_email"] = idinfo["email"]
+    session["user_picture"] = idinfo.get("picture")
+    session["user_name"] = idinfo.get("name", idinfo["email"])
     return redirect("/chat")
 
 @app.route("/chat")
@@ -173,9 +197,8 @@ def chat(convo_id):
         reply = asyncio.run(generate_ai(message))
         added_event_message = None
 
-        if uid != "guest" and ("add to calendar" in message.lower() or "remind me" in message.lower() or "can you add" in message.lower()):
+        if uid != "guest" and any(kw in message.lower() for kw in ["add to calendar", "remind me", "can you add"]):
             title, date_text, description = extract_event(reply)
-
             if title and date_text:
                 event_date = parse_date(date_text)
                 if event_date:
