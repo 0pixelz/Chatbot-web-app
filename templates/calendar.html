@@ -13,6 +13,7 @@
   .calendar-slider {
     display: flex;
     transition: transform 0.3s ease;
+    will-change: transform;
   }
   .calendar-month {
     min-width: 100%;
@@ -42,6 +43,7 @@
     border-radius: 4px;
     font-size: 0.75rem;
     cursor: pointer;
+    margin-top: 4px;
   }
 </style>
 </head>
@@ -70,8 +72,8 @@
 <script>
 let currentMonth = new Date().getMonth();
 let currentYear = new Date().getFullYear();
-let startX = 0, currentX = 0, isSwiping = false, sliderX = 0;
-const events = {};  // your events here (replace if needed)
+let startX = 0, currentX = 0, isSwiping = false;
+const events = {};  // Example: { "2025-05-05": [{ title: "Dentist" }] }
 
 function renderAll() {
   document.getElementById('monthTitle').textContent = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -93,7 +95,8 @@ function renderCalendar(year, month, container) {
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${realYear}-${String(realMonth + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const today = new Date().toDateString() === new Date(realYear, realMonth, day).toDateString();
-    html += `<div class="calendar-cell ${today ? 'today' : ''}">
+
+    html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="addEvent('${dateStr}')">
       <div class="text-sm">${day}</div>
       ${renderEvents(dateStr)}
     </div>`;
@@ -102,8 +105,7 @@ function renderCalendar(year, month, container) {
 }
 
 function renderEvents(dateStr) {
-  return Object.values(events).filter(e => e.date === dateStr)
-    .map(e => `<div class="event-badge">${e.title}</div>`).join('');
+  return (events[dateStr] || []).map(e => `<div class="event-badge">${e.title}</div>`).join('');
 }
 
 function goToPrev() {
@@ -122,17 +124,17 @@ document.addEventListener('touchstart', (e) => {
   startX = e.touches[0].clientX;
   currentX = startX;
   isSwiping = true;
-  document.getElementById('slider').style.transition = "none";
 });
 
 document.addEventListener('touchmove', (e) => {
   if (!isSwiping) return;
   currentX = e.touches[0].clientX;
   let diffX = currentX - startX;
-  document.getElementById('slider').style.transform = `translateX(${diffX - window.innerWidth}px)`;
+  document.getElementById('slider').style.transition = "none";
+  document.getElementById('slider').style.transform = `translateX(calc(${diffX}px - 100%))`;
 });
 
-document.addEventListener('touchend', () => {
+document.addEventListener('touchend', (e) => {
   if (!isSwiping) return;
   isSwiping = false;
   const diffX = currentX - startX;
@@ -148,6 +150,14 @@ document.addEventListener('touchend', () => {
     document.getElementById('slider').style.transform = `translateX(-100%)`;
   }
 });
+
+function addEvent(dateStr) {
+  const title = prompt("Event title:");
+  if (!title) return;
+  if (!events[dateStr]) events[dateStr] = [];
+  events[dateStr].push({ title });
+  renderAll();
+}
 
 function openDatePicker() {
   const picker = document.createElement('input');
