@@ -1,164 +1,153 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>My Calendar</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { touch-action: pan-y; user-select: none; }
-    .calendar-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 5px;
-    }
-    .calendar-cell {
-      min-height: 80px;
-      border-radius: 8px;
-      background-color: #374151;
-      color: white;
-      padding: 6px;
-      position: relative;
-      overflow-y: auto;
-    }
-    .calendar-cell.today {
-      background-color: #4b5563;
-      border: 2px solid #60a5fa;
-    }
-    .event-badge {
-      background: #60a5fa;
-      color: white;
-      padding: 2px 6px;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      margin-top: 4px;
-      cursor: pointer;
-    }
-    .calendar-container {
-      position: relative;
-      overflow: hidden;
-      height: auto;
-    }
-    .calendar-slide {
-      position: absolute;
-      top: 0;
-      width: 100%;
-      transition: transform 0.3s ease;
-    }
-  </style>
+<meta charset="UTF-8" />
+<title>My Calendar</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body { background-color: #111827; color: white; }
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+  }
+  .calendar-cell {
+    min-height: 80px;
+    border-radius: 8px;
+    background-color: #374151;
+    color: white;
+    padding: 6px;
+  }
+  .calendar-cell.today {
+    background-color: #4b5563;
+    border: 2px solid #60a5fa;
+  }
+  .calendar-slider {
+    display: flex;
+    transition: transform 0.3s ease;
+    will-change: transform;
+  }
+  .calendar-month {
+    min-width: 100%;
+    padding: 5px;
+  }
+  .event-badge {
+    background: #60a5fa;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    margin-top: 4px;
+    display: block;
+    text-align: center;
+    cursor: pointer;
+  }
+</style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen p-4">
+<body class="min-h-screen p-4">
 
-<div class="flex justify-between items-center mb-4">
-  <h1 class="text-2xl font-bold">My Calendar</h1>
-</div>
+<h1 class="text-2xl font-bold mb-4">My Calendar</h1>
 
 <div class="flex justify-center items-center space-x-4 mb-2">
-  <button onclick="shiftMonth(-1)" class="px-2 py-1 bg-gray-700 rounded">&lt;</button>
-  <h2 id="monthTitle" onclick="openDatePicker()" class="text-lg font-semibold cursor-pointer select-none"></h2>
-  <button onclick="shiftMonth(1)" class="px-2 py-1 bg-gray-700 rounded">&gt;</button>
+  <button onclick="prevMonth()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&lt;</button>
+  <h2 id="monthTitle" class="text-lg font-semibold cursor-pointer select-none" onclick="openDatePicker()"></h2>
+  <button onclick="nextMonth()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&gt;</button>
 </div>
 
-<div class="calendar-grid text-center font-semibold text-sm text-gray-400 mb-1">
+<div class="calendar-grid text-center font-semibold text-sm text-gray-400 mb-2">
   <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
 </div>
 
-<div class="calendar-container mb-4">
-  <div id="calendarCurrent" class="calendar-grid calendar-slide"></div>
-  <div id="calendarNext" class="calendar-grid calendar-slide"></div>
-</div>
-
-<hr class="border-gray-700 my-4">
-
-<div id="eventsSection" class="space-y-2">
-  <h2 class="text-xl font-semibold mb-2">Your Events:</h2>
-  <div id="eventList"></div>
+<div class="overflow-hidden">
+  <div id="calendarSlider" class="calendar-slider"></div>
 </div>
 
 <script>
 let currentMonth = new Date().getMonth();
 let currentYear = new Date().getFullYear();
-let startX = null, moveX = 0;
-const threshold = 50;
-const events = {{ events|tojson }};
+let slider = document.getElementById('calendarSlider');
+let startX = 0, currentTranslate = -100, isDragging = false;
 
-function renderCalendar(month, year, el) {
-  const date = new Date(year, month);
-  const monthName = date.toLocaleString('default', { month: 'long' });
-  if(el.id === 'calendarCurrent') document.getElementById('monthTitle').textContent = `${monthName} ${year}`;
-  
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+function renderCalendars() {
+  slider.innerHTML = "";
+  for (let offset = -1; offset <= 1; offset++) {
+    const date = new Date(currentYear, currentMonth + offset);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDay = new Date(year, month, 1).getDay();
 
-  el.innerHTML = '';
-  for(let i=0;i<firstDay;i++) el.innerHTML += `<div></div>`;
-  for(let d=1; d<=daysInMonth; d++) {
-    const fullDate = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const today = new Date().toDateString() === new Date(year,month,d).toDateString();
-    el.innerHTML += `<div class="calendar-cell ${today ? 'today':''}" onclick="openModal('${fullDate}')">
-      <div class="text-sm">${d}</div>${renderEvents(fullDate)}
-    </div>`;
+    let grid = `<div class="calendar-month calendar-grid text-center">`;
+    for (let i = 0; i < firstDay; i++) grid += `<div></div>`;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const today = new Date().toDateString() === new Date(year, month, d).toDateString();
+      grid += `<div class="calendar-cell ${today ? 'today' : ''}"><div class="text-sm">${d}</div></div>`;
+    }
+    grid += `</div>`;
+    slider.innerHTML += grid;
   }
+  slider.style.transform = "translateX(-100%)";
+  updateMonthTitle();
 }
 
-function renderEvents(dateStr){
-  return Object.entries(events).filter(([_,e])=>e.date===dateStr).map(([id,e])=>
-    `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}','${id}','${e.title}','${e.time||''}',${e.allDay||false},'${e.repeat||'none'}','${e.parentId||''}','${e.description||''}')">${e.title}</span>`
-  ).join('');
+function updateMonthTitle() {
+  const date = new Date(currentYear, currentMonth);
+  document.getElementById('monthTitle').innerText = date.toLocaleString('default', { month: 'long' }) + " " + currentYear;
 }
 
-function shiftMonth(dir) {
-  currentMonth += dir;
-  if(currentMonth<0){currentMonth=11;currentYear--;}
-  if(currentMonth>11){currentMonth=0;currentYear++;}
-  updateCalendars(dir);
+function prevMonth() {
+  currentMonth--;
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  renderCalendars();
 }
 
-function updateCalendars(dir) {
-  const current = document.getElementById('calendarCurrent');
-  const next = document.getElementById('calendarNext');
-  next.style.transition = 'none';
-  next.style.transform = `translateX(${dir*100}%)`;
-  renderCalendar(currentMonth, currentYear, next);
-  
-  requestAnimationFrame(()=>{
-    current.style.transition = next.style.transition = 'transform 0.3s ease';
-    current.style.transform = `translateX(${-dir*100}%)`;
-    next.style.transform = 'translateX(0)';
+function nextMonth() {
+  currentMonth++;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  renderCalendars();
+}
+
+slider.addEventListener('touchstart', e => {
+  startX = e.touches[0].clientX;
+  isDragging = true;
+});
+
+slider.addEventListener('touchmove', e => {
+  if (!isDragging) return;
+  const move = e.touches[0].clientX - startX;
+  slider.style.transform = `translateX(calc(-100% + ${move}px))`;
+});
+
+slider.addEventListener('touchend', e => {
+  const diff = e.changedTouches[0].clientX - startX;
+  isDragging = false;
+  if (Math.abs(diff) > 50) {
+    if (diff > 0) prevMonth();
+    else nextMonth();
+  } else {
+    slider.style.transform = `translateX(-100%)`;
+  }
+});
+
+function openDatePicker() {
+  const picker = document.createElement('input');
+  picker.type = 'month';
+  picker.value = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+  picker.style.position = 'absolute';
+  picker.style.opacity = 0;
+  document.body.appendChild(picker);
+  picker.focus(); picker.click();
+  picker.addEventListener('change', e => {
+    const [y, m] = e.target.value.split('-');
+    currentYear = parseInt(y);
+    currentMonth = parseInt(m) - 1;
+    renderCalendars();
+    document.body.removeChild(picker);
   });
-
-  setTimeout(()=>{
-    current.style.transition='none';
-    current.style.transform='translateX(0)';
-    [current.id,next.id]=[next.id,current.id];
-  },300);
 }
 
-document.querySelector('.calendar-container').addEventListener('touchstart',e=>{
-  startX=e.touches[0].clientX; moveX=0;
-});
-document.querySelector('.calendar-container').addEventListener('touchmove',e=>{
-  if(!startX)return; moveX=e.touches[0].clientX-startX;
-  document.getElementById('calendarCurrent').style.transform=`translateX(${moveX}px)`;
-});
-document.querySelector('.calendar-container').addEventListener('touchend',()=>{
-  if(Math.abs(moveX)>threshold) shiftMonth(moveX>0?-1:1);
-  else document.getElementById('calendarCurrent').style.transform='translateX(0)';
-  startX=null; moveX=0;
-});
-
-function openDatePicker(){
-  const input=document.createElement('input');
-  input.type='month'; input.value=`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`;
-  input.style.opacity=0;document.body.appendChild(input);
-  input.click(); input.onchange=()=>{
-    [currentYear,currentMonth]=input.value.split('-').map((v,i)=>i?parseInt(v)-1:+v);
-    renderCalendar(currentMonth,currentYear,document.getElementById('calendarCurrent'));
-    document.body.removeChild(input);
-  };
-}
-
-window.onload=()=>renderCalendar(currentMonth,currentYear,document.getElementById('calendarCurrent'));
+window.onload = renderCalendars;
 </script>
 
 </body>
