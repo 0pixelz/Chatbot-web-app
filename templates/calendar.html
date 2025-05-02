@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <title>My Calendar</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   .calendar-container { position: relative; overflow: hidden; }
@@ -44,7 +42,7 @@
 <h2 class="text-xl font-semibold mb-2">Your Events:</h2>
 <div id="eventList" class="space-y-2"></div>
 
-<!-- Event Modal -->
+<!-- Modal for event creation/edit -->
 <div id="modal" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-50">
   <div class="bg-gray-800 p-6 rounded-lg w-80">
     <h3 class="text-lg font-bold mb-4">New Event</h3>
@@ -68,10 +66,10 @@
 </div>
 
 <!-- Delete Confirmation -->
-<div id="deleteConfirm" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-50" style="display:none;">
+<div id="deleteConfirm" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-50">
   <div class="bg-gray-800 p-6 rounded-lg w-80 text-center">
     <h3 class="text-lg font-bold mb-4">Delete Event</h3>
-    <p class="mb-4">Delete just this event or all in series?</p>
+    <p class="mb-4">Delete this event or all in series?</p>
     <div class="flex space-x-2 justify-center">
       <button onclick="confirmDelete('single')" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded">Only This</button>
       <button onclick="confirmDelete('all')" class="bg-yellow-500 hover:bg-yellow-600 px-4 py-2 rounded">All</button>
@@ -81,52 +79,23 @@
 </div>
 
 <script>
-// --- Firebase Setup ---
-const firebaseConfig = {
-  apiKey: "YOUR-API-KEY",
-  authDomain: "YOUR-PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR-PROJECT.firebaseio.com",
-  projectId: "YOUR-PROJECT",
-  storageBucket: "YOUR-PROJECT.appspot.com",
-  messagingSenderId: "YOUR-SENDER-ID",
-  appId: "YOUR-APP-ID"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-
-// Get Gmail from localStorage or URL
-const urlParams = new URLSearchParams(window.location.search);
-const uid = urlParams.get('gmail') || localStorage.getItem('gmail');
-let events = {};
+let events = {{ events|tojson }};
 let deleteTargetId = null, deleteTargetParent = null;
-
-// Load Events
-function loadEvents() {
-  firebase.database().ref('calendarEvents/' + uid).on('value', (snapshot) => {
-    events = snapshot.val() || {};
-    renderAll();
-  });
-}
-
-function saveEvents() {
-  firebase.database().ref('calendarEvents/' + uid).set(events);
-}
 
 let currentMonth = new Date().getMonth();
 let currentYear = new Date().getFullYear();
-let startX = 0, currentX = 0, startTime = 0, isSwiping = false;
 
 function renderAll() {
   document.getElementById('monthTitle').textContent = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
-  renderCalendar(normalizeDate(currentYear, currentMonth - 1), document.getElementById('prev'));
-  renderCalendar(normalizeDate(currentYear, currentMonth), document.getElementById('current'));
-  renderCalendar(normalizeDate(currentYear, currentMonth + 1), document.getElementById('next'));
+  renderCalendar(normalize(currentYear, currentMonth - 1), document.getElementById('prev'));
+  renderCalendar(normalize(currentYear, currentMonth), document.getElementById('current'));
+  renderCalendar(normalize(currentYear, currentMonth + 1), document.getElementById('next'));
   document.getElementById('slider').style.transition = "none";
   document.getElementById('slider').style.transform = `translateX(-100%)`;
   renderEventList();
 }
 
-function normalizeDate(year, month) {
+function normalize(year, month) {
   const date = new Date(year, month, 1);
   return { year: date.getFullYear(), month: date.getMonth() };
 }
@@ -135,7 +104,6 @@ function renderCalendar({year, month}, container) {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   let html = '';
-
   for (let i = 0; i < firstDay; i++) html += `<div></div>`;
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
@@ -146,17 +114,14 @@ function renderCalendar({year, month}, container) {
 }
 
 function renderEvents(dateStr) {
-  return Object.entries(events).filter(([id, e]) => e.date === dateStr)
-    .map(([id, e]) => `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${e.title}', '${e.time}', ${e.allDay}, '${e.repeat}', '${e.parentId}', \`${e.description}\`)">${e.title}</span>`).join('');
+  return Object.entries(events).filter(([id, e]) => e.date === dateStr).map(([id, e]) => `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${e.title}', '${e.time}', ${e.allDay}, '${e.repeat}', '${e.parentId}', \`${e.description}\`)">${e.title}</span>`).join('');
 }
 
 function renderEventList() {
-  const eventList = document.getElementById('eventList');
+  const list = document.getElementById('eventList');
   const monthStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}`;
-  const eventsHtml = Object.entries(events).filter(([id, e]) => e.date.startsWith(monthStr))
-    .map(([id, e]) => `<div class="p-2 bg-gray-800 rounded cursor-pointer" onclick="event.stopPropagation(); openModal('${e.date}', '${id}', '${e.title}', '${e.time}', ${e.allDay}, '${e.repeat}', '${e.parentId}', \`${e.description}\`)"><strong>${e.title}</strong><br>${e.date} ${e.allDay ? "(All Day)" : e.time}<br><span class="text-xs">${e.description}</span></div>`)
-    .join('');
-  eventList.innerHTML = eventsHtml || `<p class="text-gray-400">No events this month.</p>`;
+  const html = Object.entries(events).filter(([id, e]) => e.date.startsWith(monthStr)).map(([id, e]) => `<div class="p-2 bg-gray-800 rounded cursor-pointer" onclick="event.stopPropagation(); openModal('${e.date}', '${id}', '${e.title}', '${e.time}', ${e.allDay}, '${e.repeat}', '${e.parentId}', \`${e.description}\`)"><strong>${e.title}</strong><br>${e.date} ${e.allDay ? "(All Day)" : e.time}<br><span class="text-xs">${e.description}</span></div>`).join('');
+  list.innerHTML = html || `<p class="text-gray-400">No events this month.</p>`;
 }
 
 function goToPrev() { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } renderAll(); }
@@ -186,7 +151,7 @@ function closeModal() { document.getElementById('modal').style.display = 'none';
 
 function saveModal() {
   const id = document.getElementById('modal').dataset.eventId || crypto.randomUUID();
-  events[id] = {
+  const data = {
     title: document.getElementById('eventName').value,
     date: document.getElementById('modalDate').value,
     description: document.getElementById('eventDescription').value,
@@ -195,8 +160,7 @@ function saveModal() {
     repeat: document.getElementById('repeat').value,
     parentId: document.getElementById('modal').dataset.parentId || crypto.randomUUID()
   };
-  saveEvents();
-  closeModal(); renderAll();
+  fetch(`/save_event/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(() => location.reload());
 }
 
 function deleteModal() {
@@ -205,18 +169,18 @@ function deleteModal() {
   document.getElementById('deleteConfirm').style.display = 'flex';
 }
 
-function closeDeleteModal() {
-  document.getElementById('deleteConfirm').style.display = 'none';
-}
+function closeDeleteModal() { document.getElementById('deleteConfirm').style.display = 'none'; }
 
 function confirmDelete(mode) {
-  if (mode === 'all') for (const id in events) if (events[id].parentId === deleteTargetParent) delete events[id];
-  else delete events[deleteTargetId];
-  saveEvents();
-  closeDeleteModal(); closeModal(); renderAll();
+  if (mode === 'all') {
+    for (const [id, e] of Object.entries(events)) if (e.parentId === deleteTargetParent) fetch(`/delete_event/${id}`, { method: 'POST' });
+  } else {
+    fetch(`/delete_event/${deleteTargetId}`, { method: 'POST' });
+  }
+  location.reload();
 }
 
-window.onload = loadEvents;
+window.onload = renderAll;
 </script>
 
 </body>
