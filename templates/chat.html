@@ -51,8 +51,9 @@
     {% if session.get("user_email") %}
       <a href="/start_new_chat" class="text-blue-600 dark:text-blue-400 hover:underline">➕ Start New Chat</a>
       <a href="/calendar" class="text-blue-600 dark:text-blue-400 hover:underline">📅 Calendar</a>
+      <a href="/settings" class="text-blue-600 dark:text-blue-400 hover:underline">⚙️ Settings</a>
     {% else %}
-      <div class="text-gray-400">Sign in to add conversations</div>
+      <div class="text-gray-400">Sign in to access options</div>
     {% endif %}
     {% if conversations %}
       {% for convo_id, convo_data in conversations.items() %}
@@ -162,14 +163,9 @@ chatForm.addEventListener('keydown', (e) => {
   }
 });
 
-// --- Focus events with fix ---
 textarea.addEventListener('focus', () => {
   document.getElementById('sidebar').classList.add('-translate-x-full');
-
-  // Fix: Wait for keyboard to open then scroll chat properly
-  setTimeout(() => {
-    scrollToBottom();
-  }, 300);
+  setTimeout(() => { scrollToBottom(); }, 300);
 });
 
 window.onload = function() {
