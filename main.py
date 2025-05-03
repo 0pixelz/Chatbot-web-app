@@ -13,6 +13,7 @@ from google.auth.transport import requests as grequests
 import uuid
 import re
 from dateutil import parser as dateparser
+import requests
 
 # === CONFIG ===
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -171,12 +172,20 @@ def oauth_callback():
     session["user_email"] = idinfo["email"]
     session["user_picture"] = idinfo.get("picture")
     session["user_name"] = idinfo.get("name", idinfo["email"])
+    session["access_token"] = creds.token  # <-- Added for logout revoke
     return redirect("/chat")
 
 @app.route("/logout", methods=["POST"])
 def logout():
+    access_token = session.get("access_token")
     session.clear()
-    return redirect("https://accounts.google.com/Logout?continue=https://yourapp.com")
+    if access_token:
+        try:
+            revoke_url = f"https://accounts.google.com/o/oauth2/revoke?token={access_token}"
+            requests.get(revoke_url)
+        except:
+            pass
+    return redirect("/login")
 
 @app.route("/chat")
 def chat_redirect():
