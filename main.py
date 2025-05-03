@@ -172,7 +172,7 @@ def oauth_callback():
     session["user_email"] = idinfo["email"]
     session["user_picture"] = idinfo.get("picture")
     session["user_name"] = idinfo.get("name", idinfo["email"])
-    session["access_token"] = creds.token  # <-- Added for logout revoke
+    session["access_token"] = creds.token
     return redirect("/chat")
 
 @app.route("/logout", methods=["POST"])
@@ -185,7 +185,7 @@ def logout():
             requests.get(revoke_url)
         except:
             pass
-    return redirect("/login")
+    return render_template("logged_out.html")
 
 @app.route("/chat")
 def chat_redirect():
