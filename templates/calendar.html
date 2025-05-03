@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -39,14 +40,14 @@
       position: relative;
       overflow: hidden;
     }
-    .calendar-slider {
+    .calendar-wrapper {
       display: flex;
-      transition: transform 0.3s ease-out;
+      transition: transform 0.3s ease;
       will-change: transform;
     }
-    .calendar-month {
-      width: 100%;
-      flex-shrink: 0;
+    .calendar-slide {
+      min-width: 100%;
+      box-sizing: border-box;
     }
   </style>
 </head>
@@ -57,9 +58,9 @@
 </div>
 
 <div class="flex justify-center items-center space-x-4 mb-2">
-  <button onclick="goToPrev()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&lt;</button>
+  <button onclick="prevMonth()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&lt;</button>
   <h2 id="monthTitle" onclick="openDatePicker()" class="text-lg font-semibold cursor-pointer select-none"></h2>
-  <button onclick="goToNext()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&gt;</button>
+  <button onclick="nextMonth()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&gt;</button>
 </div>
 
 <div class="calendar-grid text-center font-semibold text-sm text-gray-400 mb-1">
@@ -67,10 +68,10 @@
 </div>
 
 <div class="calendar-container mb-4">
-  <div id="slider" class="calendar-slider">
-    <div class="calendar-month" id="prev"></div>
-    <div class="calendar-month" id="current"></div>
-    <div class="calendar-month" id="next"></div>
+  <div class="calendar-wrapper" id="calendarWrapper">
+    <div class="calendar-grid text-center calendar-slide" id="calendarPrev"></div>
+    <div class="calendar-grid text-center calendar-slide" id="calendarCurrent"></div>
+    <div class="calendar-grid text-center calendar-slide" id="calendarNext"></div>
   </div>
 </div>
 
@@ -81,133 +82,112 @@
   <div id="eventList" class="space-y-2"></div>
 </div>
 
-<!-- Modal -->
-<div id="modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
-  <div class="bg-gray-800 p-6 rounded-lg w-80">
-    <h3 id="modalTitle" class="text-lg font-bold mb-4">New Event</h3>
-    <input type="hidden" id="modalDate">
-    <input id="eventName" type="text" placeholder="Event Title" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
-    <textarea id="eventDescription" placeholder="Description" class="w-full mb-2 p-2 rounded bg-gray-700 text-white"></textarea>
-    <label class="flex items-center mb-2">
-      <input type="checkbox" id="allDay" class="mr-2"> All Day
-    </label>
-    <input id="eventTime" type="time" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
-    <select id="repeat" class="w-full mb-4 p-2 rounded bg-gray-700 text-white">
-      <option value="none">Does not repeat</option>
-      <option value="daily">Daily</option>
-      <option value="weekly">Weekly</option>
-      <option value="monthly">Monthly</option>
-    </select>
-    <div class="flex space-x-2">
-      <button onclick="saveModal()" class="flex-1 bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded">Save</button>
-      <button onclick="deleteModal()" id="deleteButton" class="flex-1 bg-red-500 hover:bg-red-600 px-4 py-2 rounded hidden">Delete</button>
-      <button onclick="closeModal()" class="flex-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- Delete Modal -->
-<div id="deleteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 hidden z-50">
-  <div class="bg-gray-800 rounded-lg p-6 w-80 text-white text-center">
-    <h2 class="text-lg font-bold mb-4">Delete Event</h2>
-    <p class="mb-4">Do you want to delete just this event or all events in the series?</p>
-    <div class="flex space-x-2 justify-center">
-      <button onclick="confirmDelete('single')" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded">Only This</button>
-      <button onclick="confirmDelete('all')" class="bg-yellow-500 hover:bg-yellow-600 px-4 py-2 rounded">All Events</button>
-    </div>
-    <button onclick="closeDeleteModal()" class="mt-4 text-sm text-gray-400 hover:underline">Cancel</button>
-  </div>
-</div>
-
 <script>
 let now = new Date();
 let currentMonth = now.getMonth();
 let currentYear = now.getFullYear();
-const events = {{ events|tojson }};
+const events = {};
 let deleteTargetId = null, deleteTargetParent = null;
-let startX = null, currentTranslate = 0, prevTranslate = 0, dragging = false;
 
-function renderAll() {
-  document.getElementById('monthTitle').textContent = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
-  renderCalendar(currentYear, currentMonth - 1, document.getElementById('prev'));
-  renderCalendar(currentYear, currentMonth, document.getElementById('current'));
-  renderCalendar(currentYear, currentMonth + 1, document.getElementById('next'));
-  document.getElementById('slider').style.transition = "none";
-  document.getElementById('slider').style.transform = `translateX(-100%)`;
-  renderEventList();
-}
-
-function renderCalendar(y, m, container) {
-  const date = new Date(y, m);
-  y = date.getFullYear(); m = date.getMonth();
-  const firstDay = new Date(y, m, 1).getDay();
-  const daysInMonth = new Date(y, m + 1, 0).getDate();
+function renderCalendarMonth(container, year, month) {
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
   let html = "";
 
   for (let i = 0; i < firstDay; i++) html += `<div></div>`;
   for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const today = new Date().toDateString() === new Date(y, m, day).toDateString();
-    html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')"><div class="text-sm">${day}</div>${renderEvents(dateStr)}</div>`;
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const today = new Date().toDateString() === new Date(year, month, day).toDateString();
+    html += `<div class="calendar-cell ${today ? 'today' : ''}"><div class="text-sm">${day}</div></div>`;
   }
-  container.innerHTML = `<div class="calendar-grid">${html}</div>`;
+  container.innerHTML = html;
 }
 
-function renderEvents(dateStr) {
-  return Object.entries(events).filter(([id, e]) => e.date === dateStr)
-    .map(([id, e]) => `<span class="event-badge">${e.title}</span>`).join('');
-}
-
-function renderEventList() {
-  const list = document.getElementById('eventList');
-  let html = Object.entries(events).filter(([id, e]) => e.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`))
-    .map(([id, e]) => `<div class="p-2 bg-gray-800 rounded cursor-pointer"><strong>${e.title}</strong><br>${e.date} ${e.allDay ? "(All Day)" : e.time}</div>`).join('');
-  list.innerHTML = html || `<p class="text-gray-400">No events this month.</p>`;
-}
-
-function goToPrev() { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } renderAll(); }
-function goToNext() { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } renderAll(); }
-
-const slider = document.getElementById('slider');
-
-slider.addEventListener('touchstart', e => {
-  startX = e.touches[0].clientX;
-  dragging = true;
-  prevTranslate = -window.innerWidth;
-});
-
-slider.addEventListener('touchmove', e => {
-  if (!dragging) return;
-  const x = e.touches[0].clientX;
-  currentTranslate = prevTranslate + (x - startX);
-  slider.style.transition = "none";
-  slider.style.transform = `translateX(${currentTranslate}px)`;
-});
-
-slider.addEventListener('touchend', () => {
-  dragging = false;
-  if (currentTranslate > -window.innerWidth + 50) goToPrev();
-  else if (currentTranslate < -window.innerWidth - 50) goToNext();
-  else slider.style.transform = `translateX(-100%)`;
-  slider.style.transition = "transform 0.3s ease";
-});
-
-function openDatePicker() {
-  const picker = document.createElement('input');
-  picker.type = 'month';
-  picker.value = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}`;
-  picker.style.opacity = 0;
-  document.body.appendChild(picker);
-  picker.click();
-  picker.addEventListener('change', e => {
-    const [y, m] = e.target.value.split('-');
-    currentYear = parseInt(y); currentMonth = parseInt(m) - 1;
-    document.body.removeChild(picker);
-    renderAll();
+function syncHeights() {
+  const slides = document.querySelectorAll('.calendar-slide');
+  let maxHeight = 0;
+  slides.forEach(slide => {
+    slide.style.height = 'auto';
+    if (slide.offsetHeight > maxHeight) maxHeight = slide.offsetHeight;
+  });
+  slides.forEach(slide => {
+    slide.style.height = maxHeight + 'px';
   });
 }
 
-window.onload = renderAll;
+function renderAllCalendars() {
+  document.getElementById('monthTitle').textContent = `${new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' })} ${currentYear}`;
+
+  renderCalendarMonth(document.getElementById('calendarPrev'), currentMonth - 1 < 0 ? currentYear - 1 : currentYear, currentMonth - 1 < 0 ? 11 : currentMonth - 1);
+  renderCalendarMonth(document.getElementById('calendarCurrent'), currentYear, currentMonth);
+  renderCalendarMonth(document.getElementById('calendarNext'), currentMonth + 1 > 11 ? currentYear + 1 : currentYear, (currentMonth + 1) % 12);
+
+  document.getElementById('calendarWrapper').style.transform = 'translateX(-100%)';
+  syncHeights();
+}
+
+function prevMonth() {
+  currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  renderAllCalendars();
+}
+
+function nextMonth() {
+  currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  renderAllCalendars();
+}
+
+let touchStartX = null;
+let touchStartTime = 0;
+let currentTranslateX = -window.innerWidth;
+const calendarWrapper = document.getElementById('calendarWrapper');
+
+document.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartTime = new Date();
+  calendarWrapper.style.transition = 'none';
+});
+
+document.addEventListener('touchmove', e => {
+  if (touchStartX === null) return;
+  const touchX = e.touches[0].clientX;
+  const diffX = touchX - touchStartX;
+  calendarWrapper.style.transform = `translateX(${currentTranslateX + diffX}px)`;
+});
+
+document.addEventListener('touchend', e => {
+  if (touchStartX === null) return;
+  const diffX = e.changedTouches[0].clientX - touchStartX;
+  const elapsed = new Date() - touchStartTime;
+  calendarWrapper.style.transition = 'transform 0.3s ease';
+
+  if (elapsed < 100 && Math.abs(diffX) < 150) {
+    calendarWrapper.style.transform = 'translateX(-100%)';
+    touchStartX = null;
+    return;
+  }
+
+  if (diffX > 80) {
+    calendarWrapper.style.transform = 'translateX(0)';
+    setTimeout(() => {
+      prevMonth();
+      calendarWrapper.style.transition = 'none';
+      calendarWrapper.style.transform = 'translateX(-100%)';
+    }, 300);
+  } else if (diffX < -80) {
+    calendarWrapper.style.transform = 'translateX(-200%)';
+    setTimeout(() => {
+      nextMonth();
+      calendarWrapper.style.transition = 'none';
+      calendarWrapper.style.transform = 'translateX(-100%)';
+    }, 300);
+  } else {
+    calendarWrapper.style.transform = 'translateX(-100%)';
+  }
+
+  touchStartX = null;
+});
+
+window.onload = renderAllCalendars;
 </script>
 
 </body>
