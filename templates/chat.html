@@ -5,6 +5,7 @@
   <title>Personal AI Bot</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     body { overflow-x: hidden; }
     .chat-bubble {
@@ -20,10 +21,8 @@
     .dark .chat-bubble-assistant { background-color: #4b5563; color: white; }
   </style>
 </head>
-
 <body class="flex flex-col min-h-screen {% if settings.theme == 'dark' %}dark bg-gray-900{% else %}bg-white{% endif %}">
 
-<!-- Navbar -->
 <header class="fixed top-0 w-full flex items-center justify-between p-4 bg-white dark:bg-gray-800 shadow z-50">
   <button onclick="toggleSidebar()" class="text-2xl text-gray-800 dark:text-white">☰</button>
   <h1 class="text-xl font-bold text-gray-900 dark:text-white">Personal AI Bot</h1>
@@ -33,9 +32,12 @@
         <img src="{{ session['user_picture'] }}" class="w-10 h-10 rounded-full">
       </button>
     {% else %}
-      <button onclick="toggleMenu()" class="focus:outline-none">
-        <img src="{{ url_for('static', filename='google_icon.png') }}" class="w-10 h-10 rounded-full">
-      </button>
+      <div id="g_id_onload"
+          data-client_id="YOUR_GOOGLE_CLIENT_ID"
+          data-login_uri="/login"
+          data-auto_prompt="false">
+      </div>
+      <div class="g_id_signin" data-type="standard" data-theme="filled_black" data-size="medium"></div>
     {% endif %}
     <div id="userMenu" class="hidden absolute right-0 mt-2 bg-white dark:bg-gray-700 rounded shadow-lg w-40">
       {% if session.get("user_email") %}
@@ -43,14 +45,11 @@
         <form method="POST" action="/logout">
           <button type="submit" class="block w-full text-left px-4 py-2 text-red-500 hover:bg-gray-100 dark:hover:bg-gray-600">Logout</button>
         </form>
-      {% else %}
-        <a href="/login" class="block px-4 py-2 text-center text-blue-500 hover:bg-gray-100 dark:hover:bg-gray-600">Sign in with Google</a>
       {% endif %}
     </div>
   </div>
 </header>
 
-<!-- Sidebar -->
 <aside id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-white dark:bg-gray-800 transform -translate-x-full transition-transform duration-300 z-40 p-4 shadow">
   <h2 class="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200">Dashboard</h2>
   <nav class="flex flex-col gap-2">
@@ -75,7 +74,6 @@
   </nav>
 </aside>
 
-<!-- Chat Area -->
 <main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 mb-28 flex flex-col gap-4">
   {% for msg in history %}
     <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant{% endif %}">
@@ -84,49 +82,19 @@
   {% endfor %}
 </main>
 
-<!-- Input -->
 <form id="chatForm" method="POST" action="/chat/{{ convo_id }}" class="fixed bottom-0 left-0 w-full bg-white dark:bg-gray-900 p-4 flex justify-center">
   <div class="flex w-full max-w-3xl items-center bg-white dark:bg-gray-800 rounded-2xl shadow px-3 py-2">
-    <textarea id="messageInput" name="message" rows="1" placeholder="Type your message..." class="flex-1 resize-none bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none p-2" required></textarea>
-    <button id="sendButton" type="submit" class="p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full ml-2" disabled>➔</button>
+    <textarea id="messageInput" name="message" rows="1" placeholder="Type your message..." class="flex-1 resize-none bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none p-2"></textarea>
+    <button id="sendButton" type="submit" class="p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full ml-2">➔</button>
   </div>
 </form>
 
 <script>
-function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('-translate-x-full');
-}
-
-function toggleMenu() {
-  document.getElementById('userMenu').classList.toggle('hidden');
-}
-
-function scrollToBottom() {
-  const chatArea = document.getElementById('chatArea');
-  chatArea.scrollTop = chatArea.scrollHeight;
-}
-
-const textarea = document.getElementById('messageInput');
-const sendButton = document.getElementById('sendButton');
-
-textarea.addEventListener('input', () => {
-  textarea.style.height = 'auto';
-  textarea.style.height = (textarea.scrollHeight) + 'px';
-  sendButton.disabled = textarea.value.trim().length === 0;
-});
-
-document.getElementById('chatForm').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    if (!sendButton.disabled) {
-      e.target.submit();
-    }
-  }
-});
-
-window.onload = function() {
-  scrollToBottom();
-};
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('-translate-x-full');}
+function toggleMenu(){document.getElementById('userMenu').classList.toggle('hidden');}
+function scrollToBottom(){chatArea.scrollTop=chatArea.scrollHeight;}
+const chatArea=document.getElementById('chatArea');
+function animateMessages(){let bubbles=chatArea.querySelectorAll('.chat-bubble-assistant');if(!bubbles.length)return;let lastBubble=bubbles[bubbles.length-1];let text=lastBubble.textContent.trim();lastBubble.textContent='';let i=0;let interval=setInterval(()=>{if(i<text.length){lastBubble.textContent+=text.charAt(i);i++;scrollToBottom();}else{clearInterval(interval);}},20);}window.onload=function(){scrollToBottom();animateMessages();};
 </script>
 
 </body>
