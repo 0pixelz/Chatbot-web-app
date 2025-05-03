@@ -159,20 +159,20 @@ def chat(convo_id):
 
         reply = asyncio.run(generate_ai(message))
 
-        if "add to calendar" in message.lower() or "remind me" in message.lower():
-            title, date_text, description = extract_event(reply)
-            event_date = parse_date(date_text)
-            if title and event_date:
-                event_id = str(uuid.uuid4())
-                save_event(uid, event_id, {
-                    "title": sanitize(title),
-                    "description": sanitize(description),
-                    "time": "",
-                    "allDay": True,
-                    "repeat": "none",
-                    "parentId": event_id,
-                    "date": event_date
-                })
+        # Extract event if AI response contains event data
+        title, date_text, description = extract_event(reply)
+        event_date = parse_date(date_text)
+        if title and event_date:
+            event_id = str(uuid.uuid4())
+            save_event(uid, event_id, {
+                "title": sanitize(title),
+                "description": sanitize(description),
+                "time": "",
+                "allDay": True,
+                "repeat": "none",
+                "parentId": event_id,
+                "date": event_date
+            })
 
         history.append({"role": "assistant", "content": reply, "time": now})
         save_user_history(uid, convo_id, history)
@@ -193,6 +193,5 @@ def calendar_page():
         return redirect("/chat")
     return render_template("calendar.html", events=load_events(uid), uid=uid)
 
-# === Run App ===
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
