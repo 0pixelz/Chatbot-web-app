@@ -1,178 +1,139 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Personal AI Bot</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { overflow-x: hidden; }
-    .chat-bubble {
-      max-width: 85%;
-      padding: 10px 15px;
-      border-radius: 1rem;
-      word-break: break-word;
-      overflow-wrap: break-word;
-    }
-    .chat-bubble-user { background-color: #3b82f6; color: white; align-self: flex-end; }
-    .chat-bubble-assistant { background-color: #e5e7eb; color: black; align-self: flex-start; }
-    .dark .chat-bubble-user { background-color: #2563eb; }
-    .dark .chat-bubble-assistant { background-color: #4b5563; color: white; }
-  </style>
+<meta charset="UTF-8">
+<title>My Calendar</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  .calendar-container { position: relative; overflow: hidden; }
+  .calendar-slider { display: flex; transition: transform 0.3s ease; }
+  .calendar-month { min-width: 100%; padding: 10px; }
+  .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+  .calendar-cell { min-height: 80px; border-radius: 8px; background-color: #374151; color: white; padding: 6px; overflow-y: auto; cursor: pointer; }
+  .today { border: 2px solid #60a5fa; background-color: #4b5563; }
+  .event-badge { background-color: #3b82f6; color: white; padding: 4px 6px; border-radius: 6px; font-size: 0.75rem; margin-top: 4px; display: inline-block; }
+</style>
 </head>
+<body class="bg-gray-900 text-white min-h-screen p-4 select-none">
 
-<body class="flex flex-col min-h-screen {% if settings.theme == 'dark' %}dark bg-gray-900{% else %}bg-white{% endif %}">
+<h1 class="text-2xl font-bold mb-4">My Calendar</h1>
 
-<!-- Navbar -->
-<header class="fixed top-0 w-full flex items-center justify-between p-4 bg-white dark:bg-gray-800 shadow z-50">
-  <button onclick="toggleSidebar()" class="text-2xl text-gray-800 dark:text-white">☰</button>
-  <h1 class="text-xl font-bold text-gray-900 dark:text-white">Personal AI Bot</h1>
-  <div>
-    {% if session.get("user_picture") %}
-      <button onclick="toggleMenu()" class="focus:outline-none"><img src="{{ session['user_picture'] }}" class="w-10 h-10 rounded-full"></button>
-    {% else %}
-      <button onclick="toggleMenu()" class="focus:outline-none"><img src="{{ url_for('static', filename='google_icon.png') }}" class="w-10 h-10 rounded-full"></button>
-    {% endif %}
-    <div id="userMenu" class="hidden absolute right-4 mt-2 bg-white dark:bg-gray-700 rounded shadow-lg w-40">
-      {% if session.get("user_email") %}
-        <a href="/settings" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
-        <form method="POST" action="/logout" class="px-4 py-2"><button class="w-full text-left text-red-500 hover:underline">Logout</button></form>
-      {% else %}
-        <a href="/login" class="block px-4 py-2 text-center text-blue-500 hover:underline">Sign in with Google</a>
-      {% endif %}
+<div class="flex justify-center items-center mb-4">
+  <button onclick="goToPrev()" class="px-2 py-1 bg-gray-700 rounded">&lt;</button>
+  <h2 id="monthTitle" class="mx-4 text-lg font-semibold cursor-pointer"></h2>
+  <button onclick="goToNext()" class="px-2 py-1 bg-gray-700 rounded">&gt;</button>
+</div>
+
+<div class="calendar-grid font-semibold text-sm text-gray-400 mb-1 text-center">
+  <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
+</div>
+
+<div class="calendar-container">
+  <div id="slider" class="calendar-slider">
+    <div class="calendar-month" id="prev"></div>
+    <div class="calendar-month" id="current"></div>
+    <div class="calendar-month" id="next"></div>
+  </div>
+</div>
+
+<hr class="border-gray-700 my-6">
+
+<h2 class="text-xl font-semibold mb-2">Your Events:</h2>
+<div id="eventList" class="space-y-2"></div>
+
+<!-- Modal -->
+<div id="modal" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-50">
+  <div class="bg-gray-800 p-6 rounded-lg w-80">
+    <h3 class="text-lg font-bold mb-4">Event Details</h3>
+    <input type="hidden" id="modalDate">
+    <input id="eventName" type="text" placeholder="Event Title" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
+    <textarea id="eventDescription" placeholder="Description" class="w-full mb-2 p-2 rounded bg-gray-700 text-white"></textarea>
+    <input id="eventTime" type="time" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
+    <label class="flex items-center mb-2"><input type="checkbox" id="allDay" class="mr-2"> All Day</label>
+    <select id="repeat" class="w-full mb-4 p-2 rounded bg-gray-700 text-white">
+      <option value="none">No Repeat</option>
+      <option value="daily">Daily</option>
+      <option value="weekly">Weekly</option>
+      <option value="monthly">Monthly</option>
+    </select>
+    <div class="flex space-x-2">
+      <button onclick="saveModal()" class="flex-1 bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded">Save</button>
+      <button onclick="deleteModal()" id="deleteButton" class="hidden flex-1 bg-red-500 hover:bg-red-600 px-4 py-2 rounded">Delete</button>
+      <button onclick="closeModal()" class="flex-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Cancel</button>
     </div>
   </div>
-</header>
-
-<!-- Sidebar -->
-<aside id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-white dark:bg-gray-800 transform -translate-x-full transition-transform duration-300 z-40 p-4 shadow">
-  <h2 class="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200">Dashboard</h2>
-  <nav class="flex flex-col gap-2">
-    {% if session.get("user_email") %}
-      <a href="/start_new_chat" class="text-blue-600 dark:text-blue-400 hover:underline">➕ Start New Chat</a>
-      <a href="/calendar" class="text-blue-600 dark:text-blue-400 hover:underline">📅 Calendar</a>
-      <a href="/settings" class="text-blue-600 dark:text-blue-400 hover:underline">⚙️ Settings</a>
-    {% else %}
-      <div class="text-gray-400">Sign in to access options</div>
-    {% endif %}
-    {% if conversations %}
-      {% for convo_id, convo_data in conversations.items() %}
-        <div class="flex justify-between items-center group">
-          <a href="/chat/{{ convo_id }}" class="truncate w-40 text-gray-700 dark:text-gray-300 hover:underline">
-            {{ convo_data.title if convo_data.title else 'New Chat' }}
-          </a>
-          <form method="POST" action="/delete_conversation/{{ convo_id }}" onsubmit="return confirm('Delete this conversation?')">
-            <button class="text-red-500 opacity-0 group-hover:opacity-100">🗑️</button>
-          </form>
-        </div>
-      {% endfor %}
-    {% endif %}
-  </nav>
-</aside>
-
-<!-- Chat Area -->
-<main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 mb-28 flex flex-col gap-4">
-  {% for msg in history %}
-    <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant{% endif %}">
-      {{ msg.content }}
-    </div>
-  {% endfor %}
-</main>
-
-<!-- Input -->
-<form id="chatForm" method="POST" action="/chat/{{ convo_id }}" class="fixed bottom-0 left-0 w-full bg-white dark:bg-gray-900 p-4 flex justify-center">
-  <div class="flex w-full max-w-3xl items-center bg-white dark:bg-gray-800 rounded-2xl shadow px-3 py-2">
-    <textarea id="messageInput" name="message" rows="1" placeholder="Type your message..." class="flex-1 resize-none bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none p-2" required style="max-height: 300px; overflow-y: auto;"></textarea>
-    <button id="sendButton" type="submit" class="p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full ml-2" disabled>➔</button>
-    <button id="stopButton" type="button" onclick="stopTyping()" class="hidden p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full ml-2">⏹️</button>
-  </div>
-</form>
+</div>
 
 <script>
-let typingInterval = null;
-let isTyping = false;
-
-function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('-translate-x-full');
-}
-
-function toggleMenu() {
-  document.getElementById('userMenu').classList.toggle('hidden');
-}
-
-function scrollToBottom() {
-  const chatArea = document.getElementById('chatArea');
-  chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
-}
-
-function animateMessages() {
-  const chatArea = document.getElementById('chatArea');
-  const bubbles = chatArea.querySelectorAll('.chat-bubble-assistant');
-  if (!bubbles.length) return;
-  const lastBubble = bubbles[bubbles.length - 1];
-  const fullText = lastBubble.textContent.trim();
-  lastBubble.textContent = '';
-  isTyping = true;
-  let i = 0;
-
-  function typeChar() {
-    if (!isTyping) return;
-    if (i < fullText.length) {
-      lastBubble.textContent += fullText.charAt(i);
-      i++;
-      scrollToBottom();
-      typingInterval = setTimeout(typeChar, 15);
-    } else {
-      finishTyping();
-    }
-  }
-  typeChar();
-}
-
-function finishTyping() {
-  document.getElementById('messageInput').disabled = false;
-  document.getElementById('sendButton').disabled = false;
-  document.getElementById('stopButton').classList.add('hidden');
-  isTyping = false;
-  clearTimeout(typingInterval);
-}
-
-function stopTyping() {
-  isTyping = false;
-  finishTyping();
-}
-
-const textarea = document.getElementById('messageInput');
-const sendButton = document.getElementById('sendButton');
-const chatForm = document.getElementById('chatForm');
-
-textarea.addEventListener('input', () => {
-  textarea.style.height = 'auto';
-  textarea.style.height = (textarea.scrollHeight) + 'px';
-  sendButton.disabled = textarea.value.trim().length === 0;
-});
-
-chatForm.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    if (!sendButton.disabled && !textarea.disabled) {
-      chatForm.submit();
-      textarea.value = '';
-      sendButton.disabled = true;
-    }
-  }
-});
-
-textarea.addEventListener('focus', () => {
-  document.getElementById('sidebar').classList.add('-translate-x-full');
-  setTimeout(() => { scrollToBottom(); }, 300);
-});
-
-window.onload = function() {
-  scrollToBottom();
-  animateMessages();
+// Firebase initialization
+const firebaseConfig = {
+  apiKey: "YOUR-API-KEY",
+  authDomain: "YOUR-PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR-PROJECT.firebaseio.com",
+  projectId: "YOUR-PROJECT",
 };
-</script>
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const uid = "{{ uid }}";
 
+let events = {};
+function loadEvents() {
+  firebase.database().ref('events/' + uid).on('value', (snapshot) => {
+    events = snapshot.val() || {};
+    renderAll();
+  });
+}
+
+// Calendar functions (render, navigation, swipe)
+function shouldShowEvent(dateStr, e) {
+  const eventDate = new Date(e.date);
+  const checkDate = new Date(dateStr);
+  return eventDate.toDateString() === checkDate.toDateString() ||
+    (e.repeat === "daily") ||
+    (e.repeat === "weekly" && eventDate.getDay() === checkDate.getDay()) ||
+    (e.repeat === "monthly" && eventDate.getDate() === checkDate.getDate());
+}
+
+let currentMonth = new Date().getMonth(), currentYear = new Date().getFullYear();
+
+function renderAll() {
+  document.getElementById('monthTitle').textContent = new Date(currentYear, currentMonth).toLocaleDateString('default', {month:'long',year:'numeric'});
+  ["prev","current","next"].forEach((id,i)=>renderCalendar(currentYear,currentMonth-1+i,document.getElementById(id)));
+  document.getElementById('slider').style.transform = 'translateX(-100%)';
+  renderEventList();
+}
+
+function renderCalendar(y,m,c) {
+  let d=new Date(y,m,1),html='',f=d.getDay(),days=new Date(y,m+1,0).getDate();
+  html+="<div class='calendar-grid'>"+'<div></div>'.repeat(f);
+  for(let i=1;i<=days;i++){
+    let dt=`${y}-${(m+1).toString().padStart(2,'0')}-${i.toString().padStart(2,'0')}`;
+    let t=dt===new Date().toISOString().split('T')[0];
+    html+=`<div onclick="openModal('${dt}')" class='calendar-cell ${t?'today':''}'>${i}${renderEvents(dt)}</div>`;
+  }
+  c.innerHTML=html+'</div>';
+}
+
+function renderEvents(d){return Object.values(events).filter(e=>shouldShowEvent(d,e)).map(e=>`<span class="event-badge">${e.title}</span>`).join('');}
+
+function renderEventList(){
+  let html=Object.values(events).map(e=>`<div class="p-2 bg-gray-800 rounded">${e.title}<br>${e.date}${e.allDay?"(All Day)":" "+e.time}<br>${e.description||''}</div>`).join('');
+  document.getElementById('eventList').innerHTML=html||"<p>No events this month.</p>";
+}
+
+// Modal functions
+window.openModal=(d)=>{modalDate.value=d;modal.style.display="flex";}
+window.closeModal=()=>modal.style.display="none";
+window.saveModal=()=>{
+  let id=db.ref().push().key;events[id]={date:modalDate.value,title:eventName.value,time:eventTime.value,allDay:allDay.checked,description:eventDescription.value,repeat:repeat.value};
+  db.ref('events/'+uid+'/'+id).set(events[id]);closeModal();}
+window.deleteModal=()=>{db.ref('events/'+uid+'/'+deleteTargetId).remove();closeModal();}
+
+// Swipe & init
+window.onload=()=>loadEvents();
+</script>
 </body>
 </html>
