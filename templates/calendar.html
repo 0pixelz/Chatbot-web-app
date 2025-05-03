@@ -1,4 +1,4 @@
-
+<!-- MERGED calendar(backup).html with swipe logic from calendar_final_with_modal_event_edit_delete.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -36,18 +36,11 @@
       text-align: center;
       cursor: pointer;
     }
-    .calendar-container {
-      position: relative;
-      overflow: hidden;
-    }
     .calendar-wrapper {
-      display: flex;
+      display: grid;
+      grid-template-columns: 100% 100% 100%;
       transition: transform 0.3s ease;
       will-change: transform;
-    }
-    .calendar-slide {
-      min-width: 100%;
-      box-sizing: border-box;
     }
   </style>
 </head>
@@ -59,7 +52,7 @@
 
 <div class="flex justify-center items-center space-x-4 mb-2">
   <button onclick="prevMonth()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&lt;</button>
-  <h2 id="monthTitle" onclick="openDatePicker()" class="text-lg font-semibold cursor-pointer select-none"></h2>
+  <h2 id="monthTitle" class="text-lg font-semibold cursor-pointer select-none"></h2>
   <button onclick="nextMonth()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&gt;</button>
 </div>
 
@@ -67,11 +60,11 @@
   <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
 </div>
 
-<div class="calendar-container mb-4">
-  <div class="calendar-wrapper" id="calendarWrapper">
-    <div class="calendar-grid text-center calendar-slide" id="calendarPrev"></div>
-    <div class="calendar-grid text-center calendar-slide" id="calendarCurrent"></div>
-    <div class="calendar-grid text-center calendar-slide" id="calendarNext"></div>
+<div class="calendar-container mb-4 overflow-hidden">
+  <div id="calendarWrapper" class="calendar-wrapper">
+    <div id="calendarPrev" class="calendar-grid"></div>
+    <div id="calendarCurrent" class="calendar-grid"></div>
+    <div id="calendarNext" class="calendar-grid"></div>
   </div>
 </div>
 
@@ -86,104 +79,67 @@
 let now = new Date();
 let currentMonth = now.getMonth();
 let currentYear = now.getFullYear();
-const events = {};
-let deleteTargetId = null, deleteTargetParent = null;
+let events = {};
+let currentTranslateX = -window.innerWidth;
 
 function renderCalendarMonth(container, year, month) {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   let html = "";
-
   for (let i = 0; i < firstDay; i++) html += `<div></div>`;
   for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const today = new Date().toDateString() === new Date(year, month, day).toDateString();
-    html += `<div class="calendar-cell ${today ? 'today' : ''}"><div class="text-sm">${day}</div></div>`;
+    html += `<div class="calendar-cell ${today ? 'today' : ''}"><div class="text-sm">${day}</div>${renderEvents(dateStr)}</div>`;
   }
   container.innerHTML = html;
 }
 
-function syncHeights() {
-  const slides = document.querySelectorAll('.calendar-slide');
-  let maxHeight = 0;
-  slides.forEach(slide => {
-    slide.style.height = 'auto';
-    if (slide.offsetHeight > maxHeight) maxHeight = slide.offsetHeight;
-  });
-  slides.forEach(slide => {
-    slide.style.height = maxHeight + 'px';
-  });
+function renderEvents(dateStr) {
+  let out = "";
+  for (const [id, evt] of Object.entries(events)) {
+    if (evt.date === dateStr) {
+      out += `<span class="event-badge">${evt.title}</span>`;
+    }
+  }
+  return out;
 }
 
 function renderAllCalendars() {
   document.getElementById('monthTitle').textContent = `${new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' })} ${currentYear}`;
-
   renderCalendarMonth(document.getElementById('calendarPrev'), currentMonth - 1 < 0 ? currentYear - 1 : currentYear, currentMonth - 1 < 0 ? 11 : currentMonth - 1);
   renderCalendarMonth(document.getElementById('calendarCurrent'), currentYear, currentMonth);
   renderCalendarMonth(document.getElementById('calendarNext'), currentMonth + 1 > 11 ? currentYear + 1 : currentYear, (currentMonth + 1) % 12);
-
   document.getElementById('calendarWrapper').style.transform = 'translateX(-100%)';
-  syncHeights();
 }
 
 function prevMonth() {
   currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; }
   renderAllCalendars();
 }
-
 function nextMonth() {
   currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; }
   renderAllCalendars();
 }
 
+// Swipe logic from FINAL FILE -->
 let touchStartX = null;
 let touchStartTime = 0;
-let currentTranslateX = -window.innerWidth;
 const calendarWrapper = document.getElementById('calendarWrapper');
 
-document.addEventListener('touchstart', e => {
-  touchStartX = e.touches[0].clientX;
-  touchStartTime = new Date();
-  calendarWrapper.style.transition = 'none';
-});
-
-document.addEventListener('touchmove', e => {
-  if (touchStartX === null) return;
-  const touchX = e.touches[0].clientX;
-  const diffX = touchX - touchStartX;
-  calendarWrapper.style.transform = `translateX(${currentTranslateX + diffX}px)`;
-});
-
+document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; touchStartTime = new Date(); calendarWrapper.style.transition = 'none'; });
+document.addEventListener('touchmove', e => { if (touchStartX === null) return; const diffX = e.touches[0].clientX - touchStartX; calendarWrapper.style.transform = `translateX(${currentTranslateX + diffX}px)`; });
 document.addEventListener('touchend', e => {
   if (touchStartX === null) return;
   const diffX = e.changedTouches[0].clientX - touchStartX;
   const elapsed = new Date() - touchStartTime;
   calendarWrapper.style.transition = 'transform 0.3s ease';
 
-  if (elapsed < 100 && Math.abs(diffX) < 150) {
-    calendarWrapper.style.transform = 'translateX(-100%)';
-    touchStartX = null;
-    return;
-  }
+  if (elapsed < 100 && Math.abs(diffX) < 150) { calendarWrapper.style.transform = 'translateX(-100%)'; touchStartX = null; return; }
 
-  if (diffX > 80) {
-    calendarWrapper.style.transform = 'translateX(0)';
-    setTimeout(() => {
-      prevMonth();
-      calendarWrapper.style.transition = 'none';
-      calendarWrapper.style.transform = 'translateX(-100%)';
-    }, 300);
-  } else if (diffX < -80) {
-    calendarWrapper.style.transform = 'translateX(-200%)';
-    setTimeout(() => {
-      nextMonth();
-      calendarWrapper.style.transition = 'none';
-      calendarWrapper.style.transform = 'translateX(-100%)';
-    }, 300);
-  } else {
-    calendarWrapper.style.transform = 'translateX(-100%)';
-  }
-
+  if (diffX > 80) { calendarWrapper.style.transform = 'translateX(0)'; setTimeout(() => { prevMonth(); calendarWrapper.style.transform = 'translateX(-100%)'; }, 300); }
+  else if (diffX < -80) { calendarWrapper.style.transform = 'translateX(-200%)'; setTimeout(() => { nextMonth(); calendarWrapper.style.transform = 'translateX(-100%)'; }, 300); }
+  else calendarWrapper.style.transform = 'translateX(-100%)';
   touchStartX = null;
 });
 
