@@ -44,8 +44,8 @@
 <h2 class="text-xl font-semibold mb-2">Your Events:</h2>
 <div id="eventList" class="space-y-2"></div>
 
-<!-- Firebase -->
 <script>
+// Firebase Config
 const firebaseConfig = {
   apiKey: "YOUR-API-KEY",
   authDomain: "YOUR-PROJECT.firebaseapp.com",
@@ -69,12 +69,12 @@ function shouldShowEvent(dateStr, e) {
   const eventDateStr = (e.date || '').trim();
   if (eventDateStr === dateStr) return true;
 
-  const eventDate = new Date(eventDateStr);
-  const checkDate = new Date(dateStr);
+  const eventDate = new Date(eventDateStr + "T00:00:00Z");
+  const checkDate = new Date(dateStr + "T00:00:00Z");
 
   if (e.repeat === "daily") return true;
-  if (e.repeat === "weekly" && eventDate.getDay() === checkDate.getDay()) return true;
-  if (e.repeat === "monthly" && eventDate.getDate() === checkDate.getDate()) return true;
+  if (e.repeat === "weekly" && eventDate.getUTCDay() === checkDate.getUTCDay()) return true;
+  if (e.repeat === "monthly" && eventDate.getUTCDate() === checkDate.getUTCDate()) return true;
 
   return false;
 }
@@ -105,7 +105,7 @@ function renderCalendar({year, month}, container) {
   for (let i = 0; i < firstDay; i++) html += `<div></div>`;
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const today = new Date().toDateString() === new Date(year, month, day).toDateString();
+    const today = new Date().toISOString().slice(0,10) === dateStr;
     html += `<div class="calendar-cell ${today ? 'today' : ''}"><div>${day}</div>${renderEvents(dateStr)}</div>`;
   }
   container.innerHTML = `<div class="calendar-grid">${html}</div>`;
@@ -120,8 +120,8 @@ function renderEventList() {
   const list = document.getElementById('eventList');
   const eventHTML = Object.entries(events).filter(([id, e]) => {
     for (let d = 1; d <= 31; d++) {
-        const checkDate = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-        if (shouldShowEvent(checkDate, e)) return true;
+      const checkDate = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      if (shouldShowEvent(checkDate, e)) return true;
     }
     return false;
   }).map(([id, e]) => `<div class="p-2 bg-gray-800 rounded"><strong>${e.title}</strong><br>${e.date} ${e.allDay ? "(All Day)" : e.time}<br><span class="text-xs">${e.description}</span></div>`);
@@ -131,6 +131,42 @@ function renderEventList() {
 
 function goToPrev() { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } renderAll(); }
 function goToNext() { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } renderAll(); }
+
+// Swipe Support
+let startX = 0, currentX = 0, startTime = 0, isSwiping = false;
+
+document.addEventListener('touchstart', e => {
+  startX = e.touches[0].clientX;
+  currentX = startX;
+  startTime = Date.now();
+  isSwiping = true;
+  document.getElementById('slider').style.transition = "none";
+});
+
+document.addEventListener('touchmove', e => {
+  if (!isSwiping) return;
+  currentX = e.touches[0].clientX;
+  const diffX = currentX - startX;
+  document.getElementById('slider').style.transform = `translateX(${diffX - window.innerWidth}px)`;
+});
+
+document.addEventListener('touchend', () => {
+  if (!isSwiping) return;
+  isSwiping = false;
+  const diffX = currentX - startX;
+  const velocity = diffX / (Date.now() - startTime);
+  document.getElementById('slider').style.transition = "transform 0.3s ease";
+
+  if (velocity > 0.5 || diffX > window.innerWidth / 3) {
+    document.getElementById('slider').style.transform = `translateX(0)`;
+    setTimeout(goToPrev, 300);
+  } else if (velocity < -0.5 || diffX < -window.innerWidth / 3) {
+    document.getElementById('slider').style.transform = `translateX(-200%)`;
+    setTimeout(goToNext, 300);
+  } else {
+    document.getElementById('slider').style.transform = `translateX(-100%)`;
+  }
+});
 
 window.onload = loadEvents;
 </script>
