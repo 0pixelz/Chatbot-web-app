@@ -176,7 +176,7 @@ def oauth_callback():
 @app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
-    return redirect("/login")
+    return redirect("https://accounts.google.com/Logout?continue=https://yourapp.com")
 
 @app.route("/chat")
 def chat_redirect():
