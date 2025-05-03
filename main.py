@@ -97,6 +97,7 @@ def parse_date(date_text):
         return None
 
 # === Flask Routes ===
+
 @app.route("/")
 def home():
     return redirect("/chat")
@@ -159,9 +160,9 @@ def chat(convo_id):
 
         reply = asyncio.run(generate_ai(message))
 
-        # Extract event if AI response contains event data
         title, date_text, description = extract_event(reply)
         event_date = parse_date(date_text)
+
         if title and event_date:
             event_id = str(uuid.uuid4())
             save_event(uid, event_id, {
@@ -192,6 +193,38 @@ def calendar_page():
     if not uid:
         return redirect("/chat")
     return render_template("calendar.html", events=load_events(uid), uid=uid)
+
+@app.route("/save_event/<event_id>", methods=["POST"])
+def save_event_route(event_id):
+    uid = session.get("user_email")
+    if not uid:
+        return "Unauthorized", 401
+
+    data = request.get_json()
+    if not data:
+        return "No data", 400
+
+    sanitized_data = {
+        "title": sanitize(data.get("title", "")),
+        "description": sanitize(data.get("description", "")),
+        "date": data.get("date"),
+        "time": data.get("time", ""),
+        "allDay": data.get("allDay", True),
+        "repeat": data.get("repeat", "none"),
+        "parentId": data.get("parentId") or event_id
+    }
+
+    save_event(uid, event_id, sanitized_data)
+    return "Saved", 200
+
+@app.route("/delete_event/<event_id>", methods=["POST"])
+def delete_event_route(event_id):
+    uid = session.get("user_email")
+    if not uid:
+        return "Unauthorized", 401
+
+    delete_event(uid, event_id)
+    return "Deleted", 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
