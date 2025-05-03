@@ -14,7 +14,7 @@
   .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
   .calendar-cell { min-height: 80px; border-radius: 8px; background-color: #374151; color: white; padding: 6px; overflow-y: auto; cursor: pointer; }
   .today { border: 2px solid #60a5fa; background-color: #4b5563; }
-  .event-badge { background: #60a5fa; color: white; padding: 2px 6px; border-radius: 6px; font-size: 0.75rem; margin-top: 4px; display: block; }
+  .event-badge { background-color: #3b82f6; color: white; padding: 4px 6px; border-radius: 6px; font-size: 0.75rem; margin-top: 4px; display: inline-block; }
 </style>
 </head>
 <body class="bg-gray-900 text-white min-h-screen p-4 select-none">
@@ -45,7 +45,7 @@
 <div id="eventList" class="space-y-2"></div>
 
 <script>
-// Firebase Config
+// Firebase
 const firebaseConfig = {
   apiKey: "YOUR-API-KEY",
   authDomain: "YOUR-PROJECT.firebaseapp.com",
@@ -66,15 +66,17 @@ function loadEvents() {
 
 function shouldShowEvent(dateStr, e) {
   if (!e.date) return false;
-  const eventDateStr = (e.date || '').trim();
-  if (eventDateStr === dateStr) return true;
 
-  const eventDate = new Date(eventDateStr + "T00:00:00Z");
-  const checkDate = new Date(dateStr + "T00:00:00Z");
+  const eventDate = new Date(e.date);
+  const checkDate = new Date(dateStr + "T00:00:00");
+
+  if (eventDate.getFullYear() === checkDate.getFullYear() &&
+      eventDate.getMonth() === checkDate.getMonth() &&
+      eventDate.getDate() === checkDate.getDate()) return true;
 
   if (e.repeat === "daily") return true;
-  if (e.repeat === "weekly" && eventDate.getUTCDay() === checkDate.getUTCDay()) return true;
-  if (e.repeat === "monthly" && eventDate.getUTCDate() === checkDate.getUTCDate()) return true;
+  if (e.repeat === "weekly" && eventDate.getDay() === checkDate.getDay()) return true;
+  if (e.repeat === "monthly" && eventDate.getDate() === checkDate.getDate()) return true;
 
   return false;
 }
@@ -132,7 +134,7 @@ function renderEventList() {
 function goToPrev() { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } renderAll(); }
 function goToNext() { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } renderAll(); }
 
-// Swipe Support
+// Swipe
 let startX = 0, currentX = 0, startTime = 0, isSwiping = false;
 
 document.addEventListener('touchstart', e => {
