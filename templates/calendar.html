@@ -81,6 +81,7 @@
 </div>
 
 <script>
+// Firebase config
 const firebaseConfig = {
   apiKey: "YOUR-API-KEY",
   authDomain: "YOUR-PROJECT.firebaseapp.com",
@@ -90,8 +91,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-const urlParams = new URLSearchParams(window.location.search);
-const uid = urlParams.get('gmail') || localStorage.getItem('gmail');
+// Get uid from server passed context
+const uid = "{{ uid }}";
+
 let events = {};
 let deleteTargetId = null, deleteTargetParent = null;
 
