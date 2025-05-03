@@ -81,7 +81,6 @@
 </div>
 
 <script>
-// Firebase
 const firebaseConfig = {
   apiKey: "YOUR-API-KEY",
   authDomain: "YOUR-PROJECT.firebaseapp.com",
@@ -97,14 +96,10 @@ let events = {};
 let deleteTargetId = null, deleteTargetParent = null;
 
 function loadEvents() {
-  firebase.database().ref('calendarEvents/' + uid).on('value', (snapshot) => {
+  firebase.database().ref('events/' + uid).on('value', (snapshot) => {
     events = snapshot.val() || {};
     renderAll();
   });
-}
-
-function saveEvents() {
-  firebase.database().ref('calendarEvents/' + uid).set(events);
 }
 
 function shouldShowEvent(dateStr, e) {
@@ -206,7 +201,7 @@ function saveModal() {
     repeat: document.getElementById('repeat').value,
     parentId: document.getElementById('modal').dataset.parentId || crypto.randomUUID()
   };
-  saveEvents();
+  firebase.database().ref('events/' + uid).set(events);
   closeModal(); renderAll();
 }
 
@@ -223,7 +218,7 @@ function closeDeleteModal() {
 function confirmDelete(mode) {
   if (mode === 'all') for (const id in events) if (events[id].parentId === deleteTargetParent) delete events[id];
   else delete events[deleteTargetId];
-  saveEvents();
+  firebase.database().ref('events/' + uid).set(events);
   closeDeleteModal(); closeModal(); renderAll();
 }
 
