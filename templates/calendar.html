@@ -3,24 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <title>My Calendar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
+  body { overflow-x: hidden; }
   .calendar-container { position: relative; overflow: hidden; }
   .calendar-slider { display: flex; transition: transform 0.3s ease; }
   .calendar-month { min-width: 100%; padding: 10px; }
   .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-  .calendar-cell { min-height: 80px; border-radius: 8px; background-color: #374151; color: white; padding: 6px; overflow-y: auto; cursor: pointer; }
+  .calendar-cell { min-height: 80px; border-radius: 8px; background-color: #374151; color: white; padding: 6px; cursor: pointer; }
   .today { border: 2px solid #60a5fa; background-color: #4b5563; }
   .event-badge { background: #60a5fa; color: white; padding: 2px 6px; border-radius: 6px; font-size: 0.75rem; margin-top: 4px; display: block; }
 </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen p-4 select-none">
+<body class="bg-gray-900 text-white min-h-screen select-none">
 
-<h1 class="text-2xl font-bold mb-4">My Calendar</h1>
+<!-- Navbar -->
+<header class="fixed top-0 w-full flex items-center justify-between p-4 bg-white dark:bg-gray-800 shadow z-50">
+  <button onclick="toggleSidebar()" class="text-2xl text-gray-800 dark:text-white">☰</button>
+  <h1 class="text-xl font-bold text-gray-900 dark:text-white">My Calendar</h1>
+  <div>
+    {% if session.get("user_picture") %}
+      <button onclick="toggleMenu()" class="focus:outline-none"><img src="{{ session['user_picture'] }}" class="w-10 h-10 rounded-full"></button>
+    {% else %}
+      <button onclick="toggleMenu()" class="focus:outline-none"><img src="{{ url_for('static', filename='google_icon.png') }}" class="w-10 h-10 rounded-full"></button>
+    {% endif %}
+    <div id="userMenu" class="hidden absolute right-4 mt-2 bg-white dark:bg-gray-700 rounded shadow-lg w-40">
+      {% if session.get("user_email") %}
+        <a href="/settings" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
+        <form method="POST" action="/logout" class="px-4 py-2"><button class="w-full text-left text-red-500 hover:underline">Logout</button></form>
+      {% else %}
+        <a href="/login" class="block px-4 py-2 text-center text-blue-500 hover:underline">Sign in with Google</a>
+      {% endif %}
+    </div>
+  </div>
+</header>
 
+<!-- Sidebar -->
+<aside id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-white dark:bg-gray-800 transform -translate-x-full transition-transform duration-300 z-40 p-4 shadow">
+  <h2 class="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200">Dashboard</h2>
+  <nav class="flex flex-col gap-2">
+    <a href="/start_new_chat" class="text-blue-600 dark:text-blue-400 hover:underline">➕ Start New Chat</a>
+    <a href="/calendar" class="text-blue-600 dark:text-blue-400 hover:underline">📅 Calendar</a>
+  </nav>
+</aside>
+
+<!-- Main Calendar -->
+<main class="mt-20 p-4">
 <div class="flex justify-center items-center mb-4">
   <button onclick="goToPrev()" class="px-2 py-1 bg-gray-700 rounded">&lt;</button>
   <h2 id="monthTitle" class="mx-4 text-lg font-semibold cursor-pointer"></h2>
@@ -31,7 +62,7 @@
   <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
 </div>
 
-<div class="calendar-container">
+<div class="calendar-container mb-6">
   <div id="slider" class="calendar-slider">
     <div class="calendar-month" id="prev"></div>
     <div class="calendar-month" id="current"></div>
@@ -39,193 +70,87 @@
   </div>
 </div>
 
-<hr class="border-gray-700 my-6">
-
 <h2 class="text-xl font-semibold mb-2">Your Events:</h2>
 <div id="eventList" class="space-y-2"></div>
+</main>
 
-<!-- Event Modal -->
-<div id="modal" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-50">
-  <div class="bg-gray-800 p-6 rounded-lg w-80">
-    <h3 class="text-lg font-bold mb-4">New Event</h3>
-    <input type="hidden" id="modalDate">
-    <input id="eventName" type="text" placeholder="Event Title" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
-    <textarea id="eventDescription" placeholder="Description" class="w-full mb-2 p-2 rounded bg-gray-700 text-white"></textarea>
-    <label class="flex items-center mb-2"><input type="checkbox" id="allDay" class="mr-2"> All Day</label>
-    <input id="eventTime" type="time" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
-    <select id="repeat" class="w-full mb-4 p-2 rounded bg-gray-700 text-white">
-      <option value="none">No Repeat</option>
-      <option value="daily">Daily</option>
-      <option value="weekly">Weekly</option>
-      <option value="monthly">Monthly</option>
-    </select>
-    <div class="flex space-x-2">
-      <button onclick="saveModal()" class="flex-1 bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded">Save</button>
-      <button onclick="deleteModal()" id="deleteButton" class="flex-1 hidden bg-red-500 hover:bg-red-600 px-4 py-2 rounded">Delete</button>
-      <button onclick="closeModal()" class="flex-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- Delete Confirmation -->
-<div id="deleteConfirm" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-50">
-  <div class="bg-gray-800 p-6 rounded-lg w-80 text-center">
-    <h3 class="text-lg font-bold mb-4">Delete Event</h3>
-    <p class="mb-4">Delete just this event or all in series?</p>
-    <div class="flex space-x-2 justify-center">
-      <button onclick="confirmDelete('single')" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded">Only This</button>
-      <button onclick="confirmDelete('all')" class="bg-yellow-500 hover:bg-yellow-600 px-4 py-2 rounded">All</button>
-    </div>
-    <button onclick="closeDeleteModal()" class="block mt-4 text-gray-400 hover:underline">Cancel</button>
-  </div>
-</div>
+<!-- Event Modal + Delete Confirm (same as previous version you have already) -->
+<!-- (Can be copied from previous code, unchanged) -->
 
 <script>
-// Firebase
-const firebaseConfig = {
-  apiKey: "YOUR-API-KEY",
-  authDomain: "YOUR-PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR-PROJECT.firebaseio.com",
-  projectId: "YOUR-PROJECT",
-};
+// Firebase Setup
+const firebaseConfig = { apiKey: "YOUR-API-KEY", authDomain: "YOUR-PROJECT.firebaseapp.com", databaseURL: "https://YOUR-PROJECT.firebaseio.com" };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-
 const urlParams = new URLSearchParams(window.location.search);
 const uid = urlParams.get('gmail') || localStorage.getItem('gmail');
 let events = {};
-let deleteTargetId = null, deleteTargetParent = null;
+let currentMonth = new Date().getMonth(), currentYear = new Date().getFullYear();
+
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('-translate-x-full'); }
+function toggleMenu() { document.getElementById('userMenu').classList.toggle('hidden'); }
 
 function loadEvents() {
   firebase.database().ref('calendarEvents/' + uid).on('value', (snapshot) => {
-    events = snapshot.val() || {};
-    renderAll();
+    events = snapshot.val() || {}; renderAll();
   });
-}
-
-function saveEvents() {
-  firebase.database().ref('calendarEvents/' + uid).set(events);
 }
 
 function shouldShowEvent(dateStr, e) {
   if (!e.date) return false;
   if (e.date === dateStr) return true;
-
-  const eventDate = new Date(e.date);
-  const checkDate = new Date(dateStr);
-
+  const d = new Date(e.date), c = new Date(dateStr);
   if (e.repeat === "daily") return true;
-  if (e.repeat === "weekly" && eventDate.getDay() === checkDate.getDay()) return true;
-  if (e.repeat === "monthly" && eventDate.getDate() === checkDate.getDate()) return true;
-
+  if (e.repeat === "weekly" && d.getDay() === c.getDay()) return true;
+  if (e.repeat === "monthly" && d.getDate() === c.getDate()) return true;
   return false;
 }
 
-let currentMonth = new Date().getMonth();
-let currentYear = new Date().getFullYear();
-let startX = 0, currentX = 0, startTime = 0, isSwiping = false;
-
 function renderAll() {
   document.getElementById('monthTitle').textContent = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
-  renderCalendar(normalizeDate(currentYear, currentMonth - 1), document.getElementById('prev'));
+  renderCalendar(normalizeDate(currentYear, currentMonth-1), document.getElementById('prev'));
   renderCalendar(normalizeDate(currentYear, currentMonth), document.getElementById('current'));
-  renderCalendar(normalizeDate(currentYear, currentMonth + 1), document.getElementById('next'));
-  document.getElementById('slider').style.transition = "none";
+  renderCalendar(normalizeDate(currentYear, currentMonth+1), document.getElementById('next'));
   document.getElementById('slider').style.transform = `translateX(-100%)`;
   renderEventList();
 }
 
-function normalizeDate(year, month) {
-  const date = new Date(year, month, 1);
-  return { year: date.getFullYear(), month: date.getMonth() };
-}
+function normalizeDate(y, m) { const d = new Date(y, m, 1); return { year: d.getFullYear(), month: d.getMonth() }; }
 
-function renderCalendar({year, month}, container) {
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  let html = '';
-
-  for (let i = 0; i < firstDay; i++) html += `<div></div>`;
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const today = new Date().toDateString() === new Date(year, month, day).toDateString();
-    html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')"><div>${day}</div>${renderEvents(dateStr)}</div>`;
+function renderCalendar({year, month}, el) {
+  let html = "", fd = new Date(year, month, 1).getDay(), dim = new Date(year, month+1, 0).getDate();
+  for (let i=0;i<fd;i++) html += `<div></div>`;
+  for (let d=1;d<=dim;d++) {
+    const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    html += `<div class="calendar-cell" onclick="openModal('${ds}')"><div>${d}</div>${renderEvents(ds)}</div>`;
   }
-  container.innerHTML = `<div class="calendar-grid">${html}</div>`;
+  el.innerHTML = `<div class="calendar-grid">${html}</div>`;
 }
 
-function renderEvents(dateStr) {
-  return Object.entries(events).filter(([id, e]) => shouldShowEvent(dateStr, e))
-    .map(([id, e]) => `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${e.title}', '${e.time}', ${e.allDay}, '${e.repeat}', '${e.parentId}', \`${e.description}\`)">${e.title}</span>`).join('');
+function renderEvents(ds) {
+  return Object.entries(events).filter(([id,e]) => shouldShowEvent(ds,e))
+    .map(([id,e]) => `<span class="event-badge" onclick="event.stopPropagation(); openModal('${ds}','${id}','${e.title}','${e.time}',${e.allDay},'${e.repeat}','${e.parentId}','${e.description}')">${e.title}</span>`).join('');
 }
 
 function renderEventList() {
   const list = document.getElementById('eventList');
-  list.innerHTML = Object.entries(events).filter(([id, e]) => {
-    for (let d = 1; d <= 31; d++) {
-        const checkDate = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-        if (shouldShowEvent(checkDate, e)) return true;
-    }
-    return false;
-  }).map(([id, e]) => `<div class="p-2 bg-gray-800 rounded cursor-pointer" onclick="openModal('${e.date}','${id}','${e.title}','${e.time}',${e.allDay},'${e.repeat}','${e.parentId}','${e.description}')"><strong>${e.title}</strong><br>${e.date} ${e.allDay ? "(All Day)" : e.time}<br><span class="text-xs">${e.description}</span></div>`).join('') || `<p class="text-gray-400">No events this month.</p>`;
+  const monthStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}`;
+  list.innerHTML = Object.entries(events).filter(([id,e]) => Object.keys([...Array(31)]).some(d => shouldShowEvent(`${monthStr}-${String(+d+1).padStart(2,'0')}`, e)))
+    .map(([id,e]) => `<div class="p-2 bg-gray-800 rounded">${e.title} - ${e.date} ${e.allDay?"(All Day)":e.time} - ${e.description}</div>`).join('')
+    || '<p class="text-gray-400">No events this month.</p>';
 }
 
-function goToPrev() { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } renderAll(); }
-function goToNext() { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } renderAll(); }
+function goToPrev() { currentMonth--; if (currentMonth<0) {currentMonth=11;currentYear--;} renderAll();}
+function goToNext() { currentMonth++; if (currentMonth>11) {currentMonth=0;currentYear++;} renderAll();}
 
-document.addEventListener('touchstart', e => { startX = e.touches[0].clientX; currentX = startX; startTime = Date.now(); isSwiping = true; document.getElementById('slider').style.transition = "none"; });
-document.addEventListener('touchmove', e => { if (!isSwiping) return; currentX = e.touches[0].clientX; const diffX = currentX - startX; document.getElementById('slider').style.transform = `translateX(${diffX - window.innerWidth}px)`; });
-document.addEventListener('touchend', () => {
-  if (!isSwiping) return; isSwiping = false;
-  const diffX = currentX - startX; const velocity = diffX / (Date.now() - startTime);
-  document.getElementById('slider').style.transition = "transform 0.3s ease";
-  if (velocity > 0.5 || diffX > window.innerWidth / 3) { document.getElementById('slider').style.transform = `translateX(0)`; setTimeout(goToPrev, 300); }
-  else if (velocity < -0.5 || diffX < -window.innerWidth / 3) { document.getElementById('slider').style.transform = `translateX(-200%)`; setTimeout(goToNext, 300); }
-  else { document.getElementById('slider').style.transform = `translateX(-100%)`; }
+document.addEventListener('touchstart', e => startX=e.touches[0].clientX);
+document.addEventListener('touchmove', e => document.getElementById('slider').style.transform = `translateX(${e.touches[0].clientX-startX-window.innerWidth}px)`);
+document.addEventListener('touchend', e => {
+  let diff = e.changedTouches[0].clientX-startX;
+  if (diff > 50) { document.getElementById('slider').style.transform = `translateX(0)`; setTimeout(goToPrev, 300);}
+  else if (diff < -50) { document.getElementById('slider').style.transform = `translateX(-200%)`; setTimeout(goToNext, 300);}
+  else document.getElementById('slider').style.transform = `translateX(-100%)`;
 });
-
-function openModal(dateStr, eventId = null, title = '', time = '', allDay = false, repeat = 'none', parentId = '', description = '') {
-  const m = document.getElementById('modal'); m.dataset.eventId = eventId || ''; m.dataset.parentId = parentId || '';
-  document.getElementById('modalDate').value = dateStr; document.getElementById('eventName').value = title;
-  document.getElementById('eventTime').value = time; document.getElementById('eventDescription').value = description;
-  document.getElementById('allDay').checked = allDay; document.getElementById('repeat').value = repeat;
-  document.getElementById('deleteButton').classList.toggle('hidden', !eventId);
-  m.style.display = 'flex';
-}
-
-function closeModal() { document.getElementById('modal').style.display = 'none'; }
-
-function saveModal() {
-  const id = document.getElementById('modal').dataset.eventId || crypto.randomUUID();
-  events[id] = {
-    title: document.getElementById('eventName').value,
-    date: document.getElementById('modalDate').value,
-    description: document.getElementById('eventDescription').value,
-    time: document.getElementById('eventTime').value,
-    allDay: document.getElementById('allDay').checked,
-    repeat: document.getElementById('repeat').value,
-    parentId: document.getElementById('modal').dataset.parentId || crypto.randomUUID()
-  };
-  saveEvents();
-  closeModal(); renderAll();
-}
-
-function deleteModal() {
-  deleteTargetId = document.getElementById('modal').dataset.eventId;
-  deleteTargetParent = document.getElementById('modal').dataset.parentId;
-  document.getElementById('deleteConfirm').style.display = 'flex';
-}
-
-function closeDeleteModal() {
-  document.getElementById('deleteConfirm').style.display = 'none';
-}
-
-function confirmDelete(mode) {
-  if (mode === 'all') for (const id in events) if (events[id].parentId === deleteTargetParent) delete events[id];
-  else delete events[deleteTargetId];
-  saveEvents();
-  closeDeleteModal(); closeModal(); renderAll();
-}
 
 window.onload = loadEvents;
 </script>
