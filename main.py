@@ -75,7 +75,7 @@ async def generate_ai(prompt):
     data = {
         "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": "You are a calendar assistant. When user says 'add to calendar' or 'remind me', extract event info like Title (max 3 words), Date and Description (clear short description only). Format: Title: ..., Date: ..., Description: ..."},
+            {"role": "system", "content": "You are a calendar assistant. When user says 'add to calendar' or 'remind me', extract Title, Date and Description."},
             {"role": "user", "content": prompt}
         ]
     }
@@ -90,7 +90,7 @@ async def correct_description(prompt):
     data = {
         "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": "You are an assistant. ONLY return the corrected description. Do NOT add any intro."},
+            {"role": "system", "content": "You are an assistant. ONLY return the corrected description."},
             {"role": "user", "content": prompt}
         ]
     }
@@ -102,11 +102,11 @@ async def correct_description(prompt):
 async def generate_added_message(title, date, description):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-    prompt = f"Create a friendly short sentence saying you added the event to the calendar. Title: {title}, Date: {date}, Description: {description}"
+    prompt = f"Create a friendly sentence saying you added the event: {title}, {date}, {description}"
     data = {
         "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": "You are a friendly assistant that replies naturally."},
+            {"role": "system", "content": "You are a friendly assistant."},
             {"role": "user", "content": prompt}
         ]
     }
@@ -120,12 +120,9 @@ def extract_event(ai_response):
     title_match = re.search(r"Title:\s*(.*)", ai_response, re.IGNORECASE)
     date_match = re.search(r"Date:\s*(.*)", ai_response, re.IGNORECASE)
     desc_match = re.search(r"Description:\s*(.*)", ai_response, re.IGNORECASE)
-    if title_match:
-        title = title_match.group(1).strip()
-    if date_match:
-        date = date_match.group(1).strip()
-    if desc_match:
-        description = desc_match.group(1).strip()
+    if title_match: title = title_match.group(1).strip()
+    if date_match: date = date_match.group(1).strip()
+    if desc_match: description = desc_match.group(1).strip()
     return title, date, description
 
 def parse_date(date_text):
@@ -137,7 +134,16 @@ def parse_date(date_text):
     except:
         return None
 
-# === Flask Routes ===
+# === Context Processor for theme ===
+
+@app.context_processor
+def inject_settings():
+    uid = session.get("user_email")
+    if not uid:
+        return dict(settings={"theme": "light"})
+    return dict(settings=get_settings(uid))
+
+# === Routes ===
 
 @app.route("/")
 def home():
@@ -145,8 +151,7 @@ def home():
 
 @app.route("/login")
 def login():
-    flow = Flow.from_client_config(
-        json.loads(CLIENT_SECRET_JSON),
+    flow = Flow.from_client_config(json.loads(CLIENT_SECRET_JSON),
         scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
         redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
     )
@@ -156,8 +161,7 @@ def login():
 
 @app.route("/oauth_callback")
 def oauth_callback():
-    flow = Flow.from_client_config(
-        json.loads(CLIENT_SECRET_JSON),
+    flow = Flow.from_client_config(json.loads(CLIENT_SECRET_JSON),
         scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
         redirect_uri=url_for("oauth_callback", _external=True, _scheme="https")
     )
@@ -185,7 +189,6 @@ def start_new_chat():
 def chat(convo_id):
     uid = session.get("user_email", "guest")
     tz = timezone(LOCAL_TIMEZONE)
-    settings = get_settings(uid)
     conversations = list_conversations(uid) if uid != "guest" else {}
     history = load_user_history(uid, convo_id)
 
@@ -204,10 +207,8 @@ def chat(convo_id):
                 if event_date:
                     if description:
                         description = sanitize(asyncio.run(correct_description(description)))
-
                     event_id = str(uuid.uuid4())
                     parent_id = event_id
-
                     save_event(uid, event_id, {
                         "title": sanitize(title),
                         "description": description,
@@ -217,7 +218,6 @@ def chat(convo_id):
                         "parentId": parent_id,
                         "date": event_date
                     })
-
                     added_event_message = asyncio.run(generate_added_message(title, date_text, description))
 
         history.append({"role": "assistant", "content": added_event_message or reply, "time": now})
@@ -230,14 +230,32 @@ def chat(convo_id):
 
         return redirect(f"/chat/{convo_id}")
 
-    return render_template("chat.html", uid=uid, history=history, conversations=conversations, convo_id=convo_id, settings=settings)
+    return render_template("chat.html", uid=uid, history=history, conversations=conversations, convo_id=convo_id)
+
+@app.route("/settings")
+def settings_page():
+    uid = session.get("user_email")
+    if not uid:
+        return redirect("/chat")
+    user_settings = get_settings(uid)
+    return render_template("settings.html", settings=user_settings)
+
+@app.route("/save_settings", methods=["POST"])
+def save_settings_route():
+    uid = session.get("user_email")
+    if not uid:
+        return redirect("/chat")
+    theme = request.form.get("theme", "light")
+    save_settings(uid, {"theme": theme})
+    return redirect("/settings")
 
 @app.route("/calendar")
 def calendar_page():
     uid = session.get("user_email")
     if not uid:
         return redirect("/chat")
-    return render_template("calendar.html", events=load_events(uid))
+    user_settings = get_settings(uid)
+    return render_template("calendar.html", settings=user_settings, events=load_events(uid))
 
 @app.route("/save_event/<event_id>", methods=["POST"])
 def save_event_route(event_id):
