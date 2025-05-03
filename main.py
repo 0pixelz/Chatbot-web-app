@@ -75,7 +75,7 @@ async def generate_ai(prompt):
     data = {
         "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": "You are a calendar assistant. When user says 'add to calendar' or 'remind me', extract Title, Date and Description."},
+            {"role": "system", "content": "You are a calendar assistant. Extract Title, Date and Description."},
             {"role": "user", "content": prompt}
         ]
     }
@@ -134,7 +134,7 @@ def parse_date(date_text):
     except:
         return None
 
-# === Context Processor for theme ===
+# === Context Processor ===
 
 @app.context_processor
 def inject_settings():
@@ -143,7 +143,7 @@ def inject_settings():
         return dict(settings={"theme": "light"})
     return dict(settings=get_settings(uid))
 
-# === Routes ===
+# === ROUTES ===
 
 @app.route("/")
 def home():
@@ -172,6 +172,11 @@ def oauth_callback():
     session["user_picture"] = idinfo.get("picture")
     session["user_name"] = idinfo.get("name", idinfo["email"])
     return redirect("/chat")
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return redirect("/login")
 
 @app.route("/chat")
 def chat_redirect():
