@@ -39,15 +39,14 @@
       position: relative;
       overflow: hidden;
     }
-    .calendar-slide {
-      transition: transform 0.3s ease-in-out;
+    .calendar-slider {
+      display: flex;
+      transition: transform 0.3s ease;
       will-change: transform;
     }
-    .slide-left {
-      transform: translateX(-100%);
-    }
-    .slide-right {
-      transform: translateX(100%);
+    .calendar-month {
+      min-width: 100%;
+      padding: 5px;
     }
   </style>
 </head>
@@ -68,7 +67,11 @@
 </div>
 
 <div class="calendar-container mb-4">
-  <div class="calendar-grid text-center calendar-slide" id="calendar"></div>
+  <div class="calendar-slider" id="calendarSlider">
+    <div class="calendar-month" id="prevCalendar"></div>
+    <div class="calendar-month" id="currentCalendar"></div>
+    <div class="calendar-month" id="nextCalendar"></div>
+  </div>
 </div>
 
 <hr class="border-gray-700 my-4">
@@ -118,159 +121,73 @@
 
 <script>
 let now = new Date();
-let currentMonth = localStorage.getItem('currentMonth') ? parseInt(localStorage.getItem('currentMonth')) : now.getMonth();
-let currentYear = localStorage.getItem('currentYear') ? parseInt(localStorage.getItem('currentYear')) : now.getFullYear();
+let currentMonth = now.getMonth();
+let currentYear = now.getFullYear();
 const events = {{ events|tojson }};
-let deleteTargetId = null, deleteTargetParent = null;
 
-function renderCalendar() {
-  const calendar = document.getElementById('calendar');
-  const monthTitle = document.getElementById('monthTitle');
-  const date = new Date(currentYear, currentMonth);
-  monthTitle.textContent = `${date.toLocaleString('default', { month: 'long' })} ${currentYear}`;
+function renderAll() {
+  renderCalendar(normalizeDate(currentYear, currentMonth - 1), document.getElementById('prevCalendar'));
+  renderCalendar(normalizeDate(currentYear, currentMonth), document.getElementById('currentCalendar'));
+  renderCalendar(normalizeDate(currentYear, currentMonth + 1), document.getElementById('nextCalendar'));
+  document.getElementById('calendarSlider').style.transition = "none";
+  document.getElementById('calendarSlider').style.transform = "translateX(-100%)";
+  renderEventList();
+}
 
-  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  
-  let html = "";
+function normalizeDate(year, month) {
+  const date = new Date(year, month, 1);
+  return { year: date.getFullYear(), month: date.getMonth() };
+}
+
+function renderCalendar({year, month}, container) {
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  let html = '';
   for (let i = 0; i < firstDay; i++) html += `<div></div>`;
   for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const today = new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString();
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const today = new Date().toDateString() === new Date(year, month, day).toDateString();
     html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')"><div class="text-sm">${day}</div>${renderEvents(dateStr)}</div>`;
   }
-  calendar.innerHTML = html;
-
-  const eventList = document.getElementById('eventList');
-  let eventHtml = "";
-  for (const [id, evt] of Object.entries(events)) {
-    if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
-      eventHtml += `<div class="p-2 bg-gray-800 rounded cursor-pointer" onclick="event.stopPropagation(); openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}', '${evt.parentId || ""}', \`${evt.description || ""}\`)"><strong>${evt.title}</strong><br>${evt.date} ${evt.allDay ? "(All Day)" : evt.time}</div>`;
-    }
-  }
-  eventList.innerHTML = eventHtml || `<p class="text-gray-400">No events this month.</p>`;
+  container.innerHTML = `<div class="calendar-grid">${html}</div>`;
 }
 
 function renderEvents(dateStr) {
-  let out = "";
-  for (const [id, evt] of Object.entries(events)) {
-    if (evt.date === dateStr) {
-      out += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}', '${evt.parentId || ""}', \`${evt.description || ""}\`)">${evt.title}</span>`;
-    }
-  }
-  return out;
+  return Object.entries(events).filter(([id, e]) => e.date === dateStr)
+    .map(([id, e]) => `<span class="event-badge">${e.title}</span>`).join('');
 }
 
-function animateCalendar(direction, callback) {
-  const calendar = document.getElementById('calendar');
-  calendar.classList.add(`slide-${direction}`);
-  setTimeout(() => {
-    calendar.classList.remove(`slide-${direction}`);
-    callback();
-  }, 300);
+function renderEventList() {
+  const list = document.getElementById('eventList');
+  const html = Object.entries(events).map(([id, e]) => `<div class="p-2 bg-gray-800 rounded"><strong>${e.title}</strong><br>${e.date} ${e.allDay ? "(All Day)" : e.time}<br><span class="text-xs">${e.description}</span></div>`);
+  list.innerHTML = html.length ? html.join('') : `<p class="text-gray-400">No events this month.</p>`;
 }
 
-function prevMonth() {
-  animateCalendar('right', () => {
-    currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-    renderCalendar();
-  });
+function prevMonth() { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } renderAll(); }
+function nextMonth() { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } renderAll(); }
+
+let slider = document.getElementById('calendarSlider');
+let startX = 0, currentX = 0, isDragging = false;
+
+function setSlider(offset) { slider.style.transform = `translateX(calc(-100% + ${offset}px))`; }
+
+function endSwipe(offset) {
+  slider.style.transition = "transform 0.3s ease";
+  if (offset > 80) { setSlider(0); setTimeout(prevMonth, 300); }
+  else if (offset < -80) { setSlider(-200); setTimeout(nextMonth, 300); }
+  else { setSlider(0); setTimeout(() => slider.style.transition = "none", 300); }
 }
 
-function nextMonth() {
-  animateCalendar('left', () => {
-    currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-    renderCalendar();
-  });
-}
+slider.addEventListener('touchstart', e => { startX = e.touches[0].clientX; isDragging = true; slider.style.transition = "none"; });
+slider.addEventListener('touchmove', e => { if (!isDragging) return; currentX = e.touches[0].clientX; setSlider(currentX - startX); });
+slider.addEventListener('touchend', e => { if (!isDragging) return; endSwipe(e.changedTouches[0].clientX - startX); isDragging = false; });
 
-document.addEventListener('touchstart', e => touchStartX = e.touches[0].clientX);
-document.addEventListener('touchend', e => {
-  if (!touchStartX) return;
-  const diff = e.changedTouches[0].clientX - touchStartX;
-  if (Math.abs(diff) > 50) diff > 0 ? prevMonth() : nextMonth();
-  touchStartX = null;
-});
+slider.addEventListener('mousedown', e => { startX = e.clientX; isDragging = true; slider.style.transition = "none"; });
+slider.addEventListener('mousemove', e => { if (!isDragging) return; currentX = e.clientX; setSlider(currentX - startX); });
+slider.addEventListener('mouseup', e => { if (!isDragging) return; endSwipe(e.clientX - startX); isDragging = false; });
+slider.addEventListener('mouseleave', e => { if (!isDragging) return; endSwipe(e.clientX - startX); isDragging = false; });
 
-function openDatePicker() {
-  const picker = document.createElement('input');
-  picker.type = 'month';
-  picker.value = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}`;
-  picker.style.opacity = 0;
-  document.body.appendChild(picker);
-  picker.click();
-  picker.addEventListener('change', e => {
-    const [y, m] = e.target.value.split('-');
-    currentYear = parseInt(y); currentMonth = parseInt(m) - 1;
-    renderCalendar();
-    document.body.removeChild(picker);
-  });
-}
-
-function openModal(dateStr, id=null, title='', time='', allDay=false, repeat='none', parentId='', desc='') {
-  const modal = document.getElementById('modal');
-  modal.dataset.eventId = id || '';
-  modal.dataset.parentId = parentId || '';
-  document.getElementById('modalDate').value = dateStr;
-  document.getElementById('eventName').value = title;
-  document.getElementById('eventDescription').value = desc;
-  document.getElementById('eventTime').value = time;
-  document.getElementById('repeat').value = repeat;
-  document.getElementById('allDay').checked = allDay;
-  document.getElementById('eventTime').disabled = allDay;
-  document.getElementById('deleteButton').classList.toggle('hidden', !id);
-  modal.style.display = 'flex';
-}
-
-function closeModal() { document.getElementById('modal').style.display = 'none'; }
-function deleteModal() {
-  deleteTargetId = document.getElementById('modal').dataset.eventId;
-  deleteTargetParent = document.getElementById('modal').dataset.parentId;
-  document.getElementById('deleteModal').classList.remove('hidden');
-}
-
-function closeDeleteModal() { document.getElementById('deleteModal').classList.add('hidden'); }
-
-async function confirmDelete(mode) {
-  if (!deleteTargetId) return;
-  if (mode === 'all') {
-    const targets = Object.entries(events).filter(([id, e]) => e.parentId === deleteTargetParent);
-    for (const [id] of targets) await fetch(`/delete_event/${id}`, { method: 'POST' });
-  } else {
-    await fetch(`/delete_event/${deleteTargetId}`, { method: 'POST' });
-  }
-  closeDeleteModal(); closeModal(); location.reload();
-}
-
-async function saveModal() {
-  const date = document.getElementById('modalDate').value;
-  const title = document.getElementById('eventName').value.trim();
-  const description = document.getElementById('eventDescription').value.trim();
-  const time = document.getElementById('eventTime').value;
-  const allDay = document.getElementById('allDay').checked;
-  const repeat = document.getElementById('repeat').value;
-  const eventId = document.getElementById('modal').dataset.eventId;
-  const parentId = document.getElementById('modal').dataset.parentId || crypto.randomUUID();
-
-  if (!title) return;
-
-  const payload = { title, date, description, time: allDay ? "" : time, allDay, repeat, parentId };
-
-  if (eventId) {
-    await fetch(`/save_event/${eventId}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-  } else {
-    for (let i = 0; i < (repeat === 'none' ? 1 : 12); i++) {
-      const d = new Date(date);
-      if (repeat === 'daily') d.setDate(d.getDate() + i);
-      else if (repeat === 'weekly') d.setDate(d.getDate() + i * 7);
-      else if (repeat === 'monthly') d.setMonth(d.getMonth() + i);
-      await fetch(`/save_event/${crypto.randomUUID()}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({...payload, date: d.toISOString().slice(0,10)})});
-    }
-  }
-  closeModal(); location.reload();
-}
-
-window.onload = renderCalendar;
+window.onload = renderAll;
 </script>
 
 </body>
