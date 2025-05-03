@@ -1,0 +1,194 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My Calendar</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+    }
+    .calendar-cell {
+      min-height: 80px;
+      border-radius: 8px;
+      background-color: #374151;
+      color: white;
+      padding: 6px;
+      position: relative;
+      overflow-y: auto;
+    }
+    .calendar-cell.today {
+      background-color: #4b5563;
+      border: 2px solid #60a5fa;
+    }
+    .event-badge {
+      background: #60a5fa;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      margin-top: 4px;
+      display: block;
+      text-align: center;
+      cursor: pointer;
+    }
+    .calendar-container {
+      position: relative;
+      overflow: hidden;
+    }
+    .calendar-wrapper {
+      display: flex;
+      transition: transform 0.3s ease;
+      will-change: transform;
+    }
+    .calendar-slide {
+      min-width: 100%;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-4">
+
+<div class="flex justify-between items-center mb-4">
+  <h1 class="text-2xl font-bold">My Calendar</h1>
+</div>
+
+<div class="flex justify-center items-center space-x-4 mb-2">
+  <button onclick="prevMonth()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&lt;</button>
+  <h2 id="monthTitle" onclick="openDatePicker()" class="text-lg font-semibold cursor-pointer select-none"></h2>
+  <button onclick="nextMonth()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&gt;</button>
+</div>
+
+<div class="calendar-grid text-center font-semibold text-sm text-gray-400 mb-1">
+  <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
+</div>
+
+<div class="calendar-container mb-4">
+  <div class="calendar-wrapper" id="calendarWrapper">
+    <div class="calendar-grid text-center calendar-slide" id="calendarPrev"></div>
+    <div class="calendar-grid text-center calendar-slide" id="calendarCurrent"></div>
+    <div class="calendar-grid text-center calendar-slide" id="calendarNext"></div>
+  </div>
+</div>
+
+<hr class="border-gray-700 my-4">
+
+<div id="eventsSection" class="space-y-2">
+  <h2 class="text-xl font-semibold mb-2">Your Events:</h2>
+  <div id="eventList" class="space-y-2"></div>
+</div>
+
+<script>
+let now = new Date();
+let currentMonth = now.getMonth();
+let currentYear = now.getFullYear();
+const events = {};
+let deleteTargetId = null, deleteTargetParent = null;
+
+function renderCalendarMonth(container, year, month) {
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  let html = "";
+
+  for (let i = 0; i < firstDay; i++) html += `<div></div>`;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const today = new Date().toDateString() === new Date(year, month, day).toDateString();
+    html += `<div class="calendar-cell ${today ? 'today' : ''}"><div class="text-sm">${day}</div></div>`;
+  }
+  container.innerHTML = html;
+}
+
+function syncHeights() {
+  const slides = document.querySelectorAll('.calendar-slide');
+  let maxHeight = 0;
+  slides.forEach(slide => {
+    slide.style.height = 'auto';
+    if (slide.offsetHeight > maxHeight) maxHeight = slide.offsetHeight;
+  });
+  slides.forEach(slide => {
+    slide.style.height = maxHeight + 'px';
+  });
+}
+
+function renderAllCalendars() {
+  document.getElementById('monthTitle').textContent = `${new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' })} ${currentYear}`;
+
+  renderCalendarMonth(document.getElementById('calendarPrev'), currentMonth - 1 < 0 ? currentYear - 1 : currentYear, currentMonth - 1 < 0 ? 11 : currentMonth - 1);
+  renderCalendarMonth(document.getElementById('calendarCurrent'), currentYear, currentMonth);
+  renderCalendarMonth(document.getElementById('calendarNext'), currentMonth + 1 > 11 ? currentYear + 1 : currentYear, (currentMonth + 1) % 12);
+
+  document.getElementById('calendarWrapper').style.transform = 'translateX(-100%)';
+  syncHeights();
+}
+
+function prevMonth() {
+  currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  renderAllCalendars();
+}
+
+function nextMonth() {
+  currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  renderAllCalendars();
+}
+
+let touchStartX = null;
+let touchStartTime = 0;
+let currentTranslateX = -window.innerWidth;
+const calendarWrapper = document.getElementById('calendarWrapper');
+
+document.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartTime = new Date();
+  calendarWrapper.style.transition = 'none';
+});
+
+document.addEventListener('touchmove', e => {
+  if (touchStartX === null) return;
+  const touchX = e.touches[0].clientX;
+  const diffX = touchX - touchStartX;
+  calendarWrapper.style.transform = `translateX(${currentTranslateX + diffX}px)`;
+});
+
+document.addEventListener('touchend', e => {
+  if (touchStartX === null) return;
+  const diffX = e.changedTouches[0].clientX - touchStartX;
+  const elapsed = new Date() - touchStartTime;
+  calendarWrapper.style.transition = 'transform 0.3s ease';
+
+  if (elapsed < 100 && Math.abs(diffX) < 150) {
+    calendarWrapper.style.transform = 'translateX(-100%)';
+    touchStartX = null;
+    return;
+  }
+
+  if (diffX > 80) {
+    calendarWrapper.style.transform = 'translateX(0)';
+    setTimeout(() => {
+      prevMonth();
+      calendarWrapper.style.transition = 'none';
+      calendarWrapper.style.transform = 'translateX(-100%)';
+    }, 300);
+  } else if (diffX < -80) {
+    calendarWrapper.style.transform = 'translateX(-200%)';
+    setTimeout(() => {
+      nextMonth();
+      calendarWrapper.style.transition = 'none';
+      calendarWrapper.style.transform = 'translateX(-100%)';
+    }, 300);
+  } else {
+    calendarWrapper.style.transform = 'translateX(-100%)';
+  }
+
+  touchStartX = null;
+});
+
+window.onload = renderAllCalendars;
+</script>
+
+</body>
+</html>
