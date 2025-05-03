@@ -78,6 +78,7 @@
   <div id="eventList" class="space-y-2"></div>
 </div>
 
+<!-- MODAL -->
 <div id="modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
   <div class="bg-gray-800 p-6 rounded-lg w-80">
     <h3 id="modalTitle" class="text-lg font-bold mb-4">New Event</h3>
@@ -102,6 +103,7 @@
   </div>
 </div>
 
+<!-- DELETE MODAL -->
 <div id="deleteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 hidden z-50">
   <div class="bg-gray-800 rounded-lg p-6 w-80 text-white text-center">
     <h2 class="text-lg font-bold mb-4">Delete Event</h2>
@@ -115,56 +117,44 @@
 </div>
 
 <script>
-let currentMonth = localStorage.getItem('currentMonth') ? parseInt(localStorage.getItem('currentMonth')) : new Date().getMonth();
-let currentYear = localStorage.getItem('currentYear') ? parseInt(localStorage.getItem('currentYear')) : new Date().getFullYear();
+let now = new Date();
+let currentMonth = localStorage.getItem('currentMonth') ? parseInt(localStorage.getItem('currentMonth')) : now.getMonth();
+let currentYear = localStorage.getItem('currentYear') ? parseInt(localStorage.getItem('currentYear')) : now.getFullYear();
 const events = {{ events|tojson }};
 let deleteTargetId = null, deleteTargetParent = null;
 
 function renderCalendar() {
-  const monthTitle = document.getElementById('monthTitle');
   const calendar = document.getElementById('calendar');
-  const eventList = document.getElementById('eventList');
+  const monthTitle = document.getElementById('monthTitle');
   const date = new Date(currentYear, currentMonth);
-  const monthName = date.toLocaleString('default', { month: 'long' });
-  monthTitle.textContent = `${monthName} ${currentYear}`;
+  monthTitle.textContent = `${date.toLocaleString('default', { month: 'long' })} ${currentYear}`;
 
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-
+  
   let html = "";
   for (let i = 0; i < firstDay; i++) html += `<div></div>`;
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const today = new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString();
-    html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')">
-      <div class="text-sm">${day}</div>
-      ${renderEvents(dateStr)}
-    </div>`;
+    html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')"><div class="text-sm">${day}</div>${renderEvents(dateStr)}</div>`;
   }
   calendar.innerHTML = html;
 
+  const eventList = document.getElementById('eventList');
   let eventHtml = "";
-  let seen = new Set();
   for (const [id, evt] of Object.entries(events)) {
-    const key = evt.title + evt.date + evt.time;
-    if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`) && !seen.has(key)) {
-      seen.add(key);
-      const timeDisplay = evt.allDay ? "(All Day)" : evt.time ? `(${evt.time})` : "(All Day)";
-      const description = evt.description || "";
-      eventHtml += `<div class="p-2 bg-gray-800 rounded cursor-pointer" onclick="event.stopPropagation(); openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}', '${evt.parentId || ""}', \`${description.replace(/`/g, '\\`')}\`)">
-        <strong>${evt.title}</strong><br>${evt.date} ${timeDisplay}<br><span class="text-xs text-gray-300">${description}</span>
-      </div>`;
+    if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
+      eventHtml += `<div class="p-2 bg-gray-800 rounded cursor-pointer" onclick="event.stopPropagation(); openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}', '${evt.parentId || ""}', \`${evt.description || ""}\`)"><strong>${evt.title}</strong><br>${evt.date} ${evt.allDay ? "(All Day)" : evt.time}</div>`;
     }
   }
   eventList.innerHTML = eventHtml || `<p class="text-gray-400">No events this month.</p>`;
 }
 
 function renderEvents(dateStr) {
-  let out = "", seen = new Set();
+  let out = "";
   for (const [id, evt] of Object.entries(events)) {
-    const key = evt.title + evt.time;
-    if (evt.date === dateStr && !seen.has(key)) {
-      seen.add(key);
+    if (evt.date === dateStr) {
       out += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}', '${evt.parentId || ""}', \`${evt.description || ""}\`)">${evt.title}</span>`;
     }
   }
@@ -182,32 +172,22 @@ function animateCalendar(direction, callback) {
 
 function prevMonth() {
   animateCalendar('right', () => {
-    currentMonth--;
-    if (currentMonth < 0) {
-      currentMonth = 11;
-      currentYear--;
-    }
+    currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; }
     renderCalendar();
   });
 }
 
 function nextMonth() {
   animateCalendar('left', () => {
-    currentMonth++;
-    if (currentMonth > 11) {
-      currentMonth = 0;
-      currentYear++;
-    }
+    currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; }
     renderCalendar();
   });
 }
 
-let touchStartX = null;
-document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
-document.addEventListener('touchend', (e) => {
-  if (touchStartX === null) return;
-  const touchEndX = e.changedTouches[0].clientX;
-  const diff = touchEndX - touchStartX;
+document.addEventListener('touchstart', e => touchStartX = e.touches[0].clientX);
+document.addEventListener('touchend', e => {
+  if (!touchStartX) return;
+  const diff = e.changedTouches[0].clientX - touchStartX;
   if (Math.abs(diff) > 50) diff > 0 ? prevMonth() : nextMonth();
   touchStartX = null;
 });
@@ -215,117 +195,79 @@ document.addEventListener('touchend', (e) => {
 function openDatePicker() {
   const picker = document.createElement('input');
   picker.type = 'month';
-  picker.value = `${currentYear}-${String(currentMonth+1).padStart(2, '0')}`;
-  picker.style.position = 'absolute';
+  picker.value = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}`;
   picker.style.opacity = 0;
   document.body.appendChild(picker);
-  picker.focus(); picker.click();
-  picker.addEventListener('change', (e) => {
-    const [year, month] = e.target.value.split('-');
-    currentYear = parseInt(year); currentMonth = parseInt(month) - 1;
-    localStorage.setItem('currentMonth', currentMonth);
-    localStorage.setItem('currentYear', currentYear);
+  picker.click();
+  picker.addEventListener('change', e => {
+    const [y, m] = e.target.value.split('-');
+    currentYear = parseInt(y); currentMonth = parseInt(m) - 1;
     renderCalendar();
     document.body.removeChild(picker);
   });
 }
 
-function openModal(dateStr, eventId = null, title = '', time = '', allDay = false, repeat = 'none', parentId = '', description = '') {
+function openModal(dateStr, id=null, title='', time='', allDay=false, repeat='none', parentId='', desc='') {
   const modal = document.getElementById('modal');
+  modal.dataset.eventId = id || '';
+  modal.dataset.parentId = parentId || '';
   document.getElementById('modalDate').value = dateStr;
   document.getElementById('eventName').value = title;
-  document.getElementById('eventTime').value = time || "";
-  document.getElementById('eventDescription').value = description || "";
-  document.getElementById('allDay').checked = allDay;
+  document.getElementById('eventDescription').value = desc;
+  document.getElementById('eventTime').value = time;
   document.getElementById('repeat').value = repeat;
-  modal.dataset.eventId = eventId || '';
-  modal.dataset.parentId = parentId || '';
-  document.getElementById('deleteButton').classList.toggle('hidden', !eventId);
-  document.getElementById('modalTitle').innerText = eventId ? "Edit Event" : "New Event";
+  document.getElementById('allDay').checked = allDay;
   document.getElementById('eventTime').disabled = allDay;
+  document.getElementById('deleteButton').classList.toggle('hidden', !id);
   modal.style.display = 'flex';
 }
 
-function closeModal() {
-  document.getElementById('modal').style.display = 'none';
+function closeModal() { document.getElementById('modal').style.display = 'none'; }
+function deleteModal() {
+  deleteTargetId = document.getElementById('modal').dataset.eventId;
+  deleteTargetParent = document.getElementById('modal').dataset.parentId;
+  document.getElementById('deleteModal').classList.remove('hidden');
+}
+
+function closeDeleteModal() { document.getElementById('deleteModal').classList.add('hidden'); }
+
+async function confirmDelete(mode) {
+  if (!deleteTargetId) return;
+  if (mode === 'all') {
+    const targets = Object.entries(events).filter(([id, e]) => e.parentId === deleteTargetParent);
+    for (const [id] of targets) await fetch(`/delete_event/${id}`, { method: 'POST' });
+  } else {
+    await fetch(`/delete_event/${deleteTargetId}`, { method: 'POST' });
+  }
+  closeDeleteModal(); closeModal(); location.reload();
 }
 
 async function saveModal() {
   const date = document.getElementById('modalDate').value;
   const title = document.getElementById('eventName').value.trim();
   const description = document.getElementById('eventDescription').value.trim();
-  const time = document.getElementById('eventTime').value.trim();
+  const time = document.getElementById('eventTime').value;
   const allDay = document.getElementById('allDay').checked;
   const repeat = document.getElementById('repeat').value;
-  const existingId = document.getElementById('modal').dataset.eventId;
-  const parentId = document.getElementById('modal').dataset.parentId || self.crypto.randomUUID();
+  const eventId = document.getElementById('modal').dataset.eventId;
+  const parentId = document.getElementById('modal').dataset.parentId || crypto.randomUUID();
+
   if (!title) return;
 
   const payload = { title, date, description, time: allDay ? "" : time, allDay, repeat, parentId };
 
-  if (existingId) {
-    await fetch(`/save_event/${existingId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+  if (eventId) {
+    await fetch(`/save_event/${eventId}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)});
   } else {
-    await createRepeats(date, payload);
-  }
-  closeModal();
-  localStorage.setItem('currentMonth', currentMonth);
-  localStorage.setItem('currentYear', currentYear);
-  location.reload();
-}
-
-async function createRepeats(startDate, payload) {
-  const baseDate = new Date(startDate);
-  const repeat = payload.repeat;
-  const repeatCount = 12;
-
-  for (let i = 0; i < (repeat === 'none' ? 1 : repeatCount); i++) {
-    let nextDate = new Date(baseDate);
-    if (repeat === 'daily') nextDate.setDate(baseDate.getDate() + i);
-    else if (repeat === 'weekly') nextDate.setDate(baseDate.getDate() + i * 7);
-    else if (repeat === 'monthly') nextDate.setMonth(baseDate.getMonth() + i);
-
-    const nextDateStr = nextDate.toISOString().slice(0, 10);
-    const id = self.crypto.randomUUID();
-    await fetch(`/save_event/${id}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...payload, date: nextDateStr })
-    });
-  }
-}
-
-function deleteModal() {
-  deleteTargetId = document.getElementById('modal').dataset.eventId;
-  deleteTargetParent = document.getElementById('modal').dataset.parentId || null;
-  document.getElementById('deleteModal').classList.remove('hidden');
-}
-
-function closeDeleteModal() {
-  deleteTargetId = null;
-  deleteTargetParent = null;
-  document.getElementById('deleteModal').classList.add('hidden');
-}
-
-async function confirmDelete(mode) {
-  if (!deleteTargetId) return;
-  if (mode === 'all' && deleteTargetParent) {
-    const toDelete = Object.entries(events).filter(([id, evt]) => evt.parentId === deleteTargetParent);
-    for (const [id] of toDelete) {
-      await fetch(`/delete_event/${id}`, { method: 'POST' });
+    for (let i = 0; i < (repeat === 'none' ? 1 : 12); i++) {
+      const d = new Date(date);
+      if (repeat === 'daily') d.setDate(d.getDate() + i);
+      else if (repeat === 'weekly') d.setDate(d.getDate() + i * 7);
+      else if (repeat === 'monthly') d.setMonth(d.getMonth() + i);
+      await fetch(`/save_event/${crypto.randomUUID()}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({...payload, date: d.toISOString().slice(0,10)})});
     }
-  } else {
-    await fetch(`/delete_event/${deleteTargetId}`, { method: 'POST' });
   }
-  closeDeleteModal();
-  closeModal();
-  localStorage.setItem('currentMonth', currentMonth);
-  localStorage.setItem('currentYear', currentYear);
-  location.reload();
+  closeModal(); location.reload();
 }
 
 window.onload = renderCalendar;
