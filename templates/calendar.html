@@ -6,19 +6,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    .calendar-container {
-      position: relative;
-      overflow: hidden;
-    }
-    .calendar-slider {
-      display: flex;
-      transition: transform 0.3s ease-in-out;
-      will-change: transform;
-    }
-    .calendar-month {
-      min-width: 100%;
-      padding: 10px;
-    }
     .calendar-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
@@ -30,8 +17,8 @@
       background-color: #374151;
       color: white;
       padding: 6px;
+      position: relative;
       overflow-y: auto;
-      cursor: pointer;
     }
     .calendar-cell.today {
       background-color: #4b5563;
@@ -45,6 +32,12 @@
       font-size: 0.75rem;
       margin-top: 4px;
       display: block;
+      text-align: center;
+      cursor: pointer;
+    }
+    .calendar-container {
+      position: relative;
+      overflow: hidden;
     }
   </style>
 </head>
@@ -56,7 +49,7 @@
 
 <div class="flex justify-center items-center space-x-4 mb-2">
   <button onclick="prevMonth()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&lt;</button>
-  <h2 id="monthTitle" class="text-lg font-semibold cursor-pointer select-none"></h2>
+  <h2 id="monthTitle" onclick="openDatePicker()" class="text-lg font-semibold cursor-pointer select-none"></h2>
   <button onclick="nextMonth()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&gt;</button>
 </div>
 
@@ -65,11 +58,7 @@
 </div>
 
 <div class="calendar-container mb-4">
-  <div class="calendar-slider" id="calendarSlider">
-    <div class="calendar-month" id="prevCalendar"></div>
-    <div class="calendar-month" id="currentCalendar"></div>
-    <div class="calendar-month" id="nextCalendar"></div>
-  </div>
+  <div class="calendar-grid text-center" id="calendar"></div>
 </div>
 
 <hr class="border-gray-700 my-4">
@@ -80,97 +69,96 @@
 </div>
 
 <script>
+let now = new Date();
+let currentMonth = localStorage.getItem('currentMonth') ? parseInt(localStorage.getItem('currentMonth')) : now.getMonth();
+let currentYear = localStorage.getItem('currentYear') ? parseInt(localStorage.getItem('currentYear')) : now.getFullYear();
 const events = {{ events|tojson }};
-let currentMonth = new Date().getMonth();
-let currentYear = new Date().getFullYear();
+let deleteTargetId = null, deleteTargetParent = null;
 
-function renderAllCalendars() {
-  renderCalendar(currentYear, currentMonth - 1, document.getElementById('prevCalendar'));
-  renderCalendar(currentYear, currentMonth, document.getElementById('currentCalendar'));
-  renderCalendar(currentYear, currentMonth + 1, document.getElementById('nextCalendar'));
+function renderCalendar() {
+  const calendar = document.getElementById('calendar');
+  const monthTitle = document.getElementById('monthTitle');
+  const date = new Date(currentYear, currentMonth);
+  monthTitle.textContent = `${date.toLocaleString('default', { month: 'long' })} ${currentYear}`;
 
-  document.getElementById('monthTitle').textContent = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
-  document.getElementById('calendarSlider').style.transition = "none";
-  document.getElementById('calendarSlider').style.transform = "translateX(-100%)";
-
-  renderEventList();
-}
-
-function renderCalendar(year, month, container) {
-  const date = new Date(year, month);
-  const y = date.getFullYear();
-  const m = date.getMonth();
-
-  const firstDay = new Date(y, m, 1).getDay();
-  const daysInMonth = new Date(y, m + 1, 0).getDate();
-
-  let html = '<div class="calendar-grid">';
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  
+  let html = "";
   for (let i = 0; i < firstDay; i++) html += `<div></div>`;
   for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const today = new Date().toDateString() === new Date(y, m, day).toDateString();
-    html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')">
-      <div>${day}</div>${renderEvents(dateStr)}
-    </div>`;
+    const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const today = new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString();
+    html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')"><div class="text-sm">${day}</div>${renderEvents(dateStr)}</div>`;
   }
-  html += '</div>';
-  container.innerHTML = html;
+  calendar.innerHTML = html;
+
+  const eventList = document.getElementById('eventList');
+  let eventHtml = "";
+  for (const [id, evt] of Object.entries(events)) {
+    if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
+      eventHtml += `<div class="p-2 bg-gray-800 rounded"><strong>${evt.title}</strong><br>${evt.date} ${evt.allDay ? "(All Day)" : evt.time}</div>`;
+    }
+  }
+  eventList.innerHTML = eventHtml || `<p class="text-gray-400">No events this month.</p>`;
 }
 
 function renderEvents(dateStr) {
-  return Object.entries(events).filter(([id, e]) => e.date === dateStr || shouldShowEvent(dateStr, e))
-    .map(([id, e]) => `<span class="event-badge">${e.title}</span>`).join('');
-}
-
-function shouldShowEvent(dateStr, e) {
-  if (!e.date) return false;
-  const eventDate = new Date(e.date);
-  const checkDate = new Date(dateStr);
-  if (e.repeat === "daily") return true;
-  if (e.repeat === "weekly" && eventDate.getDay() === checkDate.getDay()) return true;
-  if (e.repeat === "monthly" && eventDate.getDate() === checkDate.getDate()) return true;
-  return false;
-}
-
-function renderEventList() {
-  const list = document.getElementById('eventList');
-  const html = Object.entries(events).filter(([id, e]) => {
-    for (let d = 1; d <= 31; d++) {
-      const checkDate = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      if (shouldShowEvent(checkDate, e) || e.date === checkDate) return true;
+  let out = "";
+  for (const [id, evt] of Object.entries(events)) {
+    if (evt.date === dateStr) {
+      out += `<span class="event-badge">${evt.title}</span>`;
     }
-    return false;
-  }).map(([id, e]) => `<div class="p-2 bg-gray-800 rounded"><strong>${e.title}</strong><br>${e.date} ${e.allDay ? "(All Day)" : e.time}<br><span class="text-xs">${e.description}</span></div>`);
-
-  list.innerHTML = html.length ? html.join('') : `<p class="text-gray-400">No events this month.</p>`;
+  }
+  return out;
 }
 
-function prevMonth() {
-  currentMonth--;
+function changeMonth(direction) {
+  currentMonth += direction;
   if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-  document.getElementById('calendarSlider').style.transition = "transform 0.3s ease-in-out";
-  document.getElementById('calendarSlider').style.transform = "translateX(0%)";
-  setTimeout(renderAllCalendars, 300);
-}
-
-function nextMonth() {
-  currentMonth++;
   if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-  document.getElementById('calendarSlider').style.transition = "transform 0.3s ease-in-out";
-  document.getElementById('calendarSlider').style.transform = "translateX(-200%)";
-  setTimeout(renderAllCalendars, 300);
+  renderCalendar();
 }
 
+function prevMonth() { changeMonth(-1); }
+function nextMonth() { changeMonth(1); }
+
+// === Smooth Swipe Logic ===
 let touchStartX = null;
-document.addEventListener('touchstart', (e) => touchStartX = e.touches[0].clientX);
-document.addEventListener('touchend', (e) => {
-  if (!touchStartX) return;
-  const diff = e.changedTouches[0].clientX - touchStartX;
-  if (Math.abs(diff) > 50) diff > 0 ? prevMonth() : nextMonth();
-  touchStartX = null;
+let calendarElement = document.getElementById('calendar');
+let isDragging = false;
+
+calendarElement.addEventListener('touchstart', (e) => {
+  touchStartX = e.touches[0].clientX;
+  isDragging = true;
+  calendarElement.style.transition = "none";
 });
 
-window.onload = renderAllCalendars;
+calendarElement.addEventListener('touchmove', (e) => {
+  if (!isDragging) return;
+  const currentX = e.touches[0].clientX;
+  const deltaX = currentX - touchStartX;
+  calendarElement.style.transform = `translateX(${deltaX}px)`;
+});
+
+calendarElement.addEventListener('touchend', (e) => {
+  if (!isDragging) return;
+  isDragging = false;
+  const deltaX = e.changedTouches[0].clientX - touchStartX;
+  calendarElement.style.transition = "transform 0.3s ease";
+
+  if (Math.abs(deltaX) > 50) {
+    calendarElement.style.transform = `translateX(${deltaX > 0 ? 300 : -300}px)`;
+    setTimeout(() => {
+      calendarElement.style.transform = "translateX(0px)";
+      changeMonth(deltaX > 0 ? -1 : 1);
+    }, 300);
+  } else {
+    calendarElement.style.transform = "translateX(0px)";
+  }
+});
+
+window.onload = renderCalendar;
 </script>
 
 </body>
