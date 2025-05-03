@@ -41,12 +41,12 @@
     }
     .calendar-slider {
       display: flex;
-      transition: transform 0.3s ease;
+      transition: transform 0.3s ease-out;
       will-change: transform;
     }
     .calendar-month {
-      min-width: 100%;
-      padding: 5px;
+      width: 100%;
+      flex-shrink: 0;
     }
   </style>
 </head>
@@ -57,9 +57,9 @@
 </div>
 
 <div class="flex justify-center items-center space-x-4 mb-2">
-  <button onclick="prevMonth()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&lt;</button>
+  <button onclick="goToPrev()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&lt;</button>
   <h2 id="monthTitle" onclick="openDatePicker()" class="text-lg font-semibold cursor-pointer select-none"></h2>
-  <button onclick="nextMonth()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&gt;</button>
+  <button onclick="goToNext()" class="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">&gt;</button>
 </div>
 
 <div class="calendar-grid text-center font-semibold text-sm text-gray-400 mb-1">
@@ -67,10 +67,10 @@
 </div>
 
 <div class="calendar-container mb-4">
-  <div class="calendar-slider" id="calendarSlider">
-    <div class="calendar-month" id="prevCalendar"></div>
-    <div class="calendar-month" id="currentCalendar"></div>
-    <div class="calendar-month" id="nextCalendar"></div>
+  <div id="slider" class="calendar-slider">
+    <div class="calendar-month" id="prev"></div>
+    <div class="calendar-month" id="current"></div>
+    <div class="calendar-month" id="next"></div>
   </div>
 </div>
 
@@ -81,7 +81,7 @@
   <div id="eventList" class="space-y-2"></div>
 </div>
 
-<!-- MODAL -->
+<!-- Modal -->
 <div id="modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
   <div class="bg-gray-800 p-6 rounded-lg w-80">
     <h3 id="modalTitle" class="text-lg font-bold mb-4">New Event</h3>
@@ -106,7 +106,7 @@
   </div>
 </div>
 
-<!-- DELETE MODAL -->
+<!-- Delete Modal -->
 <div id="deleteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 hidden z-50">
   <div class="bg-gray-800 rounded-lg p-6 w-80 text-white text-center">
     <h2 class="text-lg font-bold mb-4">Delete Event</h2>
@@ -124,29 +124,30 @@ let now = new Date();
 let currentMonth = now.getMonth();
 let currentYear = now.getFullYear();
 const events = {{ events|tojson }};
+let deleteTargetId = null, deleteTargetParent = null;
+let startX = null, currentTranslate = 0, prevTranslate = 0, dragging = false;
 
 function renderAll() {
-  renderCalendar(normalizeDate(currentYear, currentMonth - 1), document.getElementById('prevCalendar'));
-  renderCalendar(normalizeDate(currentYear, currentMonth), document.getElementById('currentCalendar'));
-  renderCalendar(normalizeDate(currentYear, currentMonth + 1), document.getElementById('nextCalendar'));
-  document.getElementById('calendarSlider').style.transition = "none";
-  document.getElementById('calendarSlider').style.transform = "translateX(-100%)";
+  document.getElementById('monthTitle').textContent = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
+  renderCalendar(currentYear, currentMonth - 1, document.getElementById('prev'));
+  renderCalendar(currentYear, currentMonth, document.getElementById('current'));
+  renderCalendar(currentYear, currentMonth + 1, document.getElementById('next'));
+  document.getElementById('slider').style.transition = "none";
+  document.getElementById('slider').style.transform = `translateX(-100%)`;
   renderEventList();
 }
 
-function normalizeDate(year, month) {
-  const date = new Date(year, month, 1);
-  return { year: date.getFullYear(), month: date.getMonth() };
-}
+function renderCalendar(y, m, container) {
+  const date = new Date(y, m);
+  y = date.getFullYear(); m = date.getMonth();
+  const firstDay = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  let html = "";
 
-function renderCalendar({year, month}, container) {
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  let html = '';
   for (let i = 0; i < firstDay; i++) html += `<div></div>`;
   for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const today = new Date().toDateString() === new Date(year, month, day).toDateString();
+    const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const today = new Date().toDateString() === new Date(y, m, day).toDateString();
     html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')"><div class="text-sm">${day}</div>${renderEvents(dateStr)}</div>`;
   }
   container.innerHTML = `<div class="calendar-grid">${html}</div>`;
@@ -159,33 +160,52 @@ function renderEvents(dateStr) {
 
 function renderEventList() {
   const list = document.getElementById('eventList');
-  const html = Object.entries(events).map(([id, e]) => `<div class="p-2 bg-gray-800 rounded"><strong>${e.title}</strong><br>${e.date} ${e.allDay ? "(All Day)" : e.time}<br><span class="text-xs">${e.description}</span></div>`);
-  list.innerHTML = html.length ? html.join('') : `<p class="text-gray-400">No events this month.</p>`;
+  let html = Object.entries(events).filter(([id, e]) => e.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`))
+    .map(([id, e]) => `<div class="p-2 bg-gray-800 rounded cursor-pointer"><strong>${e.title}</strong><br>${e.date} ${e.allDay ? "(All Day)" : e.time}</div>`).join('');
+  list.innerHTML = html || `<p class="text-gray-400">No events this month.</p>`;
 }
 
-function prevMonth() { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } renderAll(); }
-function nextMonth() { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } renderAll(); }
+function goToPrev() { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } renderAll(); }
+function goToNext() { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } renderAll(); }
 
-let slider = document.getElementById('calendarSlider');
-let startX = 0, currentX = 0, isDragging = false;
+const slider = document.getElementById('slider');
 
-function setSlider(offset) { slider.style.transform = `translateX(calc(-100% + ${offset}px))`; }
+slider.addEventListener('touchstart', e => {
+  startX = e.touches[0].clientX;
+  dragging = true;
+  prevTranslate = -window.innerWidth;
+});
 
-function endSwipe(offset) {
+slider.addEventListener('touchmove', e => {
+  if (!dragging) return;
+  const x = e.touches[0].clientX;
+  currentTranslate = prevTranslate + (x - startX);
+  slider.style.transition = "none";
+  slider.style.transform = `translateX(${currentTranslate}px)`;
+});
+
+slider.addEventListener('touchend', () => {
+  dragging = false;
+  if (currentTranslate > -window.innerWidth + 50) goToPrev();
+  else if (currentTranslate < -window.innerWidth - 50) goToNext();
+  else slider.style.transform = `translateX(-100%)`;
   slider.style.transition = "transform 0.3s ease";
-  if (offset > 80) { setSlider(0); setTimeout(prevMonth, 300); }
-  else if (offset < -80) { setSlider(-200); setTimeout(nextMonth, 300); }
-  else { setSlider(0); setTimeout(() => slider.style.transition = "none", 300); }
+});
+
+function openDatePicker() {
+  const picker = document.createElement('input');
+  picker.type = 'month';
+  picker.value = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}`;
+  picker.style.opacity = 0;
+  document.body.appendChild(picker);
+  picker.click();
+  picker.addEventListener('change', e => {
+    const [y, m] = e.target.value.split('-');
+    currentYear = parseInt(y); currentMonth = parseInt(m) - 1;
+    document.body.removeChild(picker);
+    renderAll();
+  });
 }
-
-slider.addEventListener('touchstart', e => { startX = e.touches[0].clientX; isDragging = true; slider.style.transition = "none"; });
-slider.addEventListener('touchmove', e => { if (!isDragging) return; currentX = e.touches[0].clientX; setSlider(currentX - startX); });
-slider.addEventListener('touchend', e => { if (!isDragging) return; endSwipe(e.changedTouches[0].clientX - startX); isDragging = false; });
-
-slider.addEventListener('mousedown', e => { startX = e.clientX; isDragging = true; slider.style.transition = "none"; });
-slider.addEventListener('mousemove', e => { if (!isDragging) return; currentX = e.clientX; setSlider(currentX - startX); });
-slider.addEventListener('mouseup', e => { if (!isDragging) return; endSwipe(e.clientX - startX); isDragging = false; });
-slider.addEventListener('mouseleave', e => { if (!isDragging) return; endSwipe(e.clientX - startX); isDragging = false; });
 
 window.onload = renderAll;
 </script>
