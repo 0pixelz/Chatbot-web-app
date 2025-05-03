@@ -39,15 +39,14 @@
       position: relative;
       overflow: hidden;
     }
-    .calendar-slide {
-      transition: transform 0.3s ease-in-out;
+    .calendar-wrapper {
+      display: flex;
+      transition: transform 0.3s ease;
       will-change: transform;
     }
-    .slide-left {
-      transform: translateX(-100%);
-    }
-    .slide-right {
-      transform: translateX(100%);
+    .calendar-slide {
+      min-width: 100%;
+      box-sizing: border-box;
     }
   </style>
 </head>
@@ -68,7 +67,11 @@
 </div>
 
 <div class="calendar-container mb-4">
-  <div class="calendar-grid text-center calendar-slide" id="calendar"></div>
+  <div class="calendar-wrapper" id="calendarWrapper">
+    <div class="calendar-grid text-center calendar-slide" id="calendarPrev"></div>
+    <div class="calendar-grid text-center calendar-slide" id="calendarCurrent"></div>
+    <div class="calendar-grid text-center calendar-slide" id="calendarNext"></div>
+  </div>
 </div>
 
 <hr class="border-gray-700 my-4">
@@ -123,154 +126,125 @@ let currentYear = localStorage.getItem('currentYear') ? parseInt(localStorage.ge
 const events = {{ events|tojson }};
 let deleteTargetId = null, deleteTargetParent = null;
 
-function renderCalendar() {
-  const calendar = document.getElementById('calendar');
-  const monthTitle = document.getElementById('monthTitle');
-  const date = new Date(currentYear, currentMonth);
-  monthTitle.textContent = `${date.toLocaleString('default', { month: 'long' })} ${currentYear}`;
-
-  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  
+function renderCalendarMonth(container, year, month) {
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const isCurrent = container.id === 'calendarCurrent';
   let html = "";
+
   for (let i = 0; i < firstDay; i++) html += `<div></div>`;
   for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const today = new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString();
-    html += `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')"><div class="text-sm">${day}</div>${renderEvents(dateStr)}</div>`;
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const today = new Date().toDateString() === new Date(year, month, day).toDateString();
+    html += `<div class="calendar-cell ${today? 'today': ''}" ${isCurrent? `onclick="openModal('${dateStr}')"`: ''}>
+               <div class="text-sm">${day}</div>
+               ${isCurrent? renderEvents(dateStr): ''}
+             </div>`;
   }
-  calendar.innerHTML = html;
-
-  const eventList = document.getElementById('eventList');
-  let eventHtml = "";
-  for (const [id, evt] of Object.entries(events)) {
-    if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
-      eventHtml += `<div class="p-2 bg-gray-800 rounded cursor-pointer" onclick="event.stopPropagation(); openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}', '${evt.parentId || ""}', \`${evt.description || ""}\`)"><strong>${evt.title}</strong><br>${evt.date} ${evt.allDay ? "(All Day)" : evt.time}</div>`;
-    }
-  }
-  eventList.innerHTML = eventHtml || `<p class="text-gray-400">No events this month.</p>`;
+  container.innerHTML = html;
 }
 
+function syncHeights() {
+  const slides = document.querySelectorAll('.calendar-slide');
+  let maxHeight = 0;
+  slides.forEach(slide => { slide.style.height = 'auto'; if (slide.offsetHeight > maxHeight) maxHeight = slide.offsetHeight; });
+  slides.forEach(slide => slide.style.height = maxHeight + 'px');
+}
+
+function renderAllCalendars() {
+  document.getElementById('monthTitle').textContent = `${new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' })} ${currentYear}`;
+  renderCalendarMonth(document.getElementById('calendarPrev'), currentMonth - 1 < 0 ? currentYear - 1 : currentYear, currentMonth - 1 < 0 ? 11 : currentMonth - 1);
+  renderCalendarMonth(document.getElementById('calendarCurrent'), currentYear, currentMonth);
+  renderCalendarMonth(document.getElementById('calendarNext'), currentMonth + 1 > 11 ? currentYear + 1 : currentYear, (currentMonth + 1) % 12);
+  const wrapper = document.getElementById('calendarWrapper');
+  wrapper.style.transition = 'none';
+  wrapper.style.transform = 'translateX(-100%)';
+  syncHeights();
+  updateEventList();
+}
+
+function prevMonth() {
+  const wrapper = document.getElementById('calendarWrapper');
+  wrapper.style.transition = 'transform 0.3s ease';
+  wrapper.style.transform = 'translateX(0)';
+  setTimeout(() => { currentMonth--; if (currentMonth<0){currentMonth=11; currentYear--;} renderAllCalendars(); }, 300);
+}
+
+function nextMonth() {
+  const wrapper = document.getElementById('calendarWrapper');
+  wrapper.style.transition = 'transform 0.3s ease';
+  wrapper.style.transform = 'translateX(-200%)';
+  setTimeout(() => { currentMonth++; if (currentMonth>11){currentMonth=0; currentYear++;} renderAllCalendars(); }, 300);
+}
+
+let touchStartX = null, touchStartTime = 0;
+const wrapper = document.getElementById('calendarWrapper');
+document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; touchStartTime = Date.now(); wrapper.style.transition = 'none'; });
+document.addEventListener('touchmove', e => { if (touchStartX===null) return; const diff = e.touches[0].clientX - touchStartX; wrapper.style.transform = `translateX(${ -window.innerWidth + diff }px)`; });
+document.addEventListener('touchend', e => {
+  if (touchStartX===null) return;
+  const diff = e.changedTouches[0].clientX - touchStartX;
+  const elapsed = Date.now() - touchStartTime;
+  wrapper.style.transition = 'transform 0.3s ease';
+  if (elapsed<100 && Math.abs(diff)<150) { wrapper.style.transform='translateX(-100%)'; }
+  else if (diff>80) prevMonth();
+  else if (diff<-80) nextMonth();
+  else wrapper.style.transform='translateX(-100%)';
+  touchStartX = null;
+});
+
 function renderEvents(dateStr) {
-  let out = "";
+  let out = '';
   for (const [id, evt] of Object.entries(events)) {
     if (evt.date === dateStr) {
-      out += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}', '${evt.time || ""}', ${evt.allDay || false}, '${evt.repeat || "none"}', '${evt.parentId || ""}', \`${evt.description || ""}\`)">${evt.title}</span>`;
+      out += `<span class=\"event-badge\" onclick=\"event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}', '${evt.time||""}', ${evt.allDay||false}, '${evt.repeat||"none"}', '${evt.parentId||""}', \`${evt.description||""}\`)\">${evt.title}</span>`;
     }
   }
   return out;
 }
 
-function animateCalendar(direction, callback) {
-  const calendar = document.getElementById('calendar');
-  calendar.classList.add(`slide-${direction}`);
-  setTimeout(() => {
-    calendar.classList.remove(`slide-${direction}`);
-    callback();
-  }, 300);
-}
-
-function prevMonth() {
-  animateCalendar('right', () => {
-    currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-    renderCalendar();
-  });
-}
-
-function nextMonth() {
-  animateCalendar('left', () => {
-    currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-    renderCalendar();
-  });
-}
-
-document.addEventListener('touchstart', e => touchStartX = e.touches[0].clientX);
-document.addEventListener('touchend', e => {
-  if (!touchStartX) return;
-  const diff = e.changedTouches[0].clientX - touchStartX;
-  if (Math.abs(diff) > 50) diff > 0 ? prevMonth() : nextMonth();
-  touchStartX = null;
-});
-
-function openDatePicker() {
-  const picker = document.createElement('input');
-  picker.type = 'month';
-  picker.value = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}`;
-  picker.style.opacity = 0;
-  document.body.appendChild(picker);
-  picker.click();
-  picker.addEventListener('change', e => {
-    const [y, m] = e.target.value.split('-');
-    currentYear = parseInt(y); currentMonth = parseInt(m) - 1;
-    renderCalendar();
-    document.body.removeChild(picker);
-  });
-}
-
-function openModal(dateStr, id=null, title='', time='', allDay=false, repeat='none', parentId='', desc='') {
-  const modal = document.getElementById('modal');
-  modal.dataset.eventId = id || '';
-  modal.dataset.parentId = parentId || '';
-  document.getElementById('modalDate').value = dateStr;
-  document.getElementById('eventName').value = title;
-  document.getElementById('eventDescription').value = desc;
-  document.getElementById('eventTime').value = time;
-  document.getElementById('repeat').value = repeat;
-  document.getElementById('allDay').checked = allDay;
-  document.getElementById('eventTime').disabled = allDay;
-  document.getElementById('deleteButton').classList.toggle('hidden', !id);
-  modal.style.display = 'flex';
-}
-
-function closeModal() { document.getElementById('modal').style.display = 'none'; }
-function deleteModal() {
-  deleteTargetId = document.getElementById('modal').dataset.eventId;
-  deleteTargetParent = document.getElementById('modal').dataset.parentId;
-  document.getElementById('deleteModal').classList.remove('hidden');
-}
-
-function closeDeleteModal() { document.getElementById('deleteModal').classList.add('hidden'); }
-
-async function confirmDelete(mode) {
-  if (!deleteTargetId) return;
-  if (mode === 'all') {
-    const targets = Object.entries(events).filter(([id, e]) => e.parentId === deleteTargetParent);
-    for (const [id] of targets) await fetch(`/delete_event/${id}`, { method: 'POST' });
-  } else {
-    await fetch(`/delete_event/${deleteTargetId}`, { method: 'POST' });
-  }
-  closeDeleteModal(); closeModal(); location.reload();
-}
-
-async function saveModal() {
-  const date = document.getElementById('modalDate').value;
-  const title = document.getElementById('eventName').value.trim();
-  const description = document.getElementById('eventDescription').value.trim();
-  const time = document.getElementById('eventTime').value;
-  const allDay = document.getElementById('allDay').checked;
-  const repeat = document.getElementById('repeat').value;
-  const eventId = document.getElementById('modal').dataset.eventId;
-  const parentId = document.getElementById('modal').dataset.parentId || crypto.randomUUID();
-
-  if (!title) return;
-
-  const payload = { title, date, description, time: allDay ? "" : time, allDay, repeat, parentId };
-
-  if (eventId) {
-    await fetch(`/save_event/${eventId}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-  } else {
-    for (let i = 0; i < (repeat === 'none' ? 1 : 12); i++) {
-      const d = new Date(date);
-      if (repeat === 'daily') d.setDate(d.getDate() + i);
-      else if (repeat === 'weekly') d.setDate(d.getDate() + i * 7);
-      else if (repeat === 'monthly') d.setMonth(d.getMonth() + i);
-      await fetch(`/save_event/${crypto.randomUUID()}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({...payload, date: d.toISOString().slice(0,10)})});
+function updateEventList() {
+  const eventList = document.getElementById('eventList');
+  let html = '';
+  for (const [id, evt] of Object.entries(events)) {
+    if (evt.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`)) {
+      html += `<div class=\"p-2 bg-gray-800 rounded cursor-pointer\" onclick=\"event.stopPropagation(); openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time||""}', ${evt.allDay||false}, '${evt.repeat||"none"}', '${evt.parentId||""}', \`${evt.description||""}\`)\"><strong>${evt.title}</strong><br>${evt.date} ${evt.allDay?"(All Day)":evt.time}</div>`;
     }
   }
-  closeModal(); location.reload();
+  eventList.innerHTML = html || `<p class=\"text-gray-400\">No events this month.</p>`;
 }
 
-window.onload = renderCalendar;
+// Modal and CRUD functions remain unchanged from original
+function openDatePicker() {
+  const picker = document.createElement('input'); picker.type='month'; picker.value = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}`;
+  picker.style.opacity=0; document.body.appendChild(picker); picker.click(); picker.addEventListener('change', e=>{const [y,m]=e.target.value.split('-'); currentYear=parseInt(y); currentMonth=parseInt(m)-1; renderAllCalendars(); document.body.removeChild(picker);});
+}
+
+function openModal(dateStr, id='', title='', time='', allDay=false, repeat='none', parentId='', desc='') {
+  const modal=document.getElementById('modal'); modal.dataset.eventId=id; modal.dataset.parentId=parentId;
+  document.getElementById('modalDate').value=dateStr;
+  document.getElementById('eventName').value=title;
+  document.getElementById('eventDescription').value=desc;
+  document.getElementById('eventTime').value=time;
+  document.getElementById('repeat').value=repeat;
+  document.getElementById('allDay').checked=allDay;
+  document.getElementById('eventTime').disabled=allDay;
+  document.getElementById('deleteButton').classList.toggle('hidden', !id);
+  modal.style.display='flex';
+}
+function closeModal(){document.getElementById('modal').style.display='none';}
+function deleteModal(){deleteTargetId=document.getElementById('modal').dataset.eventId; deleteTargetParent=document.getElementById('modal').dataset.parentId; document.getElementById('deleteModal').classList.remove('hidden');}
+function closeDeleteModal(){document.getElementById('deleteModal').classList.add('hidden');}
+async function confirmDelete(mode){ if(!deleteTargetId)return; if(mode==='all'){ const targets=Object.entries(events).filter(([i,e])=>e.parentId===deleteTargetParent); for(const [i] of targets) await fetch(`/delete_event/${i}`,{method:'POST'});} else { await fetch(`/delete_event/${deleteTargetId}`,{method:'POST'}); } closeDeleteModal(); closeModal(); location.reload(); }
+async function saveModal(){ const date=document.getElementById('modalDate').value; const title=document.getElementById('eventName').value.trim(); if(!title)return; const description=document.getElementById('eventDescription').value.trim(); const time=document.getElementById('eventTime').value; const allDay=document.getElementById('allDay').checked; const repeat=document.getElementById('repeat').value; const parentId=document.getElementById('modal').dataset.parentId||crypto.randomUUID(); const eventId=document.getElementById('modal').dataset.eventId;
+  const payload={title,date,description,time:allDay?"":time,allDay,repeat,parentId};
+  if(eventId){ await fetch(`/save_event/${eventId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  } else {
+    for(let i=0;i<(repeat==='none'?1:12);i++){ const d=new Date(date); if(repeat==='daily') d.setDate(d.getDate()+i); else if(repeat==='weekly') d.setDate(d.getDate()+i*7); else if(repeat==='monthly') d.setMonth(d.getMonth()+i); await fetch(`/save_event/${crypto.randomUUID()}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,date:d.toISOString().slice(0,10)})}); }
+  }
+  closeModal(); location.reload(); }
+
+window.onload = renderAllCalendars;
 </script>
 
 </body>
