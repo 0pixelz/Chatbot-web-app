@@ -196,7 +196,7 @@ def delete_conversation(convo_id):
     db.reference(f"conversations/{clean_uid(uid)}/{convo_id}").delete()
     db.reference(f"chat_memory/{clean_uid(uid)}/{convo_id}").delete()
 
-    return redirect("/chat")
+    return redirect("/chat?sidebar=open")
 
 @app.route("/calendar")
 def calendar_page():
