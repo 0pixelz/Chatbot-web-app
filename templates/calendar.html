@@ -179,6 +179,30 @@ function renderEvents() {
 }
 
 renderCalendar();
+
+// ✅ Swipe logic
+let touchStartX = null;
+
+document.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+});
+
+document.addEventListener('touchmove', e => {
+  if (touchStartX === null) return;
+  const diff = e.touches[0].clientX - touchStartX;
+
+  if (diff > 80) {
+    prevMonth();
+    touchStartX = null;
+  } else if (diff < -80) {
+    nextMonth();
+    touchStartX = null;
+  }
+});
+
+document.addEventListener('touchend', () => {
+  touchStartX = null;
+});
 </script>
 </body>
 </html>
