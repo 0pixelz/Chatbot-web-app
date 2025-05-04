@@ -41,8 +41,8 @@
     </div>
   </div>
   {% else %}
-  <a href="/login" class="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700">
-    <svg class="w-5 h-5" viewBox="0 0 533.5 544.3"><path fill="#4285F4" d="..."/><path fill="#34A853" d="..."/><path fill="#FBBC05" d="..."/><path fill="#EA4335" d="..."/></svg>
+  <a href="/login" class="flex items-center gap-3 px-4 py-2 bg-white border border-gray-300 dark:bg-gray-700 dark:border-gray-600 rounded-lg shadow hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium">
+    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" class="w-5 h-5">
     Sign in with Google
   </a>
   {% endif %}
@@ -76,9 +76,7 @@
     <h3 class="mt-4 mb-2 text-gray-500 uppercase text-xs">Conversations</h3>
     {% for convo_id, convo_data in conversations.items() %}
     <div class="flex justify-between items-center">
-      <a href="/chat/{{ convo_id }}" class="truncate w-40 text-gray-700 dark:text-gray-300 hover:underline">
-        {{ convo_data.title if convo_data.title else 'New Chat' }}
-      </a>
+      <a href="/chat/{{ convo_id }}" class="truncate w-40 text-gray-700 dark:text-gray-300 hover:underline">{{ convo_data.title if convo_data.title else 'New Chat' }}</a>
       <form method="POST" action="/delete_conversation/{{ convo_id }}" onsubmit="return confirm('Delete this conversation?')">
         <button class="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-red-500 rounded hover:bg-gray-300 dark:hover:bg-gray-600">Delete</button>
       </form>
@@ -91,9 +89,7 @@
 <!-- Chat Area -->
 <main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 mb-28 flex flex-col gap-4">
   {% for msg in history %}
-  <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant typing{% endif %}">
-    {{ msg.content }}
-  </div>
+  <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant typing{% endif %}">{{ msg.content }}</div>
   {% endfor %}
 </main>
 
@@ -143,6 +139,9 @@ function scrollToBottom() {
 }
 document.getElementById('messageInput').addEventListener('focus', () => {
   document.getElementById('sidebar').classList.add('-translate-x-full');
+  setTimeout(() => {
+    document.getElementById('messageInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 300);
 });
 window.visualViewport && window.visualViewport.addEventListener('resize', () => {
   if(window.visualViewport.height < window.innerHeight - 100){
