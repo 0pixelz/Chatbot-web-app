@@ -27,7 +27,7 @@
 <header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow fixed top-0 left-0 right-0 z-50">
   <button onclick="toggleSidebar()" class="text-gray-800 dark:text-gray-200 text-2xl">☰</button>
   <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">AI Chat</h1>
-  
+
   {% if session.get("user_email") %}
   <div class="relative inline-block text-left">
     <button onclick="toggleMenu()" class="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center">
@@ -46,9 +46,15 @@
 <!-- Sidebar -->
 <aside id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-white dark:bg-gray-800 transform {% if request.args.get('sidebar') == 'open' %}translate-x-0{% else %}-translate-x-full{% endif %} transition-transform duration-300 z-40 p-4 shadow">
   <h2 class="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200">Menu</h2>
-  <nav class="flex flex-col gap-2">
-    <a href="/start_new_chat" class="text-blue-600 dark:text-blue-400 hover:underline">➕ Start New Chat</a>
-    <a href="/calendar" class="text-blue-600 dark:text-blue-400 hover:underline">📅 Calendar</a>
+  <nav class="flex flex-col gap-4">
+    <a href="/start_new_chat" class="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-500">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8a9 9 0 100-18 9 9 0 000 18z"></path></svg>
+      Start New Chat
+    </a>
+    <a href="/calendar" class="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-500">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10m-12 6h12m-7 4h2m-6-4h2"></path></svg>
+      Calendar
+    </a>
     {% if conversations %}
       <h3 class="mt-4 mb-2 text-gray-500 uppercase text-xs">Conversations</h3>
       {% for convo_id, convo_data in conversations.items() %}
