@@ -41,7 +41,10 @@
     </div>
   </div>
   {% else %}
-  <a href="/login" class="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700">Sign in with Google</a>
+  <a href="/login" class="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700">
+    <svg class="w-5 h-5" viewBox="0 0 533.5 544.3"><path fill="#4285F4" d="M533.5 278.4c0-17.8-1.6-35-4.6-51.6H272v97.7h146.9c-6.4 34-25.4 62.8-54 82.2l87 67.7c50.7-46.7 81.6-115.5 81.6-196z"/><path fill="#34A853" d="M272 544.3c73.5 0 135.2-24.4 180.2-66.3l-87-67.7c-24.2 16.3-55 25.7-93.2 25.7-71.5 0-132-48.3-153.7-113.3l-90 69.6c43.6 86.2 132.5 152 243.7 152z"/><path fill="#FBBC05" d="M118.3 322.7c-10.8-32-10.8-66.7 0-98.7l-90-69.6c-39.2 77.5-39.2 160 0 237.5l90-69.2z"/><path fill="#EA4335" d="M272 107c...
+    Sign in with Google
+  </a>
   {% endif %}
 </header>
 
@@ -57,7 +60,6 @@
       <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10m-12 6h12m-7 4h2m-6-4h2"></path></svg>
       Calendar
     </a>
-
     {% if conversations %}
       <h3 class="mt-4 mb-2 text-gray-500 uppercase text-xs">Conversations</h3>
       {% for convo_id, convo_data in conversations.items() %}
@@ -80,7 +82,7 @@
 <!-- Chat Area -->
 <main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 mb-28 flex flex-col gap-4">
   {% for msg in history %}
-    <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant{% endif %}">
+    <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant typing{% endif %}">
       {{ msg.content }}
     </div>
   {% endfor %}
@@ -98,11 +100,49 @@
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('-translate-x-full');
 }
+
 function toggleMenu() {
   document.getElementById('menu').classList.toggle('hidden');
 }
+
 document.getElementById('messageInput').addEventListener('input', function() {
   document.getElementById('sendButton').disabled = this.value.trim().length === 0;
+});
+
+// Typing animation
+function animateTyping() {
+  const bubbles = document.querySelectorAll('.chat-bubble-assistant.typing');
+  bubbles.forEach(bubble => {
+    const fullText = bubble.textContent;
+    bubble.textContent = '';
+    let i = 0;
+
+    function typeChar() {
+      if (i < fullText.length) {
+        bubble.textContent += fullText.charAt(i);
+        i++;
+        setTimeout(typeChar, 20);
+      } else {
+        bubble.classList.remove("typing");
+      }
+    }
+
+    typeChar();
+  });
+}
+
+window.onload = function() {
+  animateTyping();
+  scrollToBottom();
+};
+
+function scrollToBottom() {
+  const chatArea = document.getElementById('chatArea');
+  chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
+}
+
+document.getElementById('messageInput').addEventListener('focus', () => {
+  document.getElementById('sidebar').classList.add('-translate-x-full');
 });
 </script>
 
