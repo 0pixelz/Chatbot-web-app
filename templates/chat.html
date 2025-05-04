@@ -20,14 +20,14 @@
     .dark .chat-bubble-assistant { background-color: #4b5563; color: white; }
   </style>
 </head>
-
 <body class="flex flex-col min-h-screen {% if settings.theme == 'dark' %}dark bg-gray-900{% else %}bg-white{% endif %}">
 
-<!-- Top Navbar -->
+<!-- Header -->
 <header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow fixed top-0 left-0 right-0 z-50">
-  <button onclick="toggleSidebar()" class="text-gray-800 dark:text-gray-200 text-2xl">☰</button>
-  <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">AI Chat</h1>
-
+  <div class="flex items-center space-x-4">
+    <button onclick="toggleSidebar()" class="text-gray-800 dark:text-gray-200 text-2xl">☰</button>
+    <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">AI Chat</h1>
+  </div>
   {% if session.get("user_email") %}
   <div class="relative inline-block text-left">
     <button onclick="toggleMenu()" class="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center">
@@ -42,38 +42,35 @@
   </div>
   {% else %}
   <a href="/login" class="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700">
-    <svg class="w-5 h-5" viewBox="0 0 533.5 544.3"><path fill="#4285F4" d="M533.5 278.4c0-17.8-1.6-35-4.6-51.6H272v97.7h146.9c-6.4 34-25.4 62.8-54 82.2l87 67.7c50.7-46.7 81.6-115.5 81.6-196z"/><path fill="#34A853" d="M272 544.3c73.5 0 135.2-24.4 180.2-66.3l-87-67.7c-24.2 16.3-55 25.7-93.2 25.7-71.5 0-132-48.3-153.7-113.3l-90 69.6c43.6 86.2 132.5 152 243.7 152z"/><path fill="#FBBC05" d="M118.3 322.7c-10.8-32-10.8-66.7 0-98.7l-90-69.6c-39.2 77.5-39.2 160 0 237.5l90-69.2z"/><path fill="#EA4335" d="M272 107c...
+    <svg class="w-5 h-5" viewBox="0 0 533.5 544.3"><path fill="#4285F4" d="..."/><path fill="#34A853" d="..."/><path fill="#FBBC05" d="..."/><path fill="#EA4335" d="..."/></svg>
     Sign in with Google
   </a>
   {% endif %}
 </header>
 
 <!-- Sidebar -->
-<aside id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-white dark:bg-gray-800 transform {% if request.args.get('sidebar') == 'open' %}translate-x-0{% else %}-translate-x-full{% endif %} transition-transform duration-300 z-40 p-4 shadow">
+<aside id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-white dark:bg-gray-800 transform -translate-x-full transition-transform duration-300 z-40 p-4 shadow">
   <h2 class="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200">Menu</h2>
   <nav class="flex flex-col gap-4">
     <a href="/start_new_chat" class="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-500">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8a9 9 0 100-18 9 9 0 000 18z"></path></svg>
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
       Start New Chat
     </a>
     <a href="/calendar" class="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-500">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10m-12 6h12m-7 4h2m-6-4h2"></path></svg>
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8h18M3 16h18M7 4v4m10-4v4"></path></svg>
       Calendar
     </a>
     {% if conversations %}
       <h3 class="mt-4 mb-2 text-gray-500 uppercase text-xs">Conversations</h3>
       {% for convo_id, convo_data in conversations.items() %}
-        <div class="flex justify-between items-center">
-          <a href="/chat/{{ convo_id }}" class="truncate w-40 text-gray-700 dark:text-gray-300 hover:underline">
-            {{ convo_data.title if convo_data.title else 'New Chat' }}
-          </a>
-          <form method="POST" action="/delete_conversation/{{ convo_id }}" onsubmit="return confirm('Delete this conversation?')">
-            <button class="flex items-center gap-1 px-2 py-1 bg-gray-200 dark:bg-gray-700 text-red-500 rounded hover:bg-gray-300 dark:hover:bg-gray-600">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3m-4 0h14"></path></svg>
-              Delete
-            </button>
-          </form>
-        </div>
+      <div class="flex justify-between items-center">
+        <a href="/chat/{{ convo_id }}" class="truncate w-40 text-gray-700 dark:text-gray-300 hover:underline">
+          {{ convo_data.title if convo_data.title else 'New Chat' }}
+        </a>
+        <form method="POST" action="/delete_conversation/{{ convo_id }}" onsubmit="return confirm('Delete this conversation?')">
+          <button class="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-red-500 rounded hover:bg-gray-300 dark:hover:bg-gray-600">Delete</button>
+        </form>
+      </div>
       {% endfor %}
     {% endif %}
   </nav>
@@ -82,9 +79,9 @@
 <!-- Chat Area -->
 <main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 mb-28 flex flex-col gap-4">
   {% for msg in history %}
-    <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant typing{% endif %}">
-      {{ msg.content }}
-    </div>
+  <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant typing{% endif %}">
+    {{ msg.content }}
+  </div>
   {% endfor %}
 </main>
 
@@ -116,7 +113,6 @@ function animateTyping() {
     const fullText = bubble.textContent;
     bubble.textContent = '';
     let i = 0;
-
     function typeChar() {
       if (i < fullText.length) {
         bubble.textContent += fullText.charAt(i);
@@ -126,7 +122,6 @@ function animateTyping() {
         bubble.classList.remove("typing");
       }
     }
-
     typeChar();
   });
 }
@@ -141,8 +136,14 @@ function scrollToBottom() {
   chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
 }
 
+// Sidebar auto hide on input focus + mobile keyboard open
 document.getElementById('messageInput').addEventListener('focus', () => {
   document.getElementById('sidebar').classList.add('-translate-x-full');
+});
+window.visualViewport && window.visualViewport.addEventListener('resize', () => {
+  if(window.visualViewport.height < window.innerHeight - 100){
+    document.getElementById('sidebar').classList.add('-translate-x-full');
+  }
 });
 </script>
 
