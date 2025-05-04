@@ -187,6 +187,17 @@ def chat(convo_id):
 
     return render_template("chat.html", uid=uid, history=history, conversations=conversations, convo_id=convo_id, settings=settings)
 
+@app.route("/delete_conversation/<convo_id>", methods=["POST"])
+def delete_conversation(convo_id):
+    uid = session.get("user_email")
+    if not uid:
+        return "Unauthorized", 401
+
+    db.reference(f"conversations/{clean_uid(uid)}/{convo_id}").delete()
+    db.reference(f"chat_memory/{clean_uid(uid)}/{convo_id}").delete()
+
+    return redirect("/chat")
+
 @app.route("/calendar")
 def calendar_page():
     uid = session.get("user_email")
@@ -226,7 +237,6 @@ def delete_event_route(event_id):
     delete_event(uid, event_id)
     return "Deleted", 200
 
-# === Settings Page ===
 @app.route("/settings", methods=["GET", "POST"])
 def settings_page():
     uid = session.get("user_email", "guest")
@@ -250,6 +260,5 @@ def settings_page():
     user_settings = get_settings(uid)
     return render_template("settings.html", settings=user_settings)
 
-# === Run ===
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
