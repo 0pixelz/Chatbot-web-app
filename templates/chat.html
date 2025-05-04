@@ -33,7 +33,7 @@
         <img src="{{ session['user_picture'] }}" class="w-10 h-10 rounded-full">
       </button>
       <div id="userMenu" class="hidden absolute right-0 mt-2 bg-white dark:bg-gray-700 rounded shadow-lg w-40">
-        <a href="settings.html" onclick="toggleMenu()" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
+        <a href="/settings" onclick="toggleMenu()" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
         <form method="POST" action="/logout" class="px-4 py-2">
           <button class="w-full text-left text-red-500 hover:underline">Logout</button>
         </form>
