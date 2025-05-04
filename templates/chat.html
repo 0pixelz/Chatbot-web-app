@@ -9,17 +9,24 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { overflow-x: hidden; }
-    .chat-bubble { max-width: 85%; padding: 10px 15px; border-radius: 1rem; word-break: break-word; overflow-wrap: break-word; }
+    .chat-bubble {
+      max-width: 85%;
+      padding: 10px 15px;
+      border-radius: 1rem;
+      word-break: break-word;
+      overflow-wrap: break-word;
+    }
     .chat-bubble-user { background-color: #3b82f6; color: white; align-self: flex-end; }
-    .chat-bubble-assistant { background-color: #e5e7eb; color: black; align-self: flex-start; }
-    .dark .chat-bubble-user { background-color: #2563eb; }
+    .dark .chat-bubble-user { background-color: #2563eb; color: white; }
+
+    .chat-bubble-assistant { background-color: #f3f4f6; color: black; align-self: flex-start; }
     .dark .chat-bubble-assistant { background-color: #4b5563; color: white; }
   </style>
 </head>
 <body class="flex flex-col min-h-screen bg-white dark:bg-gray-900">
 
 <script>
-// Apply dark mode from template settings
+// Apply dark mode
 const theme = "{{ settings.theme }}";
 if (theme === "dark") {
   document.documentElement.classList.add("dark");
@@ -47,7 +54,7 @@ if (theme === "dark") {
     </div>
   </div>
   {% else %}
-  <a href="/login" class="flex items-center gap-3 px-4 py-2 bg-white border border-gray-300 dark:bg-gray-700 dark:border-gray-600 rounded-lg shadow hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium">
+  <a href="/login" class="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium">
     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" class="w-5 h-5">
     Sign in with Google
   </a>
