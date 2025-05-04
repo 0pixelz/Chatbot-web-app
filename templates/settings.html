@@ -25,16 +25,16 @@ if (theme === "dark") {
 </header>
 
 <!-- Settings Form -->
-<main class="flex-1 p-6 overflow-y-auto text-gray-800 dark:text-gray-100">
+<main class="flex-1 p-6 overflow-y-auto bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100">
   <div class="max-w-2xl mx-auto bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg space-y-6">
 
-    <h2 class="text-2xl font-bold mb-6">Customize your Chatbot</h2>
+    <h2 class="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-100">Customize your Chatbot</h2>
 
     <form method="POST" class="space-y-6">
       <!-- Theme -->
       <div>
-        <label for="theme" class="block mb-2 text-sm font-medium">Theme</label>
-        <select id="theme" name="theme" class="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+        <label for="theme" class="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Theme</label>
+        <select id="theme" name="theme" class="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100">
           <option value="dark" {% if settings.theme == 'dark' %}selected{% endif %}>Dark</option>
           <option value="light" {% if settings.theme == 'light' %}selected{% endif %}>Light</option>
         </select>
@@ -42,8 +42,8 @@ if (theme === "dark") {
 
       <!-- Font Size -->
       <div>
-        <label for="font_size" class="block mb-2 text-sm font-medium">Font Size</label>
-        <select id="font_size" name="font_size" class="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+        <label for="font_size" class="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Font Size</label>
+        <select id="font_size" name="font_size" class="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100">
           <option value="small" {% if settings.font_size == 'small' %}selected{% endif %}>Small</option>
           <option value="base" {% if settings.font_size == 'base' or not settings.font_size %}selected{% endif %}>Base</option>
           <option value="large" {% if settings.font_size == 'large' %}selected{% endif %}>Large</option>
@@ -52,17 +52,17 @@ if (theme === "dark") {
 
       <!-- Assistant Personality -->
       <div>
-        <label for="personality" class="block mb-2 text-sm font-medium">Assistant Personality</label>
+        <label for="personality" class="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Assistant Personality</label>
         <input type="text" id="personality" name="personality"
                value="{{ settings.personality or '' }}"
                placeholder="e.g., Friendly, Professional..."
-               class="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+               class="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100">
       </div>
 
       <!-- Response Length -->
       <div>
-        <label for="length" class="block mb-2 text-sm font-medium">Response Length</label>
-        <select id="length" name="length" class="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+        <label for="length" class="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Response Length</label>
+        <select id="length" name="length" class="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100">
           <option value="short" {% if settings.length == 'short' %}selected{% endif %}>Short</option>
           <option value="medium" {% if settings.length == 'medium' or not settings.length %}selected{% endif %}>Medium</option>
           <option value="long" {% if settings.length == 'long' %}selected{% endif %}>Long</option>
@@ -76,7 +76,7 @@ if (theme === "dark") {
 
     <!-- Install App Button -->
     <div class="pt-8 border-t border-gray-200 dark:border-gray-600">
-      <h2 class="text-xl font-bold mb-4">Install this App</h2>
+      <h2 class="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Install this App</h2>
       <p class="mb-4 text-gray-600 dark:text-gray-400">Install this app on your device for a better experience.</p>
       <button id="installApp" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold">
         Install App to Home Screen
