@@ -18,77 +18,67 @@
     }
     .chat-bubble-user { background-color: #3b82f6; color: white; align-self: flex-end; }
     .dark .chat-bubble-user { background-color: #2563eb; color: white; }
-
     .chat-bubble-assistant { background-color: #f3f4f6; color: black; align-self: flex-start; }
     .dark .chat-bubble-assistant { background-color: #4b5563; color: white; }
   </style>
 </head>
-<body class="flex flex-col min-h-screen bg-white dark:bg-gray-900">
-
-<script>
-// Apply dark mode
-const theme = "{{ settings.theme }}";
-if (theme === "dark") {
-  document.documentElement.classList.add("dark");
-} else {
-  document.documentElement.classList.remove("dark");
-}
-</script>
+<body class="flex flex-col min-h-screen {% if settings.theme == 'dark' %}bg-gray-900 text-white{% else %}bg-white text-gray-800{% endif %}">
 
 <!-- Header -->
-<header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow fixed top-0 left-0 right-0 z-50">
+<header class="flex items-center justify-between p-4 shadow {% if settings.theme == 'dark' %}bg-gray-800 text-white{% else %}bg-white text-gray-800{% endif %} fixed top-0 left-0 right-0 z-50">
   <div class="flex items-center space-x-4">
-    <button onclick="toggleSidebar()" class="text-gray-800 dark:text-gray-200 text-2xl">☰</button>
-    <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">AI Chat</h1>
+    <button onclick="toggleSidebar()" class="text-2xl">☰</button>
+    <h1 class="text-xl font-bold">AI Chat</h1>
   </div>
   {% if session.get("user_email") %}
   <div class="relative inline-block text-left">
     <button onclick="toggleMenu()" class="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center">
       <img src="{{ session.get('user_picture') }}" alt="avatar" class="w-10 h-10 rounded-full">
     </button>
-    <div id="menu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg z-50">
-      <a href="/settings" class="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
+    <div id="menu" class="hidden absolute right-0 mt-2 w-48 rounded-md shadow-lg z-50 {% if settings.theme == 'dark' %}bg-gray-700 text-white{% else %}bg-white text-gray-800{% endif %}">
+      <a href="/settings" class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
       <form method="POST" action="/logout">
         <button class="w-full text-left block px-4 py-2 text-red-500 hover:bg-gray-100 dark:hover:bg-gray-600">Logout</button>
       </form>
     </div>
   </div>
   {% else %}
-  <a href="/login" class="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium">
-    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" class="w-5 h-5">
+  <a href="/login" class="flex items-center gap-3 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700">
+    <svg class="w-5 h-5" viewBox="0 0 533.5 544.3"><path fill="#4285F4" d="..."/></svg>
     Sign in with Google
   </a>
   {% endif %}
 </header>
 
 <!-- Sidebar -->
-<aside id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-white dark:bg-gray-800 transform -translate-x-full transition-transform duration-300 z-40 p-4 shadow">
-  <h2 class="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200">Menu</h2>
+<aside id="sidebar" class="fixed top-16 left-0 w-64 h-full transform -translate-x-full transition-transform duration-300 z-40 p-4 shadow {% if settings.theme == 'dark' %}bg-gray-800 text-white{% else %}bg-white text-gray-800{% endif %}">
+  <h2 class="text-lg font-bold mb-4 {% if settings.theme == 'dark' %}text-white{% else %}text-gray-800{% endif %}">Menu</h2>
   <nav class="flex flex-col gap-4">
     {% if session.get("user_email") %}
-    <a href="/start_new_chat" class="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-500">
+    <a href="/start_new_chat" class="flex items-center gap-2 hover:text-blue-500">
+      <!-- MODERN NEW CHAT ICON -->
       <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
       Start New Chat
     </a>
-    <a href="/calendar" class="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-500">
+    <a href="/calendar" class="flex items-center gap-2 hover:text-blue-500">
+      <!-- MODERN CALENDAR ICON -->
       <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8h18M3 16h18M7 4v4m10-4v4"></path></svg>
       Calendar
     </a>
     {% else %}
-    <div class="flex items-center gap-2 text-gray-400 cursor-not-allowed">Start New Chat (Login Required)</div>
-    <div class="flex items-center gap-2 text-gray-400 cursor-not-allowed">Calendar (Login Required)</div>
+    <span class="text-gray-400">Login to start new chat</span>
+    <span class="text-gray-400">Login to access calendar</span>
     {% endif %}
-
     {% if conversations %}
-    <h3 class="mt-4 mb-2 text-gray-500 uppercase text-xs">Conversations</h3>
-    {% for convo_id, convo_data in conversations.items() %}
-    <div class="flex justify-between items-center">
-      <a href="/chat/{{ convo_id }}" class="truncate w-40 text-gray-700 dark:text-gray-300 hover:underline">{{ convo_data.title if convo_data.title else 'New Chat' }}</a>
-      <form method="POST" action="/delete_conversation/{{ convo_id }}" onsubmit="return confirm('Delete this conversation?')">
-        <button class="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-red-500 rounded hover:bg-gray-300 dark:hover:bg-gray-600">Delete</button>
-      </form>
-    </div>
-    {% endfor %}
+      <h3 class="mt-4 mb-2 text-gray-500 uppercase text-xs">Conversations</h3>
+      {% for convo_id, convo_data in conversations.items() %}
+      <div class="flex justify-between items-center">
+        <a href="/chat/{{ convo_id }}" class="truncate w-40 hover:underline">{{ convo_data.title if convo_data.title else 'New Chat' }}</a>
+        <form method="POST" action="/delete_conversation/{{ convo_id }}" onsubmit="return confirm('Delete this conversation?')">
+          <button class="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-red-500 rounded hover:bg-gray-300 dark:hover:bg-gray-600">Delete</button>
+        </form>
+      </div>
+      {% endfor %}
     {% endif %}
   </nav>
 </aside>
@@ -96,12 +86,14 @@ if (theme === "dark") {
 <!-- Chat Area -->
 <main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 mb-28 flex flex-col gap-4">
   {% for msg in history %}
-  <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant typing{% endif %}">{{ msg.content }}</div>
+  <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant typing{% endif %}">
+    {{ msg.content }}
+  </div>
   {% endfor %}
 </main>
 
 <!-- Input -->
-<form id="chatForm" method="POST" action="/chat/{{ convo_id }}" class="fixed bottom-0 left-0 w-full bg-white dark:bg-gray-900 p-4 flex justify-center">
+<form id="chatForm" method="POST" action="/chat/{{ convo_id }}" class="fixed bottom-0 left-0 w-full p-4 flex justify-center {% if settings.theme == 'dark' %}bg-gray-900 text-white{% else %}bg-white text-gray-800{% endif %}">
   <div class="flex w-full max-w-3xl items-center bg-white dark:bg-gray-800 rounded-2xl shadow px-3 py-2">
     <textarea id="messageInput" name="message" rows="1" placeholder="Type your message..." class="flex-1 resize-none bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none p-2" required></textarea>
     <button id="sendButton" type="submit" class="p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full ml-2" disabled>➔</button>
@@ -109,10 +101,21 @@ if (theme === "dark") {
 </form>
 
 <script>
-function toggleSidebar() { document.getElementById('sidebar').classList.toggle('-translate-x-full'); }
-function toggleMenu() { document.getElementById('menu').classList.toggle('hidden'); }
-document.getElementById('messageInput').addEventListener('input', function() { document.getElementById('sendButton').disabled = this.value.trim().length === 0; });
-document.getElementById('messageInput').addEventListener('focus', () => { document.getElementById('sidebar').classList.add('-translate-x-full'); });
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('-translate-x-full');
+}
+
+function toggleMenu() {
+  document.getElementById('menu').classList.toggle('hidden');
+}
+
+document.getElementById('messageInput').addEventListener('input', function() {
+  document.getElementById('sendButton').disabled = this.value.trim().length === 0;
+});
+
+document.getElementById('messageInput').addEventListener('focus', () => {
+  document.getElementById('sidebar').classList.add('-translate-x-full');
+});
 
 function animateTyping() {
   const bubble = document.querySelector('.chat-bubble-assistant.typing:last-of-type');
@@ -132,33 +135,15 @@ function animateTyping() {
   typeChar();
 }
 
-window.onload = function() { animateTyping(); scrollToBottom(); };
+window.onload = function() {
+  animateTyping();
+  scrollToBottom();
+};
 
 function scrollToBottom() {
   const chatArea = document.getElementById('chatArea');
   chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
 }
-
-// Install Popup
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  const banner = document.createElement('div');
-  banner.className = "fixed bottom-5 left-5 right-5 bg-blue-600 text-white p-4 rounded-lg shadow-lg flex justify-between items-center z-50";
-  banner.innerHTML = `<span>Install this app on your device!</span><button class="bg-white text-blue-600 px-3 py-1 rounded ml-4">Install</button>`;
-  document.body.appendChild(banner);
-  banner.querySelector('button').addEventListener('click', () => {
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then(() => banner.remove());
-  });
-});
-
-window.visualViewport && window.visualViewport.addEventListener('resize', () => {
-  if(window.visualViewport.height < window.innerHeight - 100){
-    document.getElementById('sidebar').classList.add('-translate-x-full');
-  }
-});
 </script>
 
 </body>
