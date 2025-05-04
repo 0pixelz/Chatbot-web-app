@@ -40,6 +40,8 @@
       </form>
     </div>
   </div>
+  {% else %}
+  <a href="/login" class="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700">Sign in with Google</a>
   {% endif %}
 </header>
 
@@ -48,22 +50,26 @@
   <h2 class="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200">Menu</h2>
   <nav class="flex flex-col gap-4">
     <a href="/start_new_chat" class="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-500">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8a9 9 0 100-18 9 9 0 000 18z"></path></svg>
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8a9 9 0 100-18 9 9 0 000 18z"></path></svg>
       Start New Chat
     </a>
     <a href="/calendar" class="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-500">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10m-12 6h12m-7 4h2m-6-4h2"></path></svg>
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10m-12 6h12m-7 4h2m-6-4h2"></path></svg>
       Calendar
     </a>
+
     {% if conversations %}
       <h3 class="mt-4 mb-2 text-gray-500 uppercase text-xs">Conversations</h3>
       {% for convo_id, convo_data in conversations.items() %}
-        <div class="flex justify-between items-center group">
+        <div class="flex justify-between items-center">
           <a href="/chat/{{ convo_id }}" class="truncate w-40 text-gray-700 dark:text-gray-300 hover:underline">
             {{ convo_data.title if convo_data.title else 'New Chat' }}
           </a>
           <form method="POST" action="/delete_conversation/{{ convo_id }}" onsubmit="return confirm('Delete this conversation?')">
-            <button class="text-red-500 opacity-0 group-hover:opacity-100">🗑️</button>
+            <button class="flex items-center gap-1 px-2 py-1 bg-gray-200 dark:bg-gray-700 text-red-500 rounded hover:bg-gray-300 dark:hover:bg-gray-600">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3m-4 0h14"></path></svg>
+              Delete
+            </button>
           </form>
         </div>
       {% endfor %}
@@ -83,91 +89,21 @@
 <!-- Input -->
 <form id="chatForm" method="POST" action="/chat/{{ convo_id }}" class="fixed bottom-0 left-0 w-full bg-white dark:bg-gray-900 p-4 flex justify-center">
   <div class="flex w-full max-w-3xl items-center bg-white dark:bg-gray-800 rounded-2xl shadow px-3 py-2">
-    <textarea id="messageInput" name="message" rows="1" placeholder="Type your message..." class="flex-1 resize-none bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none p-2" required style="max-height: 300px; overflow-y: auto;"></textarea>
+    <textarea id="messageInput" name="message" rows="1" placeholder="Type your message..." class="flex-1 resize-none bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none p-2" required></textarea>
     <button id="sendButton" type="submit" class="p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full ml-2" disabled>➔</button>
-    <button id="stopButton" type="button" onclick="stopTyping()" class="hidden p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full ml-2">⏹️</button>
   </div>
 </form>
 
 <script>
-let typingInterval = null;
-let isTyping = false;
-
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('-translate-x-full');
 }
-
 function toggleMenu() {
   document.getElementById('menu').classList.toggle('hidden');
 }
-
-function scrollToBottom() {
-  const chatArea = document.getElementById('chatArea');
-  chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
-}
-
-function animateMessages() {
-  const chatArea = document.getElementById('chatArea');
-  const bubbles = chatArea.querySelectorAll('.chat-bubble-assistant');
-  if (!bubbles.length) return;
-  const lastBubble = bubbles[bubbles.length - 1];
-  const fullText = lastBubble.textContent.trim();
-  lastBubble.textContent = '';
-  isTyping = true;
-  let i = 0;
-
-  function typeChar() {
-    if (!isTyping) return;
-    if (i < fullText.length) {
-      lastBubble.textContent += fullText.charAt(i);
-      i++;
-      scrollToBottom();
-      typingInterval = setTimeout(typeChar, 15);
-    } else {
-      finishTyping();
-    }
-  }
-  typeChar();
-}
-
-function finishTyping() {
-  document.getElementById('messageInput').disabled = false;
-  document.getElementById('sendButton').disabled = false;
-  document.getElementById('stopButton').classList.add('hidden');
-  isTyping = false;
-  clearTimeout(typingInterval);
-}
-
-function stopTyping() {
-  isTyping = false;
-  finishTyping();
-}
-
-const textarea = document.getElementById('messageInput');
-const sendButton = document.getElementById('sendButton');
-const chatForm = document.getElementById('chatForm');
-
-textarea.addEventListener('input', () => {
-  textarea.style.height = 'auto';
-  textarea.style.height = (textarea.scrollHeight) + 'px';
-  sendButton.disabled = textarea.value.trim().length === 0;
+document.getElementById('messageInput').addEventListener('input', function() {
+  document.getElementById('sendButton').disabled = this.value.trim().length === 0;
 });
-
-chatForm.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    if (!sendButton.disabled && !textarea.disabled) {
-      chatForm.submit();
-      textarea.value = '';
-      sendButton.disabled = true;
-    }
-  }
-});
-
-window.onload = function() {
-  scrollToBottom();
-  animateMessages();
-};
 </script>
 
 </body>
