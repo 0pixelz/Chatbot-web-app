@@ -195,6 +195,31 @@ def calendar_page():
     settings = get_settings(uid)
     return render_template("calendar.html", events=load_events(uid), uid=uid, settings=settings)
 
+@app.route("/settings", methods=["GET", "POST"])
+def settings_page():
+    uid = session.get("user_email")
+    if not uid:
+        return redirect("/chat")
+
+    settings = get_settings(uid)
+
+    if request.method == "POST":
+        theme = request.form.get("theme", "dark")
+        font_size = request.form.get("font_size", "base")
+        personality = request.form.get("personality", "")
+        length = request.form.get("length", "medium")
+
+        db.reference(f"settings/{clean_uid(uid)}").set({
+            "theme": theme,
+            "font_size": font_size,
+            "personality": personality,
+            "length": length
+        })
+
+        return redirect("/settings")
+
+    return render_template("settings.html", settings=settings)
+
 @app.route("/save_event/<event_id>", methods=["POST"])
 def save_event_route(event_id):
     uid = session.get("user_email")
