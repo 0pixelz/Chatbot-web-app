@@ -16,7 +16,17 @@
     .dark .chat-bubble-assistant { background-color: #4b5563; color: white; }
   </style>
 </head>
-<body class="flex flex-col min-h-screen {% if settings.theme == 'dark' %}dark bg-gray-900{% else %}bg-white{% endif %}">
+<body class="flex flex-col min-h-screen bg-white dark:bg-gray-900">
+
+<script>
+// Apply dark mode from template settings
+const theme = "{{ settings.theme }}";
+if (theme === "dark") {
+  document.documentElement.classList.add("dark");
+} else {
+  document.documentElement.classList.remove("dark");
+}
+</script>
 
 <!-- Header -->
 <header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow fixed top-0 left-0 right-0 z-50">
@@ -91,17 +101,12 @@
   </div>
 </form>
 
-<!-- Scripts -->
 <script>
-function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('-translate-x-full');
-}
-function toggleMenu() {
-  document.getElementById('menu').classList.toggle('hidden');
-}
-document.getElementById('messageInput').addEventListener('input', function() {
-  document.getElementById('sendButton').disabled = this.value.trim().length === 0;
-});
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('-translate-x-full'); }
+function toggleMenu() { document.getElementById('menu').classList.toggle('hidden'); }
+document.getElementById('messageInput').addEventListener('input', function() { document.getElementById('sendButton').disabled = this.value.trim().length === 0; });
+document.getElementById('messageInput').addEventListener('focus', () => { document.getElementById('sidebar').classList.add('-translate-x-full'); });
+
 function animateTyping() {
   const bubble = document.querySelector('.chat-bubble-assistant.typing:last-of-type');
   if (!bubble) return;
@@ -119,19 +124,15 @@ function animateTyping() {
   }
   typeChar();
 }
-window.onload = function() {
-  animateTyping();
-  scrollToBottom();
-};
+
+window.onload = function() { animateTyping(); scrollToBottom(); };
+
 function scrollToBottom() {
   const chatArea = document.getElementById('chatArea');
   chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
 }
-document.getElementById('messageInput').addEventListener('focus', () => {
-  document.getElementById('sidebar').classList.add('-translate-x-full');
-});
 
-// Install App Popup
+// Install Popup
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
