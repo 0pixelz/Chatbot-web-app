@@ -23,6 +23,15 @@
 
 <body class="flex flex-col min-h-screen {% if settings.theme == 'dark' %}dark bg-gray-900{% else %}bg-white{% endif %}">
 
+<!-- Top Navbar -->
+<header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow fixed top-0 left-0 right-0 z-50">
+  <button onclick="toggleSidebar()" class="text-gray-800 dark:text-gray-200 text-2xl">☰</button>
+  <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">AI Chat</h1>
+  {% if session.get("user_email") %}
+    <a href="/settings" class="text-gray-800 dark:text-gray-200 hover:underline">Settings</a>
+  {% endif %}
+</header>
+
 <!-- Sidebar -->
 <aside id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-white dark:bg-gray-800 transform -translate-x-full transition-transform duration-300 z-40 p-4 shadow">
   <h2 class="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200">Dashboard</h2>
@@ -30,10 +39,14 @@
     {% if session.get("user_email") %}
       <a href="/start_new_chat" class="text-blue-600 dark:text-blue-400 hover:underline">➕ Start New Chat</a>
       <a href="/calendar" class="text-blue-600 dark:text-blue-400 hover:underline">📅 Calendar</a>
+      <form method="POST" action="/logout">
+        <button class="text-red-500 hover:underline mt-2">Logout</button>
+      </form>
     {% else %}
-      <div class="text-gray-400">Sign in to add conversations</div>
+      <a href="/login" class="text-blue-600 dark:text-blue-400 hover:underline">Sign in with Google</a>
     {% endif %}
     {% if conversations %}
+      <h3 class="mt-4 mb-2 text-gray-500 uppercase text-xs">Conversations</h3>
       {% for convo_id, convo_data in conversations.items() %}
         <div class="flex justify-between items-center group">
           <a href="/chat/{{ convo_id }}" class="truncate w-40 text-gray-700 dark:text-gray-300 hover:underline">
