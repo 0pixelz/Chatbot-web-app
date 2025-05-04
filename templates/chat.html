@@ -25,8 +25,8 @@
 <!-- Header -->
 <header class="flex items-center justify-between {% if settings.theme == 'dark' %}bg-gray-800{% else %}bg-white{% endif %} p-4 shadow fixed top-0 left-0 right-0 z-50">
   <div class="flex items-center space-x-4">
-    <button onclick="toggleSidebar()" class="text-gray-800 dark:text-gray-200 text-2xl">☰</button>
-    <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">AI Chat</h1>
+    <button onclick="toggleSidebar()" class="{% if settings.theme == 'dark' %}text-gray-200{% else %}text-gray-800{% endif %} text-2xl">☰</button>
+    <h1 class="text-xl font-bold {% if settings.theme == 'dark' %}text-gray-200{% else %}text-gray-800{% endif %}">AI Chat</h1>
   </div>
   {% if session.get("user_email") %}
   <div class="relative inline-block text-left">
@@ -34,7 +34,7 @@
       <img src="{{ session.get('user_picture') }}" alt="avatar" class="w-10 h-10 rounded-full">
     </button>
     <div id="menu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg z-50">
-      <a href="/settings" class="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
+      <a href="/settings" class="block px-4 py-2 {% if settings.theme == 'dark' %}text-gray-200{% else %}text-gray-800{% endif %} hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
       <form method="POST" action="/logout">
         <button class="w-full text-left block px-4 py-2 text-red-500 hover:bg-gray-100 dark:hover:bg-gray-600">Logout</button>
       </form>
@@ -50,21 +50,21 @@
 
 <!-- Sidebar -->
 <aside id="sidebar" class="fixed top-16 left-0 w-64 h-full {% if settings.theme == 'dark' %}bg-gray-800{% else %}bg-white{% endif %} transform -translate-x-full transition-transform duration-300 z-40 p-4 shadow">
-  <h2 class="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200">Menu</h2>
+  <h2 class="text-lg font-bold mb-4 {% if settings.theme == 'dark' %}text-gray-200{% else %}text-gray-800{% endif %}">Menu</h2>
   <nav class="flex flex-col gap-4">
-    <a href="/start_new_chat" class="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-500">
+    <a href="/start_new_chat" class="flex items-center gap-2 {% if settings.theme == 'dark' %}text-gray-300{% else %}text-gray-800{% endif %} hover:text-blue-500">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
       Start New Chat
     </a>
-    <a href="/calendar" class="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-500">
+    <a href="/calendar" class="flex items-center gap-2 {% if settings.theme == 'dark' %}text-gray-300{% else %}text-gray-800{% endif %} hover:text-blue-500">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8h18M3 16h18M7 4v4m10-4v4"></path></svg>
       Calendar
     </a>
     {% if conversations %}
-      <h3 class="mt-4 mb-2 text-gray-500 uppercase text-xs">Conversations</h3>
+      <h3 class="mt-4 mb-2 {% if settings.theme == 'dark' %}text-gray-400{% else %}text-gray-600{% endif %} uppercase text-xs">Conversations</h3>
       {% for convo_id, convo_data in conversations.items() %}
       <div class="flex justify-between items-center">
-        <a href="/chat/{{ convo_id }}" class="truncate w-40 text-gray-700 dark:text-gray-300 hover:underline">
+        <a href="/chat/{{ convo_id }}" class="truncate w-40 {% if settings.theme == 'dark' %}text-gray-300{% else %}text-gray-800{% endif %} hover:underline">
           {{ convo_data.title if convo_data.title else 'New Chat' }}
         </a>
         <form method="POST" action="/delete_conversation/{{ convo_id }}" onsubmit="return confirm('Delete this conversation?')">
@@ -88,7 +88,7 @@
 <!-- Input -->
 <form id="chatForm" method="POST" action="/chat/{{ convo_id }}" class="fixed bottom-0 left-0 w-full {% if settings.theme == 'dark' %}bg-gray-900{% else %}bg-white{% endif %} p-4 flex justify-center">
   <div class="flex w-full max-w-3xl items-center {% if settings.theme == 'dark' %}bg-gray-800{% else %}bg-gray-100{% endif %} rounded-2xl shadow px-3 py-2">
-    <textarea id="messageInput" name="message" rows="1" placeholder="Type your message..." class="flex-1 resize-none bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none p-2" required></textarea>
+    <textarea id="messageInput" name="message" rows="1" placeholder="Type your message..." class="flex-1 resize-none bg-transparent {% if settings.theme == 'dark' %}text-white{% else %}text-gray-800{% endif %} placeholder-gray-400 focus:outline-none p-2" required></textarea>
     <button id="sendButton" type="submit" class="p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full ml-2" disabled>➔</button>
   </div>
 </form>
@@ -106,11 +106,10 @@ document.getElementById('messageInput').addEventListener('input', function() {
   document.getElementById('sendButton').disabled = this.value.trim().length === 0;
 });
 
-// Typing animation
 function animateTyping() {
   const bubbles = document.querySelectorAll('.chat-bubble-assistant.typing');
   if(bubbles.length){
-    const bubble = bubbles[bubbles.length - 1]; // only last
+    const bubble = bubbles[bubbles.length - 1];
     const fullText = bubble.textContent;
     bubble.textContent = '';
     let i = 0;
@@ -137,7 +136,6 @@ function scrollToBottom() {
   chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
 }
 
-// Sidebar auto hide on input
 document.getElementById('messageInput').addEventListener('focus', () => {
   document.getElementById('sidebar').classList.add('-translate-x-full');
 });
