@@ -1,214 +1,184 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>My Calendar</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    .calendar-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 5px;
-    }
-    .calendar-cell {
-      min-height: 80px;
-      border-radius: 8px;
-      background-color: var(--cell-bg);
-      color: var(--cell-color);
-      padding: 6px;
-      position: relative;
-      overflow-y: auto;
-    }
-    .calendar-cell.today {
-      background-color: var(--today-bg);
-      border: 2px solid #60a5fa;
-    }
-    .event-badge {
-      background: #60a5fa;
-      color: white;
-      padding: 2px 6px;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      margin-top: 4px;
-      display: block;
-      text-align: center;
-      cursor: pointer;
-    }
-    .calendar-container {
-      position: relative;
-      overflow: hidden;
-    }
-    .calendar-wrapper {
-      display: flex;
-      transition: transform 0.3s ease;
-      will-change: transform;
-    }
-    .calendar-slide {
-      min-width: 100%;
-      box-sizing: border-box;
-    }
+<meta charset="UTF-8">
+<title>Calendar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body.light {
+  --cell-bg: #f3f4f6;
+  --cell-color: #000;
+  --today-bg: #dbeafe;
+  background-color: #fff;
+  color: #000;
+}
 
-    /* Light and Dark Mode variables */
-    body.light {
-      --cell-bg: #f3f4f6;
-      --cell-color: #000;
-      --today-bg: #dbeafe;
-      background-color: #fff;
-      color: #000;
-    }
-    body.dark {
-      --cell-bg: #374151;
-      --cell-color: white;
-      --today-bg: #4b5563;
-      background-color: #111827;
-      color: white;
-    }
-  </style>
+body.dark {
+  --cell-bg: #374151;
+  --cell-color: white;
+  --today-bg: #4b5563;
+  background-color: #111827;
+  color: white;
+}
+
+.grid-day {
+  background-color: var(--cell-bg);
+  color: var(--cell-color);
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.grid-day.today {
+  background-color: var(--today-bg);
+  border: 2px solid #60a5fa;
+}
+
+.event {
+  background-color: #3b82f6;
+  color: white;
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  margin-top: 5px;
+  cursor: pointer;
+}
+</style>
 </head>
-<body class="{% if settings.theme == 'dark' %}dark{% else %}light{% endif %} min-h-screen p-4">
+<body class="{% if settings.theme == 'dark' %}dark{% else %}light{% endif %} p-4">
+
+<h1 class="text-2xl font-bold mb-4">Calendar</h1>
 
 <div class="flex justify-between items-center mb-4">
-  <h1 class="text-2xl font-bold">My Calendar</h1>
+  <button onclick="prevMonth()" class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-400">Previous</button>
+  <h2 id="monthYear" class="text-xl font-semibold"></h2>
+  <button onclick="nextMonth()" class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-400">Next</button>
 </div>
 
-<div class="flex justify-center items-center space-x-4 mb-2">
-  <button onclick="prevMonth()" class="px-2 py-1 bg-gray-700 text-white rounded hover:bg-gray-600">&lt;</button>
-  <h2 id="monthTitle" onclick="openDatePicker()" class="text-lg font-semibold cursor-pointer select-none"></h2>
-  <button onclick="nextMonth()" class="px-2 py-1 bg-gray-700 text-white rounded hover:bg-gray-600">&gt;</button>
+<div class="grid grid-cols-7 gap-2 mb-4 text-center text-gray-400">
+  <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
 </div>
 
-<div class="calendar-grid text-center font-semibold text-sm text-gray-400 mb-1">
-  <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
-</div>
+<div id="calendarGrid" class="grid grid-cols-7 gap-2"></div>
 
-<div class="calendar-container mb-4">
-  <div class="calendar-wrapper" id="calendarWrapper">
-    <div class="calendar-grid text-center calendar-slide" id="calendarPrev"></div>
-    <div class="calendar-grid text-center calendar-slide" id="calendarCurrent"></div>
-    <div class="calendar-grid text-center calendar-slide" id="calendarNext"></div>
-  </div>
-</div>
+<h2 class="text-xl font-semibold mt-6 mb-2">Events</h2>
+<div id="eventList" class="space-y-2"></div>
 
-<hr class="border-gray-700 my-4">
-
-<div id="eventsSection" class="space-y-2">
-  <h2 class="text-xl font-semibold mb-2">Your Events:</h2>
-  <div id="eventList" class="space-y-2"></div>
-</div>
-
-<!-- Modal -->
-<div id="modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
-  <div class="bg-gray-800 p-6 rounded-lg w-80 text-white">
-    <h3 id="modalTitle" class="text-lg font-bold mb-4">New Event</h3>
+<!-- Event Modal -->
+<div id="modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+  <div class="bg-gray-800 text-white p-6 rounded-lg w-80">
+    <h3 class="text-lg font-bold mb-4">New Event</h3>
     <input type="hidden" id="modalDate">
-    <input id="eventName" type="text" placeholder="Event Title" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
-    <textarea id="eventDescription" placeholder="Description" class="w-full mb-2 p-2 rounded bg-gray-700 text-white"></textarea>
-    <label class="flex items-center mb-2"><input type="checkbox" id="allDay" class="mr-2"> All Day</label>
-    <input id="eventTime" type="time" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
-    <select id="repeat" class="w-full mb-4 p-2 rounded bg-gray-700 text-white">
-      <option value="none">Does not repeat</option>
+    <input type="text" id="eventTitle" placeholder="Title" class="w-full p-2 rounded bg-gray-700 mb-2">
+    <textarea id="eventDescription" placeholder="Description" class="w-full p-2 rounded bg-gray-700 mb-2"></textarea>
+    <input type="time" id="eventTime" class="w-full p-2 rounded bg-gray-700 mb-2">
+    <select id="eventRepeat" class="w-full p-2 rounded bg-gray-700 mb-2">
+      <option value="none">No Repeat</option>
       <option value="daily">Daily</option>
       <option value="weekly">Weekly</option>
       <option value="monthly">Monthly</option>
     </select>
     <div class="flex space-x-2">
-      <button onclick="saveModal()" class="flex-1 bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded">Save</button>
-      <button onclick="deleteModal()" id="deleteButton" class="flex-1 bg-red-500 hover:bg-red-600 px-4 py-2 rounded hidden">Delete</button>
-      <button onclick="closeModal()" class="flex-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Cancel</button>
+      <button onclick="saveEvent()" class="flex-1 bg-blue-500 p-2 rounded">Save</button>
+      <button onclick="deleteEvent()" id="deleteButton" class="flex-1 bg-red-500 p-2 rounded hidden">Delete</button>
+      <button onclick="closeModal()" class="flex-1 bg-gray-600 p-2 rounded">Cancel</button>
     </div>
-  </div>
-</div>
-
-<!-- Delete Modal -->
-<div id="deleteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 hidden z-50">
-  <div class="bg-gray-800 rounded-lg p-6 w-80 text-white text-center">
-    <h2 class="text-lg font-bold mb-4">Delete Event</h2>
-    <p class="mb-4">Delete only this event or all in the series?</p>
-    <div class="flex space-x-2 justify-center">
-      <button onclick="confirmDelete('single')" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded">Only This</button>
-      <button onclick="confirmDelete('all')" class="bg-yellow-500 hover:bg-yellow-600 px-4 py-2 rounded">All</button>
-    </div>
-    <button onclick="closeDeleteModal()" class="mt-4 text-sm text-gray-400 hover:underline">Cancel</button>
   </div>
 </div>
 
 <script>
 let now = new Date();
-let currentMonth = localStorage.getItem('currentMonth') ? parseInt(localStorage.getItem('currentMonth')) : now.getMonth();
-let currentYear = localStorage.getItem('currentYear') ? parseInt(localStorage.getItem('currentYear')) : now.getFullYear();
+let currentMonth = now.getMonth();
+let currentYear = now.getFullYear();
 const events = {{ events|tojson }};
-let deleteTargetId = null, deleteTargetParent = null;
+let activeDate = null;
+let activeEventId = null;
 
-function renderCalendarMonth(container, year, month) {
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const isCurrent = container.id === 'calendarCurrent';
-  let html = "";
+function renderCalendar() {
+  const grid = document.getElementById('calendarGrid');
+  grid.innerHTML = '';
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
-  for (let i = 0; i < firstDay; i++) html += `<div></div>`;
+  for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div></div>`;
+
   for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const today = new Date().toDateString() === new Date(year, month, day).toDateString();
-    html += `<div class="calendar-cell ${today ? 'today' : ''}" ${isCurrent ? `onclick="openModal('${dateStr}')"` : ''}>
-      <div class="text-sm">${day}</div>
-      ${isCurrent ? renderEvents(dateStr) : ''}
-    </div>`;
-  }
-  container.innerHTML = html;
-}
+    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const today = new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString();
+    let cell = `<div class="grid-day ${today ? 'today' : ''}" onclick="openModal('${dateStr}')">${day}`;
 
-function syncHeights() {
-  const slides = document.querySelectorAll('.calendar-slide');
-  let maxHeight = 0;
-  slides.forEach(slide => { slide.style.height = 'auto'; if (slide.offsetHeight > maxHeight) maxHeight = slide.offsetHeight; });
-  slides.forEach(slide => slide.style.height = maxHeight + 'px');
-}
-
-function renderAllCalendars() {
-  document.getElementById('monthTitle').textContent = `${new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' })} ${currentYear}`;
-  renderCalendarMonth(document.getElementById('calendarPrev'), currentMonth - 1 < 0 ? currentYear - 1 : currentYear, currentMonth - 1 < 0 ? 11 : currentMonth - 1);
-  renderCalendarMonth(document.getElementById('calendarCurrent'), currentYear, currentMonth);
-  renderCalendarMonth(document.getElementById('calendarNext'), currentMonth + 1 > 11 ? currentYear + 1 : currentYear, (currentMonth + 1) % 12);
-  document.getElementById('calendarWrapper').style.transform = 'translateX(-100%)';
-  syncHeights();
-  updateEventList();
-}
-
-function prevMonth() { document.getElementById('calendarWrapper').style.transform = 'translateX(0)'; setTimeout(() => { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } renderAllCalendars(); }, 300); }
-function nextMonth() { document.getElementById('calendarWrapper').style.transform = 'translateX(-200%)'; setTimeout(() => { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } renderAllCalendars(); }, 300); }
-
-let touchStartX = null;
-document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
-document.addEventListener('touchmove', e => { if (touchStartX === null) return; const diff = e.touches[0].clientX - touchStartX; document.getElementById('calendarWrapper').style.transform = `translateX(${ -window.innerWidth + diff }px)`; });
-document.addEventListener('touchend', e => { if (touchStartX === null) return; const diff = e.changedTouches[0].clientX - touchStartX; if (diff > 80) prevMonth(); else if (diff < -80) nextMonth(); else document.getElementById('calendarWrapper').style.transform = 'translateX(-100%)'; touchStartX = null; });
-
-function renderEvents(dateStr) {
-  let out = '';
-  for (const [id, evt] of Object.entries(events)) {
-    if (evt.date === dateStr) {
-      out += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}', '${evt.title}', '${evt.time||""}', ${evt.allDay||false}, '${evt.repeat||"none"}', '${evt.parentId||""}', \`${evt.description||""}\`)">${evt.title}</span>`;
+    for (const [id, evt] of Object.entries(events)) {
+      if (evt.date === dateStr) {
+        cell += `<div class="event" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}')">${evt.title}</div>`;
+      }
     }
+
+    cell += `</div>`;
+    grid.innerHTML += cell;
   }
-  return out;
+
+  document.getElementById('monthYear').textContent = `${new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' })} ${currentYear}`;
+  renderEvents();
 }
 
-function updateEventList() {
+function prevMonth() {
+  currentMonth--;
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  renderCalendar();
+}
+
+function nextMonth() {
+  currentMonth++;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  renderCalendar();
+}
+
+function openModal(date, id = null) {
+  activeDate = date;
+  activeEventId = id;
+  document.getElementById('modalDate').value = date;
+  document.getElementById('eventTitle').value = id ? events[id].title : '';
+  document.getElementById('eventDescription').value = id ? events[id].description : '';
+  document.getElementById('eventTime').value = id ? events[id].time : '';
+  document.getElementById('eventRepeat').value = id ? events[id].repeat : 'none';
+  document.getElementById('deleteButton').classList.toggle('hidden', !id);
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+}
+
+function saveEvent() {
+  const title = document.getElementById('eventTitle').value;
+  const desc = document.getElementById('eventDescription').value;
+  const time = document.getElementById('eventTime').value;
+  const repeat = document.getElementById('eventRepeat').value;
+
+  const id = activeEventId || crypto.randomUUID();
+  const event = { title, description: desc, date: activeDate, time, repeat, parentId: id };
+  events[id] = event;
+
+  fetch(`/save_event/${id}`, { method: "POST", headers: {'Content-Type': 'application/json'}, body: JSON.stringify(event) });
+  closeModal();
+  renderCalendar();
+}
+
+function deleteEvent() {
+  fetch(`/delete_event/${activeEventId}`, { method: "POST" });
+  delete events[activeEventId];
+  closeModal();
+  renderCalendar();
+}
+
+function renderEvents() {
   const list = document.getElementById('eventList');
-  list.innerHTML = Object.entries(events).filter(([id, evt]) => evt.date.startsWith(`${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`))
-    .map(([id, evt]) => `<div class="p-2 bg-gray-800 rounded cursor-pointer" onclick="event.stopPropagation(); openModal('${evt.date}', '${id}', '${evt.title}', '${evt.time||""}', ${evt.allDay||false}, '${evt.repeat||"none"}', '${evt.parentId||""}', \`${evt.description||""}\`)"><strong>${evt.title}</strong><br>${evt.date} ${evt.allDay ? "(All Day)" : evt.time}</div>`).join('') || `<p class="text-gray-400">No events this month.</p>`;
+  list.innerHTML = Object.values(events).filter(e => e.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`))
+    .map(e => `<div class="p-2 rounded bg-gray-700">${e.date}: ${e.title}</div>`).join('');
 }
 
-function openDatePicker() { const picker = document.createElement('input'); picker.type = 'month'; picker.value = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`; picker.style.opacity = 0; document.body.appendChild(picker); picker.click(); picker.onchange = e => { const [y, m] = e.target.value.split('-'); currentYear = parseInt(y); currentMonth = parseInt(m) - 1; renderAllCalendars(); document.body.removeChild(picker); }; }
-function openModal(dateStr, id = '', title = '', time = '', allDay = false, repeat = 'none', parentId = '', desc = '') { const modal = document.getElementById('modal'); modal.dataset.eventId = id; modal.dataset.parentId = parentId; document.getElementById('modalDate').value = dateStr; document.getElementById('eventName').value = title; document.getElementById('eventDescription').value = desc; document.getElementById('eventTime').value = time; document.getElementById('repeat').value = repeat; document.getElementById('allDay').checked = allDay; document.getElementById('eventTime').disabled = allDay; document.getElementById('deleteButton').classList.toggle('hidden', !id); modal.style.display = 'flex'; }
-function closeModal() { document.getElementById('modal').style.display = 'none'; }
-function deleteModal() { deleteTargetId = document.getElementById('modal').dataset.eventId; deleteTargetParent = document.getElementById('modal').dataset.parentId; document.getElementById('deleteModal').classList.remove('hidden'); }
-function closeDeleteModal() { document.getElementById('deleteModal').classList.add('hidden'); }
-async function confirmDelete(mode) { if (!deleteTargetId) return; if (mode === 'all') { const targets = Object.entries(events).filter(([i, e]) => e.parentId === deleteTargetParent); for (const [i] of targets) await fetch(`/delete_event/${i}`, { method: 'POST' }); } else { await fetch(`/delete_event/${deleteTargetId}`, { method: 'POST' }); } closeDeleteModal(); closeModal(); location.reload(); }
-async function saveModal() { const date = document.getElementById('modalDate').value, title = document.getElementById('eventName').value.trim(), description = document.getElementById('eventDescription').value.trim(), time = document.getElementById('eventTime').value, allDay = document.getElementById('allDay').checked, repeat = document.getElementById('repeat').value, parentId = document.getElementById('modal').dataset.parentId || crypto.randomUUID(), eventId = document.getElementById('modal').dataset.eventId; if (!title) return; const payload = { title, date, description, time: allDay ? "" : time, allDay, repeat, parentId }; if (eventId) await fetch(`/save_event/${eventId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); else for (let i = 0; i < (repeat === 'none' ? 1 : 12); i++) { const d = new Date(date); if (repeat === 'daily') d.setDate(d.getDate() + i); else if (repeat === 'weekly') d.setDate(d.getDate() + i * 7); else if (repeat === 'monthly') d.setMonth(d.getMonth() + i); await fetch(`/save_event/${crypto.randomUUID()}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, date: d.toISOString().slice(0, 10) }) }); } closeModal(); location.reload(); }
-
-window.onload = renderAllCalendars;
+renderCalendar();
 </script>
-
 </body>
 </html>
