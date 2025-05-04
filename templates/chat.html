@@ -27,24 +27,28 @@
 <header class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 shadow fixed top-0 left-0 right-0 z-50">
   <button onclick="toggleSidebar()" class="text-gray-800 dark:text-gray-200 text-2xl">☰</button>
   <h1 class="text-xl font-bold text-gray-800 dark:text-gray-200">AI Chat</h1>
+  
   {% if session.get("user_email") %}
-    <a href="/settings" class="text-gray-800 dark:text-gray-200 hover:underline">Settings</a>
+  <div class="relative inline-block text-left">
+    <button onclick="toggleMenu()" class="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center">
+      <img src="{{ session.get('user_picture') }}" alt="avatar" class="w-10 h-10 rounded-full">
+    </button>
+    <div id="menu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg z-50">
+      <a href="/settings" class="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">Settings</a>
+      <form method="POST" action="/logout">
+        <button class="w-full text-left block px-4 py-2 text-red-500 hover:bg-gray-100 dark:hover:bg-gray-600">Logout</button>
+      </form>
+    </div>
+  </div>
   {% endif %}
 </header>
 
 <!-- Sidebar -->
-<aside id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-white dark:bg-gray-800 transform -translate-x-full transition-transform duration-300 z-40 p-4 shadow">
-  <h2 class="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200">Dashboard</h2>
+<aside id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-white dark:bg-gray-800 transform {% if request.args.get('sidebar') == 'open' %}translate-x-0{% else %}-translate-x-full{% endif %} transition-transform duration-300 z-40 p-4 shadow">
+  <h2 class="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200">Menu</h2>
   <nav class="flex flex-col gap-2">
-    {% if session.get("user_email") %}
-      <a href="/start_new_chat" class="text-blue-600 dark:text-blue-400 hover:underline">➕ Start New Chat</a>
-      <a href="/calendar" class="text-blue-600 dark:text-blue-400 hover:underline">📅 Calendar</a>
-      <form method="POST" action="/logout">
-        <button class="text-red-500 hover:underline mt-2">Logout</button>
-      </form>
-    {% else %}
-      <a href="/login" class="text-blue-600 dark:text-blue-400 hover:underline">Sign in with Google</a>
-    {% endif %}
+    <a href="/start_new_chat" class="text-blue-600 dark:text-blue-400 hover:underline">➕ Start New Chat</a>
+    <a href="/calendar" class="text-blue-600 dark:text-blue-400 hover:underline">📅 Calendar</a>
     {% if conversations %}
       <h3 class="mt-4 mb-2 text-gray-500 uppercase text-xs">Conversations</h3>
       {% for convo_id, convo_data in conversations.items() %}
@@ -85,6 +89,10 @@ let isTyping = false;
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('-translate-x-full');
+}
+
+function toggleMenu() {
+  document.getElementById('menu').classList.toggle('hidden');
 }
 
 function scrollToBottom() {
@@ -150,14 +158,9 @@ chatForm.addEventListener('keydown', (e) => {
   }
 });
 
-// Keep sidebar open after deleting
 window.onload = function() {
   scrollToBottom();
   animateMessages();
-
-  if (window.location.search.includes("sidebar=open")) {
-    document.getElementById('sidebar').classList.remove('-translate-x-full');
-  }
 };
 </script>
 
