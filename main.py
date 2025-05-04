@@ -30,7 +30,8 @@ cred = credentials.Certificate(json.loads(FIREBASE_CREDENTIALS_JSON))
 initialize_app(cred, {"databaseURL": DATABASE_URL})
 nest_asyncio.apply()
 
-# === Utilities ===
+# === UTILITIES ===
+
 def clean_uid(uid):
     return uid.replace(".", "_")
 
@@ -61,14 +62,15 @@ def save_event(uid, event_id, event_data):
 def delete_event(uid, event_id):
     db.reference(f"events/{clean_uid(uid)}/{event_id}").delete()
 
-# === AI Functions ===
+# === AI FUNCTION ===
+
 async def generate_ai(prompt):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
     data = {
         "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": "You are a calendar assistant. When user says 'add to calendar' or 'remind me', extract event info like Title (max 3 words), Date, Description. Format: Title: ..., Date: ..., Description: ..."},
+            {"role": "system", "content": "You are a calendar assistant. Extract event info like Title, Date, Description when user says 'add to calendar' or 'remind me'. Format: Title: ..., Date: ..., Description: ..."},
             {"role": "user", "content": prompt}
         ]
     }
@@ -78,13 +80,13 @@ async def generate_ai(prompt):
             return result['choices'][0]['message']['content'].strip()
 
 def extract_event(ai_response):
-    title_match = re.search(r"Title:\s*(.*)", ai_response, re.IGNORECASE)
-    date_match = re.search(r"Date:\s*(.*)", ai_response, re.IGNORECASE)
-    desc_match = re.search(r"Description:\s*(.*)", ai_response, re.IGNORECASE)
+    title = re.search(r"Title:\s*(.*)", ai_response, re.IGNORECASE)
+    date = re.search(r"Date:\s*(.*)", ai_response, re.IGNORECASE)
+    desc = re.search(r"Description:\s*(.*)", ai_response, re.IGNORECASE)
     return (
-        title_match.group(1).strip() if title_match else "",
-        date_match.group(1).strip() if date_match else "",
-        desc_match.group(1).strip() if desc_match else ""
+        title.group(1).strip() if title else "",
+        date.group(1).strip() if date else "",
+        desc.group(1).strip() if desc else ""
     )
 
 def parse_date(date_text):
@@ -96,7 +98,7 @@ def parse_date(date_text):
     except:
         return None
 
-# === Flask Routes ===
+# === ROUTES ===
 
 @app.route("/")
 def home():
@@ -192,10 +194,8 @@ def delete_conversation(convo_id):
     uid = session.get("user_email")
     if not uid:
         return "Unauthorized", 401
-
     db.reference(f"conversations/{clean_uid(uid)}/{convo_id}").delete()
     db.reference(f"chat_memory/{clean_uid(uid)}/{convo_id}").delete()
-
     return redirect("/chat?sidebar=open")
 
 @app.route("/calendar")
@@ -210,12 +210,10 @@ def save_event_route(event_id):
     uid = session.get("user_email")
     if not uid:
         return "Unauthorized", 401
-
     data = request.get_json()
     if not data:
         return "No data", 400
-
-    sanitized_data = {
+    save_event(uid, event_id, {
         "title": sanitize(data.get("title", "")),
         "description": sanitize(data.get("description", "")),
         "date": data.get("date"),
@@ -223,9 +221,7 @@ def save_event_route(event_id):
         "allDay": data.get("allDay", True),
         "repeat": data.get("repeat", "none"),
         "parentId": data.get("parentId") or event_id
-    }
-
-    save_event(uid, event_id, sanitized_data)
+    })
     return "Saved", 200
 
 @app.route("/delete_event/<event_id>", methods=["POST"])
@@ -233,10 +229,22 @@ def delete_event_route(event_id):
     uid = session.get("user_email")
     if not uid:
         return "Unauthorized", 401
-
     delete_event(uid, event_id)
     return "Deleted", 200
 
 @app.route("/settings", methods=["GET", "POST"])
 def settings_page():
-    uid
+    uid = session.get("user_email", "guest")
+    if request.method == "POST":
+        db.reference(f"settings/{clean_uid(uid)}").set({
+            "theme": request.form.get("theme"),
+            "font_size": request.form.get("font_size"),
+            "personality": request.form.get("personality"),
+            "length": request.form.get("length")
+        })
+        flash("Settings saved!")
+        return redirect("/settings")
+    return render_template("settings.html", settings=get_settings(uid))
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
