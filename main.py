@@ -3,7 +3,7 @@ import json
 import asyncio
 import aiohttp
 import nest_asyncio
-from flask import Flask, render_template, redirect, request, session, url_for, flash
+from flask import Flask, render_template, redirect, request, session, url_for, flash, send_from_directory
 from firebase_admin import credentials, db, initialize_app
 from datetime import datetime
 from pytz import timezone
@@ -30,7 +30,7 @@ cred = credentials.Certificate(json.loads(FIREBASE_CREDENTIALS_JSON))
 initialize_app(cred, {"databaseURL": DATABASE_URL})
 nest_asyncio.apply()
 
-# === UTILITIES ===
+# === Utilities ===
 
 def clean_uid(uid):
     return uid.replace(".", "_")
@@ -62,7 +62,7 @@ def save_event(uid, event_id, event_data):
 def delete_event(uid, event_id):
     db.reference(f"events/{clean_uid(uid)}/{event_id}").delete()
 
-# === AI FUNCTION ===
+# === AI Functions ===
 
 async def generate_ai(prompt):
     url = "https://api.groq.com/openai/v1/chat/completions"
@@ -98,7 +98,7 @@ def parse_date(date_text):
     except:
         return None
 
-# === ROUTES ===
+# === Routes ===
 
 @app.route("/")
 def home():
@@ -245,6 +245,11 @@ def settings_page():
         flash("Settings saved!")
         return redirect("/settings")
     return render_template("settings.html", settings=get_settings(uid))
+
+# Serve manifest.json
+@app.route('/manifest.json')
+def manifest():
+    return send_from_directory('.', 'manifest.json')
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
