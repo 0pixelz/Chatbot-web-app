@@ -49,6 +49,16 @@ body.light .event {
   background-color: #2563eb;
 }
 
+.calendar-wrapper {
+  display: flex;
+  transition: transform 0.3s ease;
+  will-change: transform;
+}
+
+.calendar-slide {
+  min-width: 100%;
+}
+
 #modalContent {
   background-color: #374151;
   color: white;
@@ -84,7 +94,9 @@ body.dark input, body.dark textarea, body.dark select {
   <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
 </div>
 
-<div id="calendarGrid" class="grid grid-cols-7 gap-2"></div>
+<div id="calendarWrapper" class="calendar-wrapper mb-4">
+  <div id="calendarGrid" class="calendar-slide grid grid-cols-7 gap-2"></div>
+</div>
 
 <h2 class="text-xl font-semibold mt-6 mb-2">Events</h2>
 <div id="eventList" class="space-y-2"></div>
@@ -146,16 +158,47 @@ function renderCalendar() {
   renderEvents();
 }
 
-function prevMonth() {
-  currentMonth--;
+function renderEvents() {
+  const list = document.getElementById('eventList');
+  list.innerHTML = Object.values(events).filter(e => e.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`))
+    .map(e => `<div class="p-2 rounded bg-gray-700">${e.date}: ${e.title}</div>`).join('');
+}
+
+function prevMonth(animated = true) {
+  if(animated) animateSlide("right", () => changeMonth(-1));
+  else changeMonth(-1);
+}
+
+function nextMonth(animated = true) {
+  if(animated) animateSlide("left", () => changeMonth(1));
+  else changeMonth(1);
+}
+
+function changeMonth(delta) {
+  currentMonth += delta;
   if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
   renderCalendar();
 }
 
-function nextMonth() {
-  currentMonth++;
-  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-  renderCalendar();
+function animateSlide(direction, callback) {
+  const wrapper = document.getElementById("calendarWrapper");
+  wrapper.style.transition = "transform 0.3s ease";
+
+  if (direction === "left") {
+    wrapper.style.transform = "translateX(-100%)";
+  } else {
+    wrapper.style.transform = "translateX(100%)";
+  }
+
+  wrapper.addEventListener("transitionend", () => {
+    wrapper.style.transition = "none";
+    wrapper.style.transform = "translateX(0)";
+    callback();
+    requestAnimationFrame(() => {
+      wrapper.style.transition = "transform 0.3s ease";
+    });
+  }, {once:true});
 }
 
 function openModal(date, id = null) {
@@ -184,7 +227,12 @@ function saveEvent() {
   const event = { title, description: desc, date: activeDate, time, repeat, parentId: id };
   events[id] = event;
 
-  fetch(`/save_event/${id}`, { method: "POST", headers: {'Content-Type': 'application/json'}, body: JSON.stringify(event) });
+  fetch(`/save_event/${id}`, { 
+    method: "POST", 
+    headers: {'Content-Type': 'application/json'}, 
+    body: JSON.stringify(event) 
+  });
+
   closeModal();
   renderCalendar();
 }
@@ -196,37 +244,22 @@ function deleteEvent() {
   renderCalendar();
 }
 
-function renderEvents() {
-  const list = document.getElementById('eventList');
-  list.innerHTML = Object.values(events).filter(e => e.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`))
-    .map(e => `<div class="p-2 rounded bg-gray-700">${e.date}: ${e.title}</div>`).join('');
-}
+// Swipe gesture support
+let startX = 0;
+
+document.getElementById('calendarWrapper').addEventListener('touchstart', (e) => {
+  startX = e.touches[0].clientX;
+});
+
+document.getElementById('calendarWrapper').addEventListener('touchend', (e) => {
+  const endX = e.changedTouches[0].clientX;
+  const diff = startX - endX;
+
+  if (diff > 50) nextMonth();
+  else if (diff < -50) prevMonth();
+});
 
 renderCalendar();
-
-// Swipe Logic
-let touchStartX = null;
-
-document.addEventListener('touchstart', e => {
-  touchStartX = e.touches[0].clientX;
-});
-
-document.addEventListener('touchmove', e => {
-  if (touchStartX === null) return;
-  const diff = e.touches[0].clientX - touchStartX;
-
-  if (diff > 80) {
-    prevMonth();
-    touchStartX = null;
-  } else if (diff < -80) {
-    nextMonth();
-    touchStartX = null;
-  }
-});
-
-document.addEventListener('touchend', () => {
-  touchStartX = null;
-});
 </script>
 </body>
 </html>
