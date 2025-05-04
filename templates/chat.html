@@ -112,22 +112,21 @@ document.getElementById('messageInput').addEventListener('input', function() {
   document.getElementById('sendButton').disabled = this.value.trim().length === 0;
 });
 function animateTyping() {
-  const bubbles = document.querySelectorAll('.chat-bubble-assistant.typing');
-  bubbles.forEach(bubble => {
-    const fullText = bubble.textContent;
-    bubble.textContent = '';
-    let i = 0;
-    function typeChar() {
-      if (i < fullText.length) {
-        bubble.textContent += fullText.charAt(i);
-        i++;
-        setTimeout(typeChar, 20);
-      } else {
-        bubble.classList.remove("typing");
-      }
+  const bubble = document.querySelector('.chat-bubble-assistant.typing:last-of-type');
+  if (!bubble) return;
+  const fullText = bubble.textContent;
+  bubble.textContent = '';
+  let i = 0;
+  function typeChar() {
+    if (i < fullText.length) {
+      bubble.textContent += fullText.charAt(i);
+      i++;
+      setTimeout(typeChar, 20);
+    } else {
+      bubble.classList.remove("typing");
     }
-    typeChar();
-  });
+  }
+  typeChar();
 }
 window.onload = function() {
   animateTyping();
