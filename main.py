@@ -239,26 +239,4 @@ def delete_event_route(event_id):
 
 @app.route("/settings", methods=["GET", "POST"])
 def settings_page():
-    uid = session.get("user_email", "guest")
-
-    if request.method == "POST":
-        theme = request.form.get("theme")
-        font_size = request.form.get("font_size")
-        personality = request.form.get("personality")
-        length = request.form.get("length")
-
-        db.reference(f"settings/{clean_uid(uid)}").set({
-            "theme": theme,
-            "font_size": font_size,
-            "personality": personality,
-            "length": length
-        })
-
-        flash("Settings saved!")
-        return redirect("/settings")
-
-    user_settings = get_settings(uid)
-    return render_template("settings.html", settings=user_settings)
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    uid = session
