@@ -173,29 +173,47 @@ function prevMonth() {
   const wrapper = document.getElementById('calendarWrapper');
   wrapper.style.transition = 'transform 0.3s ease';
   wrapper.style.transform = 'translateX(0)';
-  setTimeout(() => { currentMonth--; if (currentMonth<0){currentMonth=11; currentYear--;} renderAllCalendars(); }, 300);
+  wrapper.addEventListener('transitionend', function handler() {
+    currentMonth--;
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+    renderAllCalendars();
+    wrapper.removeEventListener('transitionend', handler);
+  });
 }
 
 function nextMonth() {
   const wrapper = document.getElementById('calendarWrapper');
   wrapper.style.transition = 'transform 0.3s ease';
   wrapper.style.transform = 'translateX(-200%)';
-  setTimeout(() => { currentMonth++; if (currentMonth>11){currentMonth=0; currentYear++;} renderAllCalendars(); }, 300);
+  wrapper.addEventListener('transitionend', function handler() {
+    currentMonth++;
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    renderAllCalendars();
+    wrapper.removeEventListener('transitionend', handler);
+  });
 }
 
-let touchStartX = null, touchStartTime = 0;
-const wrapper = document.getElementById('calendarWrapper');
-document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; touchStartTime = Date.now(); wrapper.style.transition = 'none'; });
-document.addEventListener('touchmove', e => { if (touchStartX===null) return; const diff = e.touches[0].clientX - touchStartX; wrapper.style.transform = `translateX(${ -window.innerWidth + diff }px)`; });
+let touchStartX = null;
+document.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+});
+
+document.addEventListener('touchmove', e => {
+  if (touchStartX === null) return;
+  const diff = e.touches[0].clientX - touchStartX;
+  document.getElementById('calendarWrapper').style.transition = 'none';
+  document.getElementById('calendarWrapper').style.transform = `translateX(${ -window.innerWidth + diff }px)`;
+});
+
 document.addEventListener('touchend', e => {
-  if (touchStartX===null) return;
+  if (touchStartX === null) return;
   const diff = e.changedTouches[0].clientX - touchStartX;
-  const elapsed = Date.now() - touchStartTime;
-  wrapper.style.transition = 'transform 0.3s ease';
-  if (elapsed<100 && Math.abs(diff)<150) { wrapper.style.transform='translateX(-100%)'; }
-  else if (diff>80) prevMonth();
-  else if (diff<-80) nextMonth();
-  else wrapper.style.transform='translateX(-100%)';
+  document.getElementById('calendarWrapper').style.transition = 'transform 0.3s ease';
+
+  if (diff > 80) prevMonth();
+  else if (diff < -80) nextMonth();
+  else document.getElementById('calendarWrapper').style.transform = 'translateX(-100%)';
+
   touchStartX = null;
 });
 
