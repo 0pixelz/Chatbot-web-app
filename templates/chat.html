@@ -52,26 +52,23 @@
 <aside id="sidebar" class="fixed top-16 left-0 w-64 h-full bg-white dark:bg-gray-800 transform -translate-x-full transition-transform duration-300 z-40 p-4 shadow">
   <h2 class="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200">Menu</h2>
   <nav class="flex flex-col gap-4">
-    <a href="/start_new_chat" class="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-500">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
-      Start New Chat
-    </a>
-    <a href="/calendar" class="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-500">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8h18M3 16h18M7 4v4m10-4v4"></path></svg>
-      Calendar
-    </a>
+    {% if session.get("user_email") %}
+    <a href="/start_new_chat" class="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-500">➕ Start New Chat</a>
+    <a href="/calendar" class="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-500">📅 Calendar</a>
+    {% else %}
+    <div class="flex items-center gap-2 text-gray-400 cursor-not-allowed">➕ Start New Chat (Login Required)</div>
+    <div class="flex items-center gap-2 text-gray-400 cursor-not-allowed">📅 Calendar (Login Required)</div>
+    {% endif %}
     {% if conversations %}
-      <h3 class="mt-4 mb-2 text-gray-500 uppercase text-xs">Conversations</h3>
-      {% for convo_id, convo_data in conversations.items() %}
-      <div class="flex justify-between items-center">
-        <a href="/chat/{{ convo_id }}" class="truncate w-40 text-gray-700 dark:text-gray-300 hover:underline">
-          {{ convo_data.title if convo_data.title else 'New Chat' }}
-        </a>
-        <form method="POST" action="/delete_conversation/{{ convo_id }}" onsubmit="return confirm('Delete this conversation?')">
-          <button class="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-red-500 rounded hover:bg-gray-300 dark:hover:bg-gray-600">Delete</button>
-        </form>
-      </div>
-      {% endfor %}
+    <h3 class="mt-4 mb-2 text-gray-500 uppercase text-xs">Conversations</h3>
+    {% for convo_id, convo_data in conversations.items() %}
+    <div class="flex justify-between items-center">
+      <a href="/chat/{{ convo_id }}" class="truncate w-40 text-gray-700 dark:text-gray-300 hover:underline">{{ convo_data.title if convo_data.title else 'New Chat' }}</a>
+      <form method="POST" action="/delete_conversation/{{ convo_id }}" onsubmit="return confirm('Delete this conversation?')">
+        <button class="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-red-500 rounded hover:bg-gray-300 dark:hover:bg-gray-600">Delete</button>
+      </form>
+    </div>
+    {% endfor %}
     {% endif %}
   </nav>
 </aside>
@@ -79,9 +76,7 @@
 <!-- Chat Area -->
 <main id="chatArea" class="flex-1 overflow-y-auto p-4 mt-20 mb-28 flex flex-col gap-4">
   {% for msg in history %}
-  <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant typing{% endif %}">
-    {{ msg.content }}
-  </div>
+  <div class="chat-bubble {% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant typing{% endif %}">{{ msg.content }}</div>
   {% endfor %}
 </main>
 
@@ -94,19 +89,11 @@
 </form>
 
 <script>
-function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('-translate-x-full');
-}
-
-function toggleMenu() {
-  document.getElementById('menu').classList.toggle('hidden');
-}
-
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('-translate-x-full'); }
+function toggleMenu() { document.getElementById('menu').classList.toggle('hidden'); }
 document.getElementById('messageInput').addEventListener('input', function() {
   document.getElementById('sendButton').disabled = this.value.trim().length === 0;
 });
-
-// Typing animation
 function animateTyping() {
   const bubbles = document.querySelectorAll('.chat-bubble-assistant.typing');
   bubbles.forEach(bubble => {
@@ -125,18 +112,11 @@ function animateTyping() {
     typeChar();
   });
 }
-
-window.onload = function() {
-  animateTyping();
-  scrollToBottom();
-};
-
+window.onload = function() { animateTyping(); scrollToBottom(); };
 function scrollToBottom() {
   const chatArea = document.getElementById('chatArea');
   chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
 }
-
-// Sidebar auto hide on input focus + mobile keyboard open
 document.getElementById('messageInput').addEventListener('focus', () => {
   document.getElementById('sidebar').classList.add('-translate-x-full');
 });
