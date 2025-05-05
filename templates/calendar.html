@@ -67,9 +67,9 @@ body.dark {
 <h1 class="text-2xl font-bold mb-4">Calendar</h1>
 
 <div class="flex justify-between items-center mb-4">
-  <button onclick="prevMonth()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-400">Previous</button>
+  <button onclick="slidePrev()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-400">Previous</button>
   <h2 id="monthTitle" class="text-xl font-semibold"></h2>
-  <button onclick="nextMonth()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-400">Next</button>
+  <button onclick="slideNext()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-400">Next</button>
 </div>
 
 <div class="calendar-grid text-center text-gray-400 font-semibold mb-2">
@@ -123,7 +123,6 @@ function renderCalendarMonth(container, year, month) {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   let html = "";
-
   for (let i = 0; i < firstDay; i++) html += `<div></div>`;
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
@@ -141,26 +140,40 @@ function renderAllCalendars() {
   document.getElementById('calendarWrapper').style.transform = 'translateX(-100%)';
 }
 
-function prevMonth() {
+function slidePrev() {
   const wrapper = document.getElementById('calendarWrapper');
   wrapper.style.transition = 'transform 0.3s ease';
   wrapper.style.transform = 'translateX(0)';
   setTimeout(() => {
     currentMonth--;
     if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-    renderAllCalendars();
+    swapSlides("prev");
   }, 300);
 }
 
-function nextMonth() {
+function slideNext() {
   const wrapper = document.getElementById('calendarWrapper');
   wrapper.style.transition = 'transform 0.3s ease';
   wrapper.style.transform = 'translateX(-200%)';
   setTimeout(() => {
     currentMonth++;
     if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-    renderAllCalendars();
+    swapSlides("next");
   }, 300);
+}
+
+function swapSlides(direction) {
+  const prev = document.getElementById('calendarPrev');
+  const current = document.getElementById('calendarCurrent');
+  const next = document.getElementById('calendarNext');
+  if (direction === "prev") {
+    next.innerHTML = current.innerHTML;
+    current.innerHTML = prev.innerHTML;
+  } else {
+    prev.innerHTML = current.innerHTML;
+    current.innerHTML = next.innerHTML;
+  }
+  renderAllCalendars();
 }
 
 function renderEvents(dateStr) {
@@ -212,18 +225,7 @@ function deleteModal() {
   renderAllCalendars();
 }
 
-document.addEventListener('touchstart', e => {
-  startX = e.touches[0].clientX;
-}, {passive: true});
-
-document.addEventListener('touchend', e => {
-  const endX = e.changedTouches[0].clientX;
-  if (endX - startX > 50) prevMonth();
-  else if (startX - endX > 50) nextMonth();
-}, {passive: true});
-
 window.onload = renderAllCalendars;
 </script>
-
 </body>
 </html>
