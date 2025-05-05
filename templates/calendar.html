@@ -145,7 +145,7 @@ function renderCalendarMonth(container, year, month) {
     let html = `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')"><div class="text-sm">${day}</div>`;
 
     for (const [id, evt] of Object.entries(events)) {
-      if (isSameDay(evt.date, dateStr) || isRecurring(evt, dateStr)) {
+      if (evt.date === dateStr) {
         html += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}')">${evt.title}${evt.repeat !== 'none' ? ' 🔁' : ''}</span>`;
       }
     }
