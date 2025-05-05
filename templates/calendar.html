@@ -27,7 +27,6 @@ body.dark {
   border-radius: 8px;
   padding: 6px;
   position: relative;
-  cursor: pointer;
 }
 .calendar-cell.today {
   background-color: var(--today-bg);
@@ -41,7 +40,6 @@ body.dark {
   font-size: 0.75rem;
   margin-top: 4px;
   display: block;
-  cursor: pointer;
 }
 .calendar-container { overflow: hidden; }
 .calendar-wrapper { display: flex; transition: transform 0.3s ease; }
@@ -51,7 +49,6 @@ body.dark {
   color: var(--cell-color);
   padding: 10px;
   border-radius: 6px;
-  cursor: pointer;
 }
 </style>
 </head>
@@ -135,12 +132,27 @@ function renderCalendarMonth(container, year, month) {
     let html = `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')"><div class="text-sm">${day}</div>`;
 
     for (const [id, evt] of Object.entries(events)) {
-      if (evt.date === dateStr) html += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}')">${evt.title}${evt.repeat !== 'none' ? ' 🔁' : ''}</span>`;
+      if (isSameDay(evt.date, dateStr) || isRecurring(evt, dateStr)) {
+        html += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}')">${evt.title}${evt.repeat !== 'none' ? ' 🔁' : ''}</span>`;
+      }
     }
 
     html += `</div>`;
     container.innerHTML += html;
   }
+}
+
+function isSameDay(date1, date2) {
+  return date1 === date2;
+}
+
+function isRecurring(evt, dateStr) {
+  const evtDate = new Date(evt.date);
+  const targetDate = new Date(dateStr);
+  if (evt.repeat === "daily") return targetDate >= evtDate;
+  if (evt.repeat === "weekly") return targetDate >= evtDate && evtDate.getDay() === targetDate.getDay();
+  if (evt.repeat === "monthly") return targetDate >= evtDate && evtDate.getDate() === targetDate.getDate();
+  return false;
 }
 
 function renderAll() {
@@ -169,7 +181,12 @@ function nextMonth() {
 
 let startX = null;
 document.addEventListener('touchstart', e => { startX = e.touches[0].clientX; });
-document.addEventListener('touchmove', e => { if (startX === null) return; const diff = e.touches[0].clientX - startX; document.getElementById('calendarWrapper').style.transition = 'none'; document.getElementById('calendarWrapper').style.transform = `translateX(${ -window.innerWidth + diff }px)`; });
+document.addEventListener('touchmove', e => {
+  if (startX === null) return;
+  const diff = e.touches[0].clientX - startX;
+  document.getElementById('calendarWrapper').style.transition = 'none';
+  document.getElementById('calendarWrapper').style.transform = `translateX(${ -window.innerWidth + diff }px)`;
+});
 document.addEventListener('touchend', e => {
   if (startX === null) return;
   const diff = e.changedTouches[0].clientX - startX;
@@ -209,8 +226,14 @@ function closeModal() {
 function saveModal() {
   const date = document.getElementById('modalDate').value;
   const id = document.getElementById('modalId').value || crypto.randomUUID();
-  const parentId = document.getElementById('modalId').value || id;
-  const evt = { title: document.getElementById('eventName').value, description: document.getElementById('eventDescription').value, date, time: document.getElementById('eventTime').value, repeat: document.getElementById('repeat').value, parentId };
+  const evt = {
+    title: document.getElementById('eventName').value,
+    description: document.getElementById('eventDescription').value,
+    date,
+    time: document.getElementById('eventTime').value,
+    repeat: document.getElementById('repeat').value,
+    parentId: id
+  };
 
   events[id] = evt;
   fetch(`/save_event/${id}`, { method: "POST", headers: {'Content-Type': 'application/json'}, body: JSON.stringify(evt) });
@@ -227,18 +250,8 @@ function closeDelete() {
 }
 
 function deleteEvent(mode) {
-  if (mode === "all") {
-    const parentId = events[activeId].parentId;
-    for (const id in events) {
-      if (events[id].parentId === parentId) {
-        fetch(`/delete_event/${id}`, { method: "POST" });
-        delete events[id];
-      }
-    }
-  } else {
-    fetch(`/delete_event/${activeId}`, { method: "POST" });
-    delete events[activeId];
-  }
+  fetch(`/delete_event/${activeId}?mode=${mode}`, { method: "POST" });
+  delete events[activeId];
   closeDelete();
   closeModal();
   renderAll();
@@ -246,12 +259,15 @@ function deleteEvent(mode) {
 
 function renderEventList() {
   const list = document.getElementById('eventList');
-  list.innerHTML = Object.values(events).filter(e => e.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`))
-    .map(e => `<div class="event-list-item" onclick="openModal('${e.date}', '${e.parentId}')">${e.date}: ${e.title}${e.repeat !== 'none' ? ' 🔁' : ''}</div>`)
-    .join('') || '<p class="text-gray-400">No events</p>';
+  list.innerHTML = Object.values(events).filter(e => isSameMonth(e.date) || isRecurring(e, `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-01`))
+    .map(e => `<div class="event-list-item">${e.date}: ${e.title}</div>`).join('') || '<p class="text-gray-400">No events</p>';
+}
+
+function isSameMonth(date) {
+  return date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`);
 }
 
 renderAll();
 </script>
 </body>
-</html
+</html>
