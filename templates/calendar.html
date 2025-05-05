@@ -44,6 +44,12 @@ body.dark {
 .calendar-container { overflow: hidden; }
 .calendar-wrapper { display: flex; transition: transform 0.3s ease; }
 .calendar-slide { min-width: 100%; }
+.event-list-item {
+  background-color: var(--cell-bg);
+  color: var(--cell-color);
+  padding: 10px;
+  border-radius: 6px;
+}
 </style>
 </head>
 <body class="{% if settings.theme == 'dark' %}dark{% else %}light{% endif %} p-4">
@@ -90,9 +96,21 @@ body.dark {
     </select>
     <div class="flex space-x-2">
       <button onclick="saveModal()" class="flex-1 bg-blue-500 p-2 rounded">Save</button>
-      <button onclick="deleteModal()" id="deleteButton" class="flex-1 bg-red-500 p-2 rounded hidden">Delete</button>
+      <button onclick="confirmDelete()" id="deleteButton" class="flex-1 bg-red-500 p-2 rounded hidden">Delete</button>
       <button onclick="closeModal()" class="flex-1 bg-gray-600 p-2 rounded">Cancel</button>
     </div>
+  </div>
+</div>
+
+<!-- Delete confirmation -->
+<div id="deleteConfirm" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
+  <div class="bg-white dark:bg-gray-800 text-black dark:text-white p-6 rounded-lg w-80 text-center space-y-4">
+    <p>Delete this event or all recurring?</p>
+    <div class="flex space-x-2">
+      <button onclick="deleteEvent('single')" class="flex-1 bg-red-500 p-2 rounded">This only</button>
+      <button onclick="deleteEvent('all')" class="flex-1 bg-red-700 p-2 rounded">All recurring</button>
+    </div>
+    <button onclick="closeDelete()" class="w-full bg-gray-600 p-2 rounded">Cancel</button>
   </div>
 </div>
 
@@ -210,9 +228,18 @@ function saveModal() {
   renderAll();
 }
 
-function deleteModal() {
-  fetch(`/delete_event/${activeId}`, { method: "POST" });
+function confirmDelete() {
+  document.getElementById('deleteConfirm').classList.remove('hidden');
+}
+
+function closeDelete() {
+  document.getElementById('deleteConfirm').classList.add('hidden');
+}
+
+function deleteEvent(mode) {
+  fetch(`/delete_event/${activeId}?mode=${mode}`, { method: "POST" });
   delete events[activeId];
+  closeDelete();
   closeModal();
   renderAll();
 }
@@ -220,11 +247,10 @@ function deleteModal() {
 function renderEventList() {
   const list = document.getElementById('eventList');
   list.innerHTML = Object.values(events).filter(e => e.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`))
-    .map(e => `<div class="p-2 rounded bg-gray-700 dark:bg-gray-700">${e.date}: ${e.title}</div>`).join('') || '<p class="text-gray-400">No events</p>';
+    .map(e => `<div class="event-list-item">${e.date}: ${e.title}</div>`).join('') || '<p class="text-gray-400">No events</p>';
 }
 
 renderAll();
 </script>
-
 </body>
 </html>
