@@ -27,6 +27,7 @@ body.dark {
   border-radius: 8px;
   padding: 6px;
   position: relative;
+  cursor: pointer;
 }
 .calendar-cell.today {
   background-color: var(--today-bg);
@@ -131,13 +132,13 @@ function renderCalendarMonth(container, year, month) {
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const today = new Date().toDateString() === new Date(year, month, day).toDateString();
-    let html = `<div class="calendar-cell ${today ? 'today' : ''}"><div class="text-sm">${day}</div>`;
+    let html = `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')"><div class="text-sm">${day}</div>`;
 
     for (const [id, evt] of Object.entries(events)) {
       if (evt.date === dateStr) html += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}')">${evt.title}${evt.repeat !== 'none' ? ' 🔁' : ''}</span>`;
     }
 
-    html += `<div onclick="openModal('${dateStr}')"></div></div>`;
+    html += `</div>`;
     container.innerHTML += html;
   }
 }
@@ -208,13 +209,11 @@ function closeModal() {
 function saveModal() {
   const date = document.getElementById('modalDate').value;
   const id = document.getElementById('modalId').value || crypto.randomUUID();
-  const title = document.getElementById('eventName').value;
-  const repeat = document.getElementById('repeat').value;
-  const evt = { title, description: document.getElementById('eventDescription').value, date, time: document.getElementById('eventTime').value, repeat, parentId: id };
+  const parentId = document.getElementById('modalId').value || id;
+  const evt = { title: document.getElementById('eventName').value, description: document.getElementById('eventDescription').value, date, time: document.getElementById('eventTime').value, repeat: document.getElementById('repeat').value, parentId };
 
   events[id] = evt;
   fetch(`/save_event/${id}`, { method: "POST", headers: {'Content-Type': 'application/json'}, body: JSON.stringify(evt) });
-
   closeModal();
   renderAll();
 }
@@ -229,8 +228,9 @@ function closeDelete() {
 
 function deleteEvent(mode) {
   if (mode === "all") {
-    for (const [id, evt] of Object.entries(events)) {
-      if (evt.parentId === events[activeId].parentId) {
+    const parentId = events[activeId].parentId;
+    for (const id in events) {
+      if (events[id].parentId === parentId) {
         fetch(`/delete_event/${id}`, { method: "POST" });
         delete events[id];
       }
@@ -239,17 +239,19 @@ function deleteEvent(mode) {
     fetch(`/delete_event/${activeId}`, { method: "POST" });
     delete events[activeId];
   }
-  closeDelete(); closeModal(); renderAll();
+  closeDelete();
+  closeModal();
+  renderAll();
 }
 
 function renderEventList() {
   const list = document.getElementById('eventList');
-  list.innerHTML = Object.entries(events).filter(([_, e]) => e.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`))
-    .map(([id, e]) => `<div class="event-list-item" onclick="openModal('${e.date}', '${id}')">${e.date}: ${e.title}${e.repeat !== 'none' ? ' 🔁' : ''}</div>`)
+  list.innerHTML = Object.values(events).filter(e => e.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`))
+    .map(e => `<div class="event-list-item" onclick="openModal('${e.date}', '${e.parentId}')">${e.date}: ${e.title}${e.repeat !== 'none' ? ' 🔁' : ''}</div>`)
     .join('') || '<p class="text-gray-400">No events</p>';
 }
 
 renderAll();
 </script>
 </body>
-</html>
+</html
