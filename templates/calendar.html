@@ -239,7 +239,7 @@ function saveModal() {
   events[id] = evt;
   fetch(`/save_event/${id}`, { method: "POST", headers: {'Content-Type': 'application/json'}, body: JSON.stringify(evt) });
 
-  // Before generating new repeats, delete old repeat children first
+  // Delete old repeats (child events)
   for (const [eventId, eventData] of Object.entries(events)) {
     if (eventData.parentId === id && eventId !== id) {
       delete events[eventId];
@@ -249,7 +249,11 @@ function saveModal() {
 
   // Generate repeated occurrences if repeat is set
   if (evt.repeat !== 'none') {
-    const repeatCount = 30; // Number of occurrences to generate (next 30 recurrences)
+    let repeatCount = 0;
+    if (evt.repeat === "daily") repeatCount = 365;     // 365 days = 1 year
+    if (evt.repeat === "weekly") repeatCount = 52;     // 52 weeks = 1 year
+    if (evt.repeat === "monthly") repeatCount = 12;    // 12 months = 1 year
+
     let currentDate = new Date(date);
 
     for (let i = 1; i <= repeatCount; i++) {
@@ -263,7 +267,7 @@ function saveModal() {
       const newEvt = {
         ...evt,
         date: newDate.toISOString().split('T')[0],
-        parentId: id // parent id is the first event id
+        parentId: id
       };
 
       events[newId] = newEvt;
