@@ -100,7 +100,7 @@ body.dark {
   </div>
 </div>
 
-<!-- Delete Confirm -->
+<!-- Delete confirm -->
 <div id="deleteConfirm" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
   <div class="bg-white dark:bg-gray-800 text-black dark:text-white p-6 rounded-lg w-80 text-center space-y-4">
     <p>Delete this event or all recurring?</p>
@@ -118,19 +118,6 @@ let currentMonth = now.getMonth();
 let currentYear = now.getFullYear();
 const events = {{ events|tojson }};
 let activeId = null;
-
-function isSameDay(date1, date2) {
-  return date1 === date2;
-}
-
-function isRecurring(evt, dateStr) {
-  const evtDate = new Date(evt.date);
-  const targetDate = new Date(dateStr);
-  if (evt.repeat === "daily") return targetDate >= evtDate;
-  if (evt.repeat === "weekly") return targetDate >= evtDate && evtDate.getDay() === targetDate.getDay();
-  if (evt.repeat === "monthly") return targetDate >= evtDate && evtDate.getDate() === targetDate.getDate();
-  return false;
-}
 
 function renderCalendarMonth(container, year, month) {
   container.innerHTML = '';
@@ -153,6 +140,20 @@ function renderCalendarMonth(container, year, month) {
     html += `</div>`;
     container.innerHTML += html;
   }
+}
+
+function isSameDay(date1, date2) {
+  return date1 === date2;
+}
+
+function isRecurring(evt, dateStr) {
+  const evtDate = new Date(evt.date);
+  const targetDate = new Date(dateStr);
+
+  if (evt.repeat === "daily") return targetDate >= evtDate;
+  if (evt.repeat === "weekly") return targetDate >= evtDate && evtDate.getDay() === targetDate.getDay();
+  if (evt.repeat === "monthly") return targetDate >= evtDate && evtDate.getDate() === targetDate.getDate();
+  return false;
 }
 
 function renderAll() {
@@ -251,19 +252,32 @@ function closeDelete() {
 
 function deleteEvent(mode) {
   fetch(`/delete_event/${activeId}?mode=${mode}`, { method: "POST" });
-  delete events[activeId];
-  closeDelete();
+  if (mode === "all") {
+    const parentId = events[activeId].parentId;
+    for (const id in events) {
+      if (events[id].parentId === parentId) delete events[id];
+    }
+  } else {
+    delete events[activeId];
+    closeDelete();
   closeModal();
   renderAll();
 }
 
 function renderEventList() {
   const list = document.getElementById('eventList');
-  list.innerHTML = Object.values(events).filter(e => e.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`))
-    .map(e => `<div class="event-list-item">${e.date}: ${e.title}${e.repeat !== 'none' ? ' 🔁' : ''}</div>`).join('') || '<p class="text-gray-400">No events</p>';
+  list.innerHTML = Object.values(events).filter(e => isVisible(e.date))
+    .map(e => `<div class="event-list-item" onclick="openModal('${e.date}', '${e.parentId}')">${e.date}: ${e.title}${e.repeat !== 'none' ? ' 🔁' : ''}</div>`)
+    .join('') || '<p class="text-gray-400">No events</p>';
+}
+
+function isVisible(date) {
+  const d = new Date(date);
+  return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
 }
 
 renderAll();
 </script>
+
 </body>
 </html>
