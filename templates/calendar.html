@@ -157,24 +157,39 @@ function deleteEvent(mode) {
 
 function saveModal() {
   const id = document.getElementById('modalId').value || Math.random().toString(36).slice(2);
-  const e = {
+  const dateStr = document.getElementById('modalDate').value;
+  const repeat = document.getElementById('repeat').value;
+  const parentId = document.getElementById('modalId').value ? (events[id]?.parentId || '') : (repeat !== 'none' ? Math.random().toString(36).slice(2) : '');
+
+  const eventData = {
     title: document.getElementById('eventName').value,
     description: document.getElementById('eventDescription').value,
     time: document.getElementById('eventTime').value,
-    repeat: document.getElementById('repeat').value,
-    date: document.getElementById('modalDate').value,
-    parentId: ''
+    repeat: repeat,
+    date: dateStr,
+    parentId: parentId
   };
 
-  if (!document.getElementById('modalId').value && e.repeat !== 'none') e.parentId = Math.random().toString(36).slice(2);
-  events[id] = e;
+  // Save main event
+  events[id] = eventData;
 
-  if (!document.getElementById('modalId').value && e.repeat !== 'none') {
-    let date = new Date(e.date);
-    for (let i = 0; i < 52; i++) {
-      date.setDate(date.getDate() + (e.repeat=='daily'?1:e.repeat=='weekly'?7:30));
-      const rId = Math.random().toString(36).slice(2);
-      events[rId] = {...e, date: date.toISOString().split('T')[0], parentId: e.parentId};
+  // If repeat, generate future events
+  if (!document.getElementById('modalId').value && repeat !== 'none') {
+    const startDate = new Date(dateStr);
+    const repeatCount = 12;
+
+    for (let i = 1; i <= repeatCount; i++) {
+      const newDate = new Date(startDate);
+      if (repeat === 'daily') newDate.setDate(newDate.getDate() + i);
+      if (repeat === 'weekly') newDate.setDate(newDate.getDate() + i * 7);
+      if (repeat === 'monthly') newDate.setMonth(newDate.getMonth() + i);
+
+      const repeatId = Math.random().toString(36).slice(2);
+      events[repeatId] = {
+        ...eventData,
+        date: newDate.toISOString().split('T')[0],
+        parentId: parentId
+      };
     }
   }
 
