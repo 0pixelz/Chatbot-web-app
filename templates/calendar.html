@@ -73,15 +73,16 @@ body.dark {
   <div id="eventList" class="space-y-2"></div>
 </div>
 
-<!-- Modal (same modal and delete modal logic stays unchanged) -->
-<div id="modal" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-50">
-  <div class="bg-gray-800 p-6 rounded-lg w-80">
-    <h3 class="text-lg font-bold mb-4">New Event</h3>
+<!-- Modal -->
+<div id="modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
+  <div class="bg-white dark:bg-gray-800 text-black dark:text-white p-6 rounded-lg w-80">
+    <h3 class="text-lg font-bold mb-4">Event</h3>
     <input type="hidden" id="modalDate">
-    <input id="eventName" type="text" placeholder="Event Title" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
-    <textarea id="eventDescription" placeholder="Description" class="w-full mb-2 p-2 rounded bg-gray-700 text-white"></textarea>
-    <input id="eventTime" type="time" class="w-full mb-2 p-2 rounded bg-gray-700 text-white">
-    <select id="repeat" class="w-full mb-4 p-2 rounded bg-gray-700 text-white">
+    <input type="hidden" id="modalId">
+    <input id="eventName" type="text" placeholder="Event Title" class="w-full mb-2 p-2 rounded bg-gray-200 dark:bg-gray-700 text-black dark:text-white">
+    <textarea id="eventDescription" placeholder="Description" class="w-full mb-2 p-2 rounded bg-gray-200 dark:bg-gray-700 text-black dark:text-white"></textarea>
+    <input id="eventTime" type="time" class="w-full mb-2 p-2 rounded bg-gray-200 dark:bg-gray-700 text-black dark:text-white">
+    <select id="repeat" class="w-full mb-2 p-2 rounded bg-gray-200 dark:bg-gray-700 text-black dark:text-white">
       <option value="none">None</option>
       <option value="daily">Daily</option>
       <option value="weekly">Weekly</option>
@@ -89,6 +90,7 @@ body.dark {
     </select>
     <div class="flex space-x-2">
       <button onclick="saveModal()" class="flex-1 bg-blue-500 p-2 rounded">Save</button>
+      <button onclick="deleteModal()" id="deleteButton" class="flex-1 bg-red-500 p-2 rounded hidden">Delete</button>
       <button onclick="closeModal()" class="flex-1 bg-gray-600 p-2 rounded">Cancel</button>
     </div>
   </div>
@@ -99,6 +101,7 @@ let now = new Date();
 let currentMonth = now.getMonth();
 let currentYear = now.getFullYear();
 const events = {{ events|tojson }};
+let activeId = null;
 
 function renderCalendarMonth(container, year, month) {
   container.innerHTML = '';
@@ -111,9 +114,9 @@ function renderCalendarMonth(container, year, month) {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const today = new Date().toDateString() === new Date(year, month, day).toDateString();
     let html = `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')"><div class="text-sm">${day}</div>`;
-    
+
     for (const [id, evt] of Object.entries(events)) {
-      if (evt.date === dateStr) html += `<span class="event-badge">${evt.title}</span>`;
+      if (evt.date === dateStr) html += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}')">${evt.title}</span>`;
     }
 
     html += `</div>`;
@@ -126,9 +129,9 @@ function renderAll() {
   renderCalendarMonth(document.getElementById('calendarPrev'), currentMonth-1<0?currentYear-1:currentYear, currentMonth-1<0?11:currentMonth-1);
   renderCalendarMonth(document.getElementById('calendarCurrent'), currentYear, currentMonth);
   renderCalendarMonth(document.getElementById('calendarNext'), currentMonth+1>11?currentYear+1:currentYear, (currentMonth+1)%12);
-
   document.getElementById('calendarWrapper').style.transition = 'none';
   document.getElementById('calendarWrapper').style.transform = 'translateX(-100%)';
+  renderEventList();
 }
 
 function prevMonth() {
@@ -162,16 +165,64 @@ document.addEventListener('touchend', e => {
   startX = null;
 });
 
-function openModal(dateStr) {
+function openModal(dateStr, id = '') {
   document.getElementById('modalDate').value = dateStr;
+  document.getElementById('modalId').value = id;
+  activeId = id;
+
+  if (id) {
+    const evt = events[id];
+    document.getElementById('eventName').value = evt.title;
+    document.getElementById('eventDescription').value = evt.description;
+    document.getElementById('eventTime').value = evt.time;
+    document.getElementById('repeat').value = evt.repeat;
+    document.getElementById('deleteButton').classList.remove('hidden');
+  } else {
+    document.getElementById('eventName').value = '';
+    document.getElementById('eventDescription').value = '';
+    document.getElementById('eventTime').value = '';
+    document.getElementById('repeat').value = 'none';
+    document.getElementById('deleteButton').classList.add('hidden');
+  }
+
   document.getElementById('modal').classList.remove('hidden');
 }
+
 function closeModal() {
   document.getElementById('modal').classList.add('hidden');
 }
+
 function saveModal() {
+  const date = document.getElementById('modalDate').value;
+  const id = document.getElementById('modalId').value || crypto.randomUUID();
+  const evt = {
+    title: document.getElementById('eventName').value,
+    description: document.getElementById('eventDescription').value,
+    date,
+    time: document.getElementById('eventTime').value,
+    repeat: document.getElementById('repeat').value,
+    parentId: id
+  };
+
+  events[id] = evt;
+  fetch(`/save_event/${id}`, { method: "POST", headers: {'Content-Type': 'application/json'}, body: JSON.stringify(evt) });
   closeModal();
+  renderAll();
 }
+
+function deleteModal() {
+  fetch(`/delete_event/${activeId}`, { method: "POST" });
+  delete events[activeId];
+  closeModal();
+  renderAll();
+}
+
+function renderEventList() {
+  const list = document.getElementById('eventList');
+  list.innerHTML = Object.values(events).filter(e => e.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`))
+    .map(e => `<div class="p-2 rounded bg-gray-700 dark:bg-gray-700">${e.date}: ${e.title}</div>`).join('') || '<p class="text-gray-400">No events</p>';
+}
+
 renderAll();
 </script>
 
