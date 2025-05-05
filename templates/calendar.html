@@ -134,14 +134,8 @@ function renderCalendarMonth(container, year, month) {
     let html = `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')"><div class="text-sm">${day}</div>`;
 
     for (const [id, evt] of Object.entries(events)) {
-      const evtDate = new Date(evt.date);
-      const current = new Date(year, month, day);
-
-      if (evt.date === dateStr ||
-         (evt.repeat === "daily") ||
-         (evt.repeat === "weekly" && evtDate.getDay() === current.getDay()) ||
-         (evt.repeat === "monthly" && evtDate.getDate() === current.getDate())) {
-        html += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}')">${evt.title}</span>`;
+      if (evt.date === dateStr) {
+        html += `<span class="event-badge">${evt.title}</span>`;
       }
     }
 
@@ -176,12 +170,7 @@ function nextMonth() {
 
 let startX = null;
 document.addEventListener('touchstart', e => { startX = e.touches[0].clientX; });
-document.addEventListener('touchmove', e => {
-  if (startX === null) return;
-  const diff = e.touches[0].clientX - startX;
-  document.getElementById('calendarWrapper').style.transition = 'none';
-  document.getElementById('calendarWrapper').style.transform = `translateX(${ -window.innerWidth + diff }px)`;
-});
+document.addEventListener('touchmove', e => { if (startX === null) return; const diff = e.touches[0].clientX - startX; document.getElementById('calendarWrapper').style.transition = 'none'; document.getElementById('calendarWrapper').style.transform = `translateX(${ -window.innerWidth + diff }px)`; });
 document.addEventListener('touchend', e => {
   if (startX === null) return;
   const diff = e.changedTouches[0].clientX - startX;
@@ -214,34 +203,63 @@ function openModal(dateStr, id = '') {
   document.getElementById('modal').classList.remove('hidden');
 }
 
-function closeModal() { document.getElementById('modal').classList.add('hidden'); }
-function confirmDelete() { document.getElementById('deleteConfirm').classList.remove('hidden'); }
-function closeDelete() { document.getElementById('deleteConfirm').classList.add('hidden'); }
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+}
 
 function saveModal() {
   const date = document.getElementById('modalDate').value;
   const id = document.getElementById('modalId').value || crypto.randomUUID();
-  const evt = {
-    title: document.getElementById('eventName').value,
-    description: document.getElementById('eventDescription').value,
-    date,
-    time: document.getElementById('eventTime').value,
-    repeat: document.getElementById('repeat').value,
-    parentId: id
-  };
+  const title = document.getElementById('eventName').value;
+  const repeat = document.getElementById('repeat').value;
 
+  // Save original
+  const evt = { title, description: document.getElementById('eventDescription').value, date, time: document.getElementById('eventTime').value, repeat, parentId: id };
   events[id] = evt;
   fetch(`/save_event/${id}`, { method: "POST", headers: {'Content-Type': 'application/json'}, body: JSON.stringify(evt) });
-  closeModal();
-  renderAll();
+
+  // Generate repeats
+  if (!evt.repeat || evt.repeat === "none") {
+    closeModal(); renderAll(); return;
+  }
+
+  const start = new Date(date);
+  for (let i = 1; i <= 52; i++) {
+    const clone = new Date(start);
+    if (repeat === "daily") clone.setDate(clone.getDate() + i);
+    if (repeat === "weekly") clone.setDate(clone.getDate() + 7 * i);
+    if (repeat === "monthly") clone.setMonth(clone.getMonth() + i);
+    
+    const repeatDate = `${clone.getFullYear()}-${String(clone.getMonth()+1).padStart(2,'0')}-${String(clone.getDate()).padStart(2,'0')}`;
+    const repeatId = crypto.randomUUID();
+    events[repeatId] = {...evt, date: repeatDate, parentId: id };
+    fetch(`/save_event/${repeatId}`, { method: "POST", headers: {'Content-Type': 'application/json'}, body: JSON.stringify(events[repeatId]) });
+  }
+
+  closeModal(); renderAll();
+}
+
+function confirmDelete() {
+  document.getElementById('deleteConfirm').classList.remove('hidden');
+}
+
+function closeDelete() {
+  document.getElementById('deleteConfirm').classList.add('hidden');
 }
 
 function deleteEvent(mode) {
-  fetch(`/delete_event/${activeId}?mode=${mode}`, { method: "POST" });
-  delete events[activeId];
-  closeDelete();
-  closeModal();
-  renderAll();
+  if (mode === "all") {
+    for (const [id, evt] of Object.entries(events)) {
+      if (evt.parentId === events[activeId].parentId) {
+        fetch(`/delete_event/${id}`, { method: "POST" });
+        delete events[id];
+      }
+    }
+  } else {
+    fetch(`/delete_event/${activeId}`, { method: "POST" });
+    delete events[activeId];
+  }
+  closeDelete(); closeModal(); renderAll();
 }
 
 function renderEventList() {
