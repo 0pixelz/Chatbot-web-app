@@ -1,0 +1,84 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Calendar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body.light {
+  --cell-bg: #f3f4f6;
+  --cell-color: #000;
+  --today-bg: #dbeafe;
+  background-color: #fff;
+  color: #000;
+}
+body.dark {
+  --cell-bg: #374151;
+  --cell-color: white;
+  --today-bg: #4b5563;
+  background-color: #111827;
+  color: white;
+}
+.calendar-cell {
+  background-color: var(--cell-bg);
+  color: var(--cell-color);
+  min-height: 80px;
+  border-radius: 8px;
+  padding: 6px;
+  position: relative;
+}
+.calendar-cell.today {
+  background-color: var(--today-bg);
+  border: 2px solid #60a5fa;
+}
+.event-badge {
+  background-color: #3b82f6;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  margin-top: 4px;
+  display: block;
+}
+.calendar-container { overflow: hidden; }
+.calendar-wrapper { display: flex; transition: transform 0.3s ease; }
+.calendar-slide { min-width: 100%; }
+.event-list-item {
+  background-color: var(--cell-bg);
+  color: var(--cell-color);
+  padding: 10px;
+  border-radius: 6px;
+}
+</style>
+</head>
+<body class="{% if settings.theme == 'dark' %}dark{% else %}light{% endif %} p-4">
+
+<h1 class="text-2xl font-bold mb-4">Calendar</h1>
+
+<div class="flex justify-between items-center mb-4">
+  <button onclick="prevMonth()" class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600">&lt;</button>
+  <h2 id="monthTitle" class="text-lg font-semibold"></h2>
+  <button onclick="nextMonth()" class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600">&gt;</button>
+</div>
+
+<div class="grid grid-cols-7 gap-2 mb-4 text-center text-gray-400 font-semibold">
+  <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+</div>
+
+<div class="calendar-container mb-4">
+  <div class="calendar-wrapper" id="calendarWrapper">
+    <div class="calendar-slide grid grid-cols-7 gap-2" id="calendarPrev"></div>
+    <div class="calendar-slide grid grid-cols-7 gap-2" id="calendarCurrent"></div>
+    <div class="calendar-slide grid grid-cols-7 gap-2" id="calendarNext"></div>
+  </div>
+</div>
+
+<h2 class="text-xl font-semibold mb-2">Events</h2>
+<div id="eventList" class="space-y-2"></div>
+
+<!-- We will continue this in final HTML version after download (this is the first part of the file) -->
+
+</body>
+</html>
