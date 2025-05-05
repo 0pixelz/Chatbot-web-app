@@ -40,6 +40,7 @@ body.dark {
   font-size: 0.75rem;
   margin-top: 4px;
   display: block;
+  cursor: pointer;
 }
 .calendar-container { overflow: hidden; }
 .calendar-wrapper { display: flex; transition: transform 0.3s ease; }
@@ -49,6 +50,7 @@ body.dark {
   color: var(--cell-color);
   padding: 10px;
   border-radius: 6px;
+  cursor: pointer;
 }
 </style>
 </head>
@@ -74,10 +76,8 @@ body.dark {
   </div>
 </div>
 
-<div>
-  <h2 class="text-xl font-semibold mb-2">Events</h2>
-  <div id="eventList" class="space-y-2"></div>
-</div>
+<h2 class="text-xl font-semibold mb-2">Events</h2>
+<div id="eventList" class="space-y-2"></div>
 
 <!-- Modal -->
 <div id="modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
@@ -131,15 +131,13 @@ function renderCalendarMonth(container, year, month) {
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const today = new Date().toDateString() === new Date(year, month, day).toDateString();
-    let html = `<div class="calendar-cell ${today ? 'today' : ''}" onclick="openModal('${dateStr}')"><div class="text-sm">${day}</div>`;
+    let html = `<div class="calendar-cell ${today ? 'today' : ''}"><div class="text-sm">${day}</div>`;
 
     for (const [id, evt] of Object.entries(events)) {
-      if (evt.date === dateStr) {
-        html += `<span class="event-badge">${evt.title}</span>`;
-      }
+      if (evt.date === dateStr) html += `<span class="event-badge" onclick="event.stopPropagation(); openModal('${dateStr}', '${id}')">${evt.title}${evt.repeat !== 'none' ? ' 🔁' : ''}</span>`;
     }
 
-    html += `</div>`;
+    html += `<div onclick="openModal('${dateStr}')"></div></div>`;
     container.innerHTML += html;
   }
 }
@@ -212,31 +210,13 @@ function saveModal() {
   const id = document.getElementById('modalId').value || crypto.randomUUID();
   const title = document.getElementById('eventName').value;
   const repeat = document.getElementById('repeat').value;
-
-  // Save original
   const evt = { title, description: document.getElementById('eventDescription').value, date, time: document.getElementById('eventTime').value, repeat, parentId: id };
+
   events[id] = evt;
   fetch(`/save_event/${id}`, { method: "POST", headers: {'Content-Type': 'application/json'}, body: JSON.stringify(evt) });
 
-  // Generate repeats
-  if (!evt.repeat || evt.repeat === "none") {
-    closeModal(); renderAll(); return;
-  }
-
-  const start = new Date(date);
-  for (let i = 1; i <= 52; i++) {
-    const clone = new Date(start);
-    if (repeat === "daily") clone.setDate(clone.getDate() + i);
-    if (repeat === "weekly") clone.setDate(clone.getDate() + 7 * i);
-    if (repeat === "monthly") clone.setMonth(clone.getMonth() + i);
-    
-    const repeatDate = `${clone.getFullYear()}-${String(clone.getMonth()+1).padStart(2,'0')}-${String(clone.getDate()).padStart(2,'0')}`;
-    const repeatId = crypto.randomUUID();
-    events[repeatId] = {...evt, date: repeatDate, parentId: id };
-    fetch(`/save_event/${repeatId}`, { method: "POST", headers: {'Content-Type': 'application/json'}, body: JSON.stringify(events[repeatId]) });
-  }
-
-  closeModal(); renderAll();
+  closeModal();
+  renderAll();
 }
 
 function confirmDelete() {
@@ -264,8 +244,9 @@ function deleteEvent(mode) {
 
 function renderEventList() {
   const list = document.getElementById('eventList');
-  list.innerHTML = Object.values(events).filter(e => e.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`))
-    .map(e => `<div class="event-list-item">${e.date}: ${e.title}</div>`).join('') || '<p class="text-gray-400">No events</p>';
+  list.innerHTML = Object.entries(events).filter(([_, e]) => e.date.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`))
+    .map(([id, e]) => `<div class="event-list-item" onclick="openModal('${e.date}', '${id}')">${e.date}: ${e.title}${e.repeat !== 'none' ? ' 🔁' : ''}</div>`)
+    .join('') || '<p class="text-gray-400">No events</p>';
 }
 
 renderAll();
