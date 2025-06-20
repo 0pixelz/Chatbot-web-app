@@ -14,7 +14,7 @@ import uuid
 import re
 from dateutil import parser as dateparser
 
-# === CONFIG === tes
+# === CONFIG ===
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_CREDENTIALS_JSON")
 DATABASE_URL = os.getenv("DATABASE_URL")
