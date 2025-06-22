@@ -97,7 +97,6 @@ def parse_date(date_text):
         return None
 
 # === Flask Routes ===
-
 @app.route("/")
 def home():
     return redirect("/chat")
@@ -186,6 +185,16 @@ def chat(convo_id):
         return redirect(f"/chat/{convo_id}")
 
     return render_template("chat.html", uid=uid, history=history, conversations=conversations, convo_id=convo_id, settings=settings)
+
+@app.route("/delete_conversation/<convo_id>", methods=["POST"])
+def delete_conversation(convo_id):
+    uid = session.get("user_email")
+    if not uid:
+        return redirect("/chat")
+
+    db.reference(f"chat_memory/{clean_uid(uid)}/{convo_id}").delete()
+    db.reference(f"conversations/{clean_uid(uid)}/{convo_id}").delete()
+    return redirect("/chat")
 
 @app.route("/calendar")
 def calendar_page():
