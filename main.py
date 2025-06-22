@@ -190,11 +190,11 @@ def chat(convo_id):
 def delete_conversation(convo_id):
     uid = session.get("user_email")
     if not uid:
-        return redirect("/chat")
+        return "Unauthorized", 401
 
     db.reference(f"chat_memory/{clean_uid(uid)}/{convo_id}").delete()
     db.reference(f"conversations/{clean_uid(uid)}/{convo_id}").delete()
-    return redirect("/chat")
+    return "Deleted", 200
 
 @app.route("/calendar")
 def calendar_page():
